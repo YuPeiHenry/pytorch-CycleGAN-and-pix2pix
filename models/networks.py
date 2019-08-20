@@ -199,7 +199,7 @@ def define_D(input_nc, ndf, netD, n_layers_D=3, norm='batch', init_type='normal'
     elif netD == 'pixel':     # classify if each pixel is real or fake
         net = PixelDiscriminator(input_nc, ndf, norm_layer=norm_layer)
     else:
-        raise NotImplementedError('Discriminator model name [%s] is not recognized' % net)
+        raise NotImplementedError('Discriminator model name [%s] is not recognized' % netD)
     return init_net(net, init_type, init_gain, gpu_ids)
 
 
@@ -549,9 +549,9 @@ class NLayerDiscriminator(nn.Module):
         """
         super(NLayerDiscriminator, self).__init__()
         if type(norm_layer) == functools.partial:  # no need to use bias as BatchNorm2d has affine parameters
-            use_bias = norm_layer.func != nn.BatchNorm2d
+            use_bias = norm_layer.func == nn.InstanceNorm2d
         else:
-            use_bias = norm_layer != nn.BatchNorm2d
+            use_bias = norm_layer == nn.InstanceNorm2d
 
         kw = 4
         padw = 1
@@ -596,9 +596,9 @@ class PixelDiscriminator(nn.Module):
         """
         super(PixelDiscriminator, self).__init__()
         if type(norm_layer) == functools.partial:  # no need to use bias as BatchNorm2d has affine parameters
-            use_bias = norm_layer.func != nn.InstanceNorm2d
+            use_bias = norm_layer.func == nn.InstanceNorm2d
         else:
-            use_bias = norm_layer != nn.InstanceNorm2d
+            use_bias = norm_layer == nn.InstanceNorm2d
 
         self.net = [
             nn.Conv2d(input_nc, ndf, kernel_size=1, stride=1, padding=0),
