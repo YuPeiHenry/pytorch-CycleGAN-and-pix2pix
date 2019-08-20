@@ -41,3 +41,6 @@ test/.coverage
 test/data/legacy_serialized.pt
 *~
 .idea
+test_results/
+pix_results/
+cycle_results/

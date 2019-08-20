@@ -29,10 +29,12 @@ class Pix2PixModel(BaseModel):
         By default, we use vanilla GAN loss, UNet with batchnorm, and aligned datasets.
         """
         # changing the default values to match the pix2pix paper (https://phillipi.github.io/pix2pix/)
-        parser.set_defaults(norm='batch', netG='unet_256', dataset_mode='aligned')
+        #parser.set_defaults(norm='batch', netG='unet_256', dataset_mode='aligned')
+        parser.set_defaults(norm='batch', netG='unet_256', dataset_mode='twocat')
         if is_train:
             parser.set_defaults(pool_size=0, gan_mode='vanilla')
             parser.add_argument('--lambda_L1', type=float, default=100.0, help='weight for L1 loss')
+            parser.add_argument('--relativistic', type=int, default=0, help='relativistic loss')
 
         return parser
 
@@ -81,6 +83,8 @@ class Pix2PixModel(BaseModel):
         AtoB = self.opt.direction == 'AtoB'
         self.real_A = input['A' if AtoB else 'B'].to(self.device)
         self.real_B = input['B' if AtoB else 'A'].to(self.device)
+        self.random_A = input['randomA' if AtoB else 'randomB'].to(self.device)
+        self.random_B = input['randomB' if AtoB else 'randomA'].to(self.device)
         self.image_paths = input['A_paths' if AtoB else 'B_paths']
 
     def forward(self):
@@ -92,11 +96,16 @@ class Pix2PixModel(BaseModel):
         # Fake; stop backprop to the generator by detaching fake_B
         fake_AB = torch.cat((self.real_A, self.fake_B), 1)  # we use conditional GANs; we need to feed both input and output to the discriminator
         pred_fake = self.netD(fake_AB.detach())
-        self.loss_D_fake = self.criterionGAN(pred_fake, False)
         # Real
         real_AB = torch.cat((self.real_A, self.real_B), 1)
         pred_real = self.netD(real_AB)
-        self.loss_D_real = self.criterionGAN(pred_real, True)
+
+        if self.opt.relativistic != 0:
+            self.loss_D_fake = self.criterionGAN((pred_real - torch.mean(pred_fake) - 1) ** 2, False)
+            self.loss_D_real = self.criterionGAN((pred_fake - torch.mean(pred_real) + 1) ** 2, True)
+        else:
+            self.loss_D_fake = self.criterionGAN(pred_real, False)
+            self.loss_D_real = self.criterionGAN(pred_fake, True)
         # combine loss and calculate gradients
         self.loss_D = (self.loss_D_fake + self.loss_D_real) * 0.5
         self.loss_D.backward()
@@ -106,7 +115,14 @@ class Pix2PixModel(BaseModel):
         # First, G(A) should fake the discriminator
         fake_AB = torch.cat((self.real_A, self.fake_B), 1)
         pred_fake = self.netD(fake_AB)
-        self.loss_G_GAN = self.criterionGAN(pred_fake, True)
+        # Real
+        real_AB = torch.cat((self.real_A, self.real_B), 1)
+        pred_real = self.netD(real_AB)
+
+        if self.opt.relativistic != 0:
+            self.loss_G_GAN = self.criterionGAN((pred_fake - torch.mean(pred_real) + 1) ** 2, True)
+        else:
+            self.loss_G_GAN = self.criterionGAN(pred_fake, True)
         # Second, G(A) = B
         self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B) * self.opt.lambda_L1
         # combine loss and calculate gradients
@@ -125,3 +141,12 @@ class Pix2PixModel(BaseModel):
         self.optimizer_G.zero_grad()        # set G's gradients to zero
         self.backward_G()                   # calculate graidents for G
         self.optimizer_G.step()             # udpate G's weights
+
+    def new_epoch(self):
+        self.accumulated = 0
+        self.fake_average = 0
+        self.real_average = 0
+        
+    def log(self, logger, epoch):
+        logger.scalar_summary("loss_G", self.loss_G.item(), epoch)
+        logger.scalar_summary("loss_D", self.loss_D.item(), epoch)
