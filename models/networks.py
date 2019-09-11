@@ -119,7 +119,7 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[]):
 
 
 def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, init_type='normal', init_gain=0.02, gpu_ids=[],
-    n_downsample_global=0, n_blocks_global=0, n_local_enhancers=0, n_blocks_local=0):
+    n_downsample_global=0, n_blocks_global=0, n_local_enhancers=0, n_blocks_local=0, progressive='False'):
     """Create a generator
 
     Parameters:
@@ -154,9 +154,9 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
     elif netG == 'resnet_6blocks':
         net = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=6)
     elif netG == 'unet_128':
-        net = UnetGenerator(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout)
+        net = UnetGenerator(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout, progressive=progressive)
     elif netG == 'unet_256':
-        net = UnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout)
+        net = UnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout, progressive=progressive)
     elif netG == 'global':    
         net = GlobalGenerator(input_nc, output_nc, ngf, n_downsample_global, n_blocks_global, norm_layer)       
     elif netG == 'local':        
@@ -166,10 +166,12 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
         net = Encoder(input_nc, output_nc, ngf, n_downsample_global, norm_layer)
     else:
         raise NotImplementedError('Generator model name [%s] is not recognized' % netG)
+    if not (netG == 'unet_256' or 'unet_128') and progressive:
+        raise NotImplementedError('Generator only supports progressive unet_256!')
     return init_net(net, init_type, init_gain, gpu_ids)
 
 
-def define_D(input_nc, ndf, netD, n_layers_D=3, norm='batch', init_type='normal', init_gain=0.02, gpu_ids=[], num_D=0, use_gan_feat_loss=False, use_sigmoid=False):
+def define_D(input_nc, ndf, netD, n_layers_D=3, norm='batch', init_type='normal', init_gain=0.02, gpu_ids=[], num_D=0, use_gan_feat_loss=False, use_sigmoid=False, progressive=False):
     """Create a discriminator
 
     Parameters:
@@ -205,13 +207,15 @@ def define_D(input_nc, ndf, netD, n_layers_D=3, norm='batch', init_type='normal'
     if num_D > 1:
         net = MultiscaleDiscriminator(input_nc, ndf, n_layers_D, norm_layer, use_sigmoid, num_D, use_gan_feat_loss)
     elif netD == 'basic':  # default PatchGAN classifier
-        net = NLayerDiscriminator(input_nc, ndf, n_layers=3, norm_layer=norm_layer)
+        net = NLayerDiscriminator(input_nc, ndf, n_layers=3, norm_layer=norm_layer, progressive=progressive)
     elif netD == 'n_layers':  # more options
-        net = NLayerDiscriminator(input_nc, ndf, n_layers_D, norm_layer=norm_layer)
+        net = NLayerDiscriminator(input_nc, ndf, n_layers_D, norm_layer=norm_layer, progressive=progressive)
     elif netD == 'pixel':     # classify if each pixel is real or fake
         net = PixelDiscriminator(input_nc, ndf, norm_layer=norm_layer)
     else:
         raise NotImplementedError('Discriminator model name [%s] is not recognized' % netD)
+    if not (netD == 'n_layers' or netD == 'basic') and progressive:
+        raise NotImplementedError('Discriminator only supports progressive basic or n_layers!')
     return init_net(net, init_type, init_gain, gpu_ids)
 
 
@@ -511,7 +515,7 @@ class ResnetBlock(nn.Module):
 class UnetGenerator(nn.Module):
     """Create a Unet-based generator"""
 
-    def __init__(self, input_nc, output_nc, num_downs, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False):
+    def __init__(self, input_nc, output_nc, num_downs, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, progressive=False):
         """Construct a Unet generator
         Parameters:
             input_nc (int)  -- the number of channels in input images
@@ -525,21 +529,107 @@ class UnetGenerator(nn.Module):
         It is a recursive process.
         """
         super(UnetGenerator, self).__init__()
+        self.progressive = progressive
+        blocks = []
         # construct unet structure
         unet_block = UnetSkipConnectionBlock(ngf * 8, ngf * 8, input_nc=None, submodule=None, norm_layer=norm_layer, innermost=True)  # add the innermost layer
         for i in range(num_downs - 5):          # add intermediate layers with ngf * 8 filters
             unet_block = UnetSkipConnectionBlock(ngf * 8, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer, use_dropout=use_dropout)
         # gradually reduce the number of filters from ngf * 8 to ngf
-        unet_block = UnetSkipConnectionBlock(ngf * 4, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer)
-        unet_block = UnetSkipConnectionBlock(ngf * 2, ngf * 4, input_nc=None, submodule=unet_block, norm_layer=norm_layer)
-        unet_block = UnetSkipConnectionBlock(ngf, ngf * 2, input_nc=None, submodule=unet_block, norm_layer=norm_layer)
-        self.model = UnetSkipConnectionBlock(output_nc, ngf, input_nc=input_nc, submodule=unet_block, outermost=True, norm_layer=norm_layer)  # add the outermost layer
+        unet_block = UnetSkipConnectionBlock(ngf * 4, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer, progressive=progressive)
+        blocks.append(unet_block)
+        unet_block = UnetSkipConnectionBlock(ngf * 2, ngf * 4, input_nc=None, submodule=unet_block, norm_layer=norm_layer, progressive=progressive)
+        blocks.append(unet_block)
+        unet_block = UnetSkipConnectionBlock(ngf, ngf * 2, input_nc=None, submodule=unet_block, norm_layer=norm_layer, progressive=progressive)
+        blocks.append(unet_block)
+        unet_block = UnetSkipConnectionBlock(output_nc, ngf, input_nc=input_nc, submodule=unet_block, outermost=True, norm_layer=norm_layer, progressive=progressive)  # add the outermost layer
+        blocks.append(unet_block)
+        self.model = unet_block
+        if not self.progressive:
+            return
+            
+        self.alpha = 1
+        self.alpha_increase = [0, 0.067, 0.133, 0.133]
+        self.stage_epochs = [32, 32, 64, 64]
+        self.epoch_count = 0
+        self.blocks = blocks
+        self.current_block = 0
+        self.complete = False
+        self.from_rgb = [nn.Conv2d(input_nc, ngf * (2 ** (2 - i)), kernel_size=1, stride=1, padding=0, bias=True) for i in range(3)]
+        self.from_rgb.append(lambda x: x)
+        self.to_rgb = [nn.Conv2d(ngf * (2 ** (3 - i)), output_nc, kernel_size=1, stride=1, padding=0, bias=True) for i in range(3)]
+        self.to_rgb.append(lambda x: x)
+        self.decimation = nn.AvgPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=False)
+        self.upsample = nn.Upsample(scale_factor=2, mode='nearest')
+        
+        n = 0
+        for layer in self.to_rgb + self.from_rgb:
+            if not isinstance(layer, torch.nn.Module):
+                continue
+            setattr(self, 'layers' + str(n), layer)
+            n += 1
 
     def forward(self, input):
         """Standard forward"""
-        return self.model(input)
+        if not self.progressive or self.complete:
+            return self.model(input)
 
+        n = self.current_block
+        factor = (3 - n)
+        decimated_input = input
+        for i in range(factor):
+            decimated_input = self.decimation(decimated_input)
+        if n == 0 or self.alpha >= 1:
+            combined_output = self.to_rgb[n](self.blocks[n](self.from_rgb[n](decimated_input)))
+            for i in range(factor):
+                combined_output = self.upsample(combined_output)
+            return combined_output        
 
+        a = self.alpha
+        decimated_input_rgb = self.from_rgb[n](decimated_input)
+        further_decimated = self.decimation(decimated_input)
+        further_decimated_rgb = self.from_rgb[n - 1](further_decimated)
+        next_input = further_decimated_rgb * (1 - a) + self.blocks[n].down(decimated_input_rgb) * a
+        
+        output = torch.cat([further_decimated_rgb, further_decimated_rgb], 1) * (1 - a) + self.blocks[n - 1](next_input) * a
+        if n < 3:
+            upper_output = torch.cat([decimated_input_rgb, self.blocks[n].up(output)], 1)
+        else:
+            upper_output = self.blocks[n].up(output)
+        combined_output = self.upsample(self.to_rgb[n - 1](output.clone()) * (1 - a)) + self.to_rgb[n](upper_output)* a
+        
+        for i in range(factor):
+            combined_output = self.upsample(combined_output)
+        return combined_output
+
+    def update_alpha(self):
+        if self.complete or not self.progressive:
+            return
+        self.alpha += self.alpha_increase[self.current_block]
+        self.alpha = min(self.alpha, 1)
+        self.epoch_count += 1
+        
+        if self.epoch_count < self.stage_epochs[self.current_block]:
+            return
+        self.epoch_count = 0
+        self.current_block += 1
+        if self.current_block > 3:
+            self.complete = True
+            return
+        self.alpha = self.alpha_increase[self.current_block]
+
+    def init_alpha(self, epoch):
+        if not self.progressive:
+            return
+        self.epoch_count = epoch - 1
+        while self.epoch_count >= self.stage_epochs[self.current_block] and self.current_block < 3:
+            self.epoch_count -= self.stage_epochs[self.current_block]
+            self.current_block += 1
+        if self.epoch_count >= self.stage_epochs[self.current_block]:
+            self.complete = True
+            return
+        self.alpha = (self.epoch_count + 1) * self.alpha_increase[self.current_block]
+        
 class UnetSkipConnectionBlock(nn.Module):
     """Defines the Unet submodule with skip connection.
         X -------------------identity----------------------
@@ -547,7 +637,7 @@ class UnetSkipConnectionBlock(nn.Module):
     """
 
     def __init__(self, outer_nc, inner_nc, input_nc=None,
-                 submodule=None, outermost=False, innermost=False, norm_layer=nn.BatchNorm2d, use_dropout=False):
+                 submodule=None, outermost=False, innermost=False, norm_layer=nn.BatchNorm2d, use_dropout=False, progressive=False):
         """Construct a Unet submodule with skip connections.
 
         Parameters:
@@ -562,6 +652,7 @@ class UnetSkipConnectionBlock(nn.Module):
         """
         super(UnetSkipConnectionBlock, self).__init__()
         self.outermost = outermost
+        self.progressive = progressive
         if type(norm_layer) == functools.partial:
             use_bias = norm_layer.func == nn.InstanceNorm2d
         else:
@@ -601,44 +692,62 @@ class UnetSkipConnectionBlock(nn.Module):
             else:
                 model = down + [submodule] + up
 
-        self.model = nn.Sequential(*model)
+        if not self.progressive:
+            self.model = nn.Sequential(*model)
+            return
+        else:
+            self.down = nn.Sequential(*down)
+            self.up = nn.Sequential(*up)
+            self.submodule = submodule
 
     def forward(self, x):
         if self.outermost:
+            if self.progressive:
+                return self.up(self.submodule(self.down(x)))
             return self.model(x)
+        elif self.progressive:
+            return torch.cat([x, self.up(self.submodule(self.down(x)))], 1)
         else:   # add skip connections
             return torch.cat([x, self.model(x)], 1)
 
-
 # Defines the PatchGAN discriminator with the specified arguments.
 class NLayerDiscriminator(nn.Module):
-    def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d, use_sigmoid=False, getIntermFeat=False):
+    def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d, use_sigmoid=False, getIntermFeat=False, progressive=False):
         super(NLayerDiscriminator, self).__init__()
         self.getIntermFeat = getIntermFeat
         self.n_layers = n_layers
+        self.progressive = progressive
 
         kw = 4
         padw = int(np.ceil((kw-1.0)/2))
-        sequence = [[nn.Conv2d(input_nc, ndf, kernel_size=kw, stride=2, padding=padw), nn.LeakyReLU(0.2, True)]]
+        blocks = [[nn.Conv2d(input_nc, ndf, kernel_size=kw, stride=2, padding=padw), nn.LeakyReLU(0.2, True)]]
+        sequence=[blocks[-1]]
+        decimation = [nn.AvgPool2d(kernel_size=kw, stride=2, padding=padw, ceil_mode=False)]
 
         nf = ndf
         for n in range(1, n_layers):
             nf_prev = nf
             nf = min(nf * 2, 512)
-            sequence += [[
+            blocks.append([
                 nn.Conv2d(nf_prev, nf, kernel_size=kw, stride=2, padding=padw),
                 norm_layer(nf), nn.LeakyReLU(0.2, True)
-            ]]
+            ])
+            sequence.append(blocks[-1])
+            decimation.append(nn.AvgPool2d(kernel_size=kw, stride=2, padding=padw, ceil_mode=False))
 
         nf_prev = nf
         nf = min(nf * 2, 512)
-        sequence += [[
+        blocks.append([
             nn.Conv2d(nf_prev, nf, kernel_size=kw, stride=1, padding=padw),
-            norm_layer(nf),
-            nn.LeakyReLU(0.2, True)
-        ]]
+            norm_layer(nf), nn.LeakyReLU(0.2, True)
+        ])
+        sequence.append(blocks[-1])
+        decimation.append(nn.AvgPool2d(kernel_size=kw, stride=1, padding=padw, ceil_mode=False))
 
-        sequence += [[nn.Conv2d(nf, 1, kernel_size=kw, stride=1, padding=padw)]]
+        blocks.append([nn.Conv2d(nf, 1, kernel_size=kw, stride=1, padding=padw)])
+        sequence.append(blocks[-1])
+        decimation = decimation[0:3]
+        decimation.append(lambda x: x)
 
         if use_sigmoid:
             sequence += [[nn.Sigmoid()]]
@@ -652,6 +761,30 @@ class NLayerDiscriminator(nn.Module):
                 sequence_stream += sequence[n]
             self.model = nn.Sequential(*sequence_stream)
 
+        if not self.progressive:
+            return
+        sequence_stream = []
+        for block in blocks[3:-1]:
+            sequence_stream += block
+        
+        self.alpha = 1
+        self.alpha_increase = [0, 0.067, 0.133, 0.133]
+        self.stage_epochs = [32, 32, 64, 64]
+        self.epoch_count = 0
+        self.blocks = [nn.Sequential(*block) for block in blocks[0:3]] + [nn.Sequential(*sequence_stream)]
+        self.current_block = 0
+        self.complete = False
+        self.from_rgb = [nn.Conv2d(input_nc, ndf * (2 ** i), kernel_size=1, stride=1, padding=0, bias=True) for i in range(3)]
+        self.from_rgb = [lambda x: x] + self.from_rgb
+        self.decimation = decimation
+        
+        n = 0
+        for layer in self.blocks + self.from_rgb + self.decimation:
+            if not isinstance(layer, torch.nn.Module):
+                continue
+            setattr(self, 'layers' + str(n), layer)
+            n += 1
+
     def forward(self, input):
         if self.getIntermFeat:
             res = [input]
@@ -659,8 +792,56 @@ class NLayerDiscriminator(nn.Module):
                 model = getattr(self, 'model'+str(n))
                 res.append(model(res[-1]))
             return res[1:]
-        else:
+        elif not self.progressive:
             return self.model(input)
+        elif self.complete:
+            next_input = input
+            for i in range(4):
+                next_input = self.blocks[i](next_input)
+            return next_input
+        
+        n = self.current_block
+        factor = (3 - n)
+        decimated_input = input
+        for i in range(factor):
+            decimated_input = self.decimation[i](decimated_input)
+        if n == 0 or self.alpha >= 1:
+            return self.blocks[3 - n](self.from_rgb[3 - n](decimated_input))
+        
+        a = self.alpha
+        further_decimated = self.decimation[3 - n](decimated_input)
+        further_decimated_rgb = self.from_rgb[4 - n](further_decimated)
+        next_input = further_decimated_rgb * (1 - a) + self.blocks[3 - n](self.from_rgb[3 - n](decimated_input)) * a
+        
+        return self.blocks[4 - n](next_input)
+    
+    def update_alpha(self):
+        if self.complete or not self.progressive:
+            return
+        self.alpha += self.alpha_increase[self.current_block]
+        self.alpha = min(self.alpha, 1)
+        self.epoch_count += 1
+        
+        if self.epoch_count < self.stage_epochs[self.current_block]:
+            return
+        self.epoch_count = 0
+        self.current_block += 1
+        if self.current_block > 3:
+            self.complete = True
+            return
+        self.alpha = self.alpha_increase[self.current_block]
+
+    def init_alpha(self, epoch):
+        if not self.progressive:
+            return
+        self.epoch_count = epoch - 1
+        while self.epoch_count >= self.stage_epochs[self.current_block] and self.current_block < 3:
+            self.epoch_count -= self.stage_epochs[self.current_block]
+            self.current_block += 1
+        if self.epoch_count >= self.stage_epochs[self.current_block]:
+            self.complete = True
+            return
+        self.alpha = (self.epoch_count + 1) * self.alpha_increase[self.current_block]
 
 class PixelDiscriminator(nn.Module):
     """Defines a 1x1 PatchGAN discriminator (pixelGAN)"""
