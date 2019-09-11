@@ -227,6 +227,3 @@ class BaseModel(ABC):
             if net is not None:
                 for param in net.parameters():
                     param.requires_grad = requires_grad
-
-    def log(self, logger, epoch):
-	    return

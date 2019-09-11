@@ -43,7 +43,9 @@ if __name__ == '__main__':
         epoch_start_time = time.time()  # timer for entire epoch
         iter_data_time = time.time()    # timer for data loading per iteration
         epoch_iter = 0                  # the number of training iterations in current epoch, reset to 0 every epoch
-        model.new_epoch()
+        loss_G = 0
+        loss_D = 0
+        items = 0
 
         for i, data in enumerate(dataset):  # inner loop within one epoch
             iter_start_time = time.time()  # timer for computation per iteration
@@ -73,8 +75,18 @@ if __name__ == '__main__':
                 model.save_networks(save_suffix)
 
             iter_data_time = time.time()
-        
-        model.log(tlogger, epoch)
+            if items == 0:
+                items = len(data)
+                loss_G = model.loss_G.item()
+                loss_D = model.loss_D.item()
+            else:
+                batch_items = len(data)
+                loss_G = loss_G * items / (items + batch_items) + model.loss_G.item() * batch_items / (items + batch_items)
+                loss_D = loss_D * items / (items + batch_items) + model.loss_D.item() * batch_items / (items + batch_items)
+                items = items + batch_items
+
+        tlogger.scalar_summary("loss_G", loss_G, epoch)
+        tlogger.scalar_summary("loss_D", loss_D, epoch)
         
         if epoch % opt.save_epoch_freq == 0:              # cache our model every <save_epoch_freq> epochs
             print('saving the model at the end of epoch %d, iters %d' % (epoch, total_iters))

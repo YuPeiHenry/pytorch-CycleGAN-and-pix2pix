@@ -101,11 +101,11 @@ class Pix2PixModel(BaseModel):
         pred_real = self.netD(real_AB)
 
         if self.opt.relativistic != 0:
-            self.loss_D_fake = self.criterionGAN((pred_real - torch.mean(pred_fake) - 1) ** 2, False)
-            self.loss_D_real = self.criterionGAN((pred_fake - torch.mean(pred_real) + 1) ** 2, True)
+            self.loss_D_fake = self.criterionGAN(pred_fake - torch.mean(pred_real) + 1, False)
+            self.loss_D_real = self.criterionGAN(pred_real - torch.mean(pred_fake) - 1, True)
         else:
-            self.loss_D_fake = self.criterionGAN(pred_real, False)
-            self.loss_D_real = self.criterionGAN(pred_fake, True)
+            self.loss_D_fake = self.criterionGAN(pred_fake, False)
+            self.loss_D_real = self.criterionGAN(pred_real, True)
         # combine loss and calculate gradients
         self.loss_D = (self.loss_D_fake + self.loss_D_real) * 0.5
         self.loss_D.backward()
@@ -115,12 +115,12 @@ class Pix2PixModel(BaseModel):
         # First, G(A) should fake the discriminator
         fake_AB = torch.cat((self.real_A, self.fake_B), 1)
         pred_fake = self.netD(fake_AB)
-        # Real
-        real_AB = torch.cat((self.real_A, self.real_B), 1)
-        pred_real = self.netD(real_AB)
 
         if self.opt.relativistic != 0:
-            self.loss_G_GAN = self.criterionGAN((pred_fake - torch.mean(pred_real) + 1) ** 2, True)
+            # Real
+            real_AB = torch.cat((self.real_A, self.real_B), 1)
+            pred_real = self.netD(real_AB).detach()
+            self.loss_G_GAN = self.criterionGAN(pred_fake - torch.mean(pred_real) - 1, True)
         else:
             self.loss_G_GAN = self.criterionGAN(pred_fake, True)
         # Second, G(A) = B
@@ -141,12 +141,3 @@ class Pix2PixModel(BaseModel):
         self.optimizer_G.zero_grad()        # set G's gradients to zero
         self.backward_G()                   # calculate graidents for G
         self.optimizer_G.step()             # udpate G's weights
-
-    def new_epoch(self):
-        self.accumulated = 0
-        self.fake_average = 0
-        self.real_average = 0
-        
-    def log(self, logger, epoch):
-        logger.scalar_summary("loss_G", self.loss_G.item(), epoch)
-        logger.scalar_summary("loss_D", self.loss_D.item(), epoch)
