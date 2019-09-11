@@ -8,7 +8,7 @@ from . import networks
 
 class Pix2PixHDModel(BaseModel):
     def modify_commandline_options(parser, is_train=True):
-        parser.set_defaults(norm='batch', netG='unet_256', dataset_mode='instance')
+        parser.set_defaults(norm='batch', netG='unet_256', netD='multiscale', dataset_mode='instance')
 
         parser.add_argument('--relativistic', type=int, default=0, help='relativistic loss')
         parser.add_argument('--lambda_feat', type=float, default=10.0, help='feature matching loss')
@@ -82,7 +82,7 @@ class Pix2PixHDModel(BaseModel):
             self.old_lr = opt.lr
 
             # define loss functions
-            self.criterionGAN = networks.GANHDLoss(use_lsgan=opt.gan_mode=='lsgan').to(self.device)
+            self.criterionGAN = networks.GANLoss(opt.gan_mode).to(self.device)
             self.criterionFeat = torch.nn.L1Loss()
             if self.use_vgg_loss:             
                 self.criterionVGG = networks.VGGLoss(self.gpu_ids)
@@ -145,53 +145,61 @@ class Pix2PixHDModel(BaseModel):
         input_concat = self.input
         self.fake_B = self.netG.forward(input_concat)
 
-    def list_avg(self, list_of_tensors, average=True):
-        values = []
-        for elem in list_of_tensors:
-            values += [torch.mean(elem[-1])]
-        if average:
-            return torch.mean(torch.stack(values))
-        else:
-            return torch.sum(torch.stack(values))
-
     def backward_D(self):
-        # Fake Detection and Loss
-        pred_fake_pool = self.discriminate(self.input, self.fake_B.detach(), use_pool=True)
-
         # Real Detection and Loss        
-        self.pred_real = self.discriminate(self.input, self.real_B)
+        pred_real = self.discriminate(self.input, self.real_B, use_pool=False)
+        pred_fake = self.discriminate(self.input, self.fake_B.detach(), use_pool=self.opt.relativistic == 0)
+        if not self.opt.netD=='multiscale':
+            pred_real = [pred_real]
+            pred_fake = [pred_fake]
+        if self.opt.use_gan_feat_loss:
+            pred_real = [output[-1] for output in pred_real]
+            pred_fake = [output[-1] for output in pred_fake]
         
+        self.loss_D_fake = 0
+        self.loss_D_real = 0
         if self.opt.relativistic != 0:
-            self.loss_D_fake = self.criterionGAN(self.list_avg(pred_fake_pool, average=False) - self.list_avg(self.pred_real) + 1, False)
-            self.loss_D_real = self.criterionGAN(self.list_avg(self.pred_real, average=False) - self.list_avg(pred_fake_pool) - 1, True)
+            for pred_real_elem, pred_fake_elem in zip(pred_real, pred_fake):
+                self.loss_D_fake += self.criterionGAN(pred_fake_elem - torch.mean(pred_real_elem) + 1, False)
+                self.loss_D_real += self.criterionGAN(pred_real_elem - torch.mean(pred_fake_elem) - 1, True)
         else:
-            self.loss_D_fake = self.criterionGAN(pred_fake_pool, False)        
-            self.loss_D_real = self.criterionGAN(self.pred_real, True)
+            for pred_real_elem, pred_fake_elem in zip(pred_real, pred_fake):
+                self.loss_D_fake += self.criterionGAN(pred_fake_elem, False)        
+                self.loss_D_real += self.criterionGAN(pred_real_elem, True)
         
         self.loss_D = (self.loss_D_fake + self.loss_D_real) * 0.5
         self.loss_D.backward()
 
     def backward_G(self):
         # GAN loss (Fake Passability Loss)        
-        pred_fake = self.netD.forward(torch.cat((self.input, self.fake_B), dim=1))        
+        pred_fake_raw = self.netD.forward(torch.cat((self.input, self.fake_B), dim=1))
+        pred_real_raw = self.discriminate(self.input, self.real_B, use_pool=False)
+        pred_fake = pred_fake_raw
+        pred_real = pred_real_raw
+        if not self.opt.netD=='multiscale':
+            pred_real = [pred_real]
+            pred_fake = [pred_fake]
+        if self.opt.use_gan_feat_loss:
+            pred_real = [output[-1] for output in pred_real]
+            pred_fake = [output[-1] for output in pred_fake]
 
+        self.loss_G_GAN = 0
         if self.opt.relativistic != 0:
-            # Real
-            real_AB = torch.cat((self.real_A, self.real_B), 1)
-            pred_real = self.discriminate(self.input, self.real_B)
-            self.loss_G_GAN = self.criterionGAN(self.list_avg(pred_fake) - self.list_avg(pred_real).detach() - 1, True)
+            for pred_real_elem, pred_fake_elem in zip(pred_real, pred_fake):
+                self.loss_G_GAN += self.criterionGAN(pred_fake_elem - torch.mean(pred_real_elem) - 1, True)
         else:
-            self.loss_G_GAN = self.criterionGAN(pred_fake, True)
+            for pred_real_elem, pred_fake_elem in zip(pred_real, pred_fake):
+                self.loss_G_GAN += self.criterionGAN(pred_fake_elem, True)
             
         # GAN feature matching loss
         self.loss_G_GAN_Feat = 0
-        if self.use_gan_feat_loss:
+        if self.opt.use_gan_feat_loss:
             feat_weights = 4.0 / (self.opt.n_layers_D + 1)
             D_weights = 1.0 / self.opt.num_D
             for i in range(self.opt.num_D):
-                for j in range(len(pred_fake[i])-1):
+                for j in range(len(pred_fake_raw[i])-1):
                     self.loss_G_GAN_Feat += D_weights * feat_weights * \
-                        self.criterionFeat(pred_fake[i][j], self.pred_real[i][j].detach()) * self.opt.lambda_feat
+                        self.criterionFeat(pred_fake_raw[i][j], pred_real_raw[i][j].detach()) * self.opt.lambda_feat
                    
         # VGG feature matching loss
         self.loss_G_VGG = 0
