@@ -1,6 +1,7 @@
 import torch
 from .base_model import BaseModel
 from . import networks
+import numpy as np
 
 
 class Pix2PixModel(BaseModel):
@@ -35,6 +36,12 @@ class Pix2PixModel(BaseModel):
             parser.set_defaults(pool_size=0, gan_mode='vanilla')
             parser.add_argument('--lambda_L1', type=float, default=100.0, help='weight for L1 loss')
             parser.add_argument('--relativistic', type=int, default=0, help='relativistic loss')
+            parser.add_argument('--add_noise', action='store_true', help='adds noise in discriminator training')
+            parser.add_argument('--progressive_stages', type=int, default=4, help='Number of stages in progression.')
+            parser.add_argument('--first_change_epoch', type=int, default=50, help='')
+            parser.add_argument('--alpha_increase_interval', type=int, default=100, help='')
+            parser.add_argument('--alpha_stabilize_interval', type=int, default=50, help='')
+            parser.add_argument('--generator_lead', type=int, default=10, help='Number of epochs generator leads discriminator in progressive training')
 
         return parser
 
@@ -56,14 +63,11 @@ class Pix2PixModel(BaseModel):
             self.model_names = ['G']
         # define networks (both generator and discriminator)
         self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm,
-                                      not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, progressive=opt.progressive)
+                                      not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, progressive=opt.progressive, progressive_stages=opt.progressive_stages)
 
         if self.isTrain:  # define a discriminator; conditional GANs need to take both input and output images; Therefore, #channels for D is input_nc + output_nc
             self.netD = networks.define_D(opt.input_nc + opt.output_nc, opt.ndf, opt.netD,
-                                          opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids, progressive=opt.progressive)
-        if opt.progressive:
-            self.netG.module.init_alpha(opt.epoch_count)
-            self.netD.module.init_alpha(opt.epoch_count)
+                                          opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids, progressive=opt.progressive, progressive_stages=opt.progressive_stages)
 
         if self.isTrain:
             # define loss functions
@@ -98,6 +102,11 @@ class Pix2PixModel(BaseModel):
         fake_AB = torch.cat((self.real_A, self.fake_B), 1)  # we use conditional GANs; we need to feed both input and output to the discriminator
         pred_fake = self.netD(fake_AB.detach())
         # Real
+        real_B = self.real_B
+        if self.opt.add_noise:
+            z = (np.random.randn(*self.fake_B.size()).astype(np.float32) - 0.5) * 0.1
+            z = torch.autograd.Variable(torch.from_numpy(z), requires_grad=False).to(self.device)
+            real_B = real_B + z
         real_AB = torch.cat((self.real_A, self.real_B), 1)
         pred_real = self.netD(real_AB)
 
@@ -145,7 +154,13 @@ class Pix2PixModel(BaseModel):
 
     def update_learning_rate(self):
         super().update_learning_rate()
-        if not self.opt.progressive:
-            return
-        self.netG.module.update_alpha()
-        self.netD.module.update_alpha()
+
+    def update_epoch_params(self, epoch):
+        super().update_epoch_params(epoch)
+        interval = self.opt.alpha_increase_interval + self.opt.alpha_stabilize_interval
+        blockD = min(self.opt.progressive_stages - 1, (epoch + interval - self.opt.first_change_epoch - 1) // interval)
+        blockG = min(self.opt.progressive_stages - 1, (epoch + interval + self.opt.generator_lead - self.opt.first_change_epoch - 1) // interval)
+        alphaD = 1 if blockD == 0 else min(1, ((epoch + interval - self.opt.first_change_epoch) % interval) / self.opt.alpha_increase_interval)
+        alphaG = 1 if blockG == 0 else min(1, ((epoch + interval + self.opt.generator_lead - self.opt.first_change_epoch) % interval) / self.opt.alpha_increase_interval)
+        self.netD.module.update_alpha(blockD, alphaD)
+        self.netG.module.update_alpha(blockG, alphaG)
