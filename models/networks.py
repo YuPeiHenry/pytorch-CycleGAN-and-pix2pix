@@ -550,7 +550,7 @@ class UnetGenerator(nn.Module):
         further_decimated_rgb = self.from_rgb[n - 1](further_decimated)
         next_input = further_decimated_rgb * (1 - a) + self.blocks[n].down(decimated_input_rgb) * a
         
-        output = torch.cat([further_decimated_rgb, further_decimated_rgb], 1) * (1 - a) + self.blocks[n - 1](next_input) * a
+        output = self.blocks[n - 1](next_input)
         if n < self.n_stage - 1:
             upper_output = torch.cat([decimated_input_rgb, self.blocks[n].up(output)], 1)
         else:
@@ -564,7 +564,7 @@ class UnetGenerator(nn.Module):
     def update_alpha(self, alpha, current_block):
         self.alpha = alpha
         self.current_block = current_block
-        self.complete = alpha >= 1 and current_block >= n_stage - 1
+        self.complete = alpha >= 1 and current_block >= self.n_stage - 1
         
 class UnetSkipConnectionBlock(nn.Module):
     """Defines the Unet submodule with skip connection.
@@ -732,10 +732,7 @@ class NLayerDiscriminator(nn.Module):
         elif not self.progressive:
             return self.model(input)
         elif self.complete:
-            next_input = input
-            for i in range(self.n_stage):
-                next_input = self.blocks[i](next_input)
-            return next_input
+            return self.forward_through(input, self.n_stage - 1)
         
         n = self.current_block
         factor = (self.n_stage - 1 - n)
@@ -743,19 +740,25 @@ class NLayerDiscriminator(nn.Module):
         for i in range(factor):
             decimated_input = self.decimation[i](decimated_input)
         if n == 0 or self.alpha >= 1:
-            return self.blocks[self.n_stage - 1 - n](self.from_rgb[self.n_stage - 1 - n](decimated_input))
+            return self.forward_through(self.from_rgb[self.n_stage - 1 - n](decimated_input), n)
         
         a = self.alpha
         further_decimated = self.decimation[self.n_stage - 1 - n](decimated_input)
         further_decimated_rgb = self.from_rgb[self.n_stage - n](further_decimated)
         next_input = further_decimated_rgb * (1 - a) + self.blocks[self.n_stage - 1 - n](self.from_rgb[self.n_stage - 1 - n](decimated_input)) * a
         
-        return self.blocks[self.n_stage - n](next_input)
+        return self.forward_through(next_input, n - 1)
     
     def update_alpha(self, alpha, current_block):
         self.alpha = alpha
         self.current_block = current_block
-        self.complete = alpha >= 1 and current_block >= n_stage - 1
+        self.complete = alpha >= 1 and current_block >= self.n_stage - 1
+        
+    def forward_through(self, input, n):
+        next_input = input
+        for i in range(self.n_stage - 1 - n, self.n_stage):
+            next_input = self.blocks[i](next_input)
+        return next_input
 
 class PixelDiscriminator(nn.Module):
     """Defines a 1x1 PatchGAN discriminator (pixelGAN)"""
