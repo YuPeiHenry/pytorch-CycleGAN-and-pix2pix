@@ -159,6 +159,8 @@ class Pix2PixModel(BaseModel):
 
     def update_epoch_params(self, epoch):
         super().update_epoch_params(epoch)
+        if not self.opt.progressive:
+            return
         interval = self.opt.alpha_increase_interval + self.opt.alpha_stabilize_interval
         stop_point = self.opt.first_change_epoch + interval * (self.opt.progressive_stages - 1) - self.opt.alpha_stabilize_interval
         blockD = min(self.opt.progressive_stages - 1, (epoch + interval - self.opt.first_change_epoch - 1) // interval)
