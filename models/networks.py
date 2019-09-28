@@ -659,10 +659,9 @@ class NLayerDiscriminator(nn.Module):
         self.n_stage = n_stage
 
         kw = 4
-        padw = int(np.ceil((kw-1.0)/2))
+        padw = 1
         blocks = [[nn.Conv2d(input_nc, ndf, kernel_size=kw, stride=2, padding=padw), nn.LeakyReLU(0.2, True)]]
         sequence=[blocks[-1]]
-        decimation = [nn.AvgPool2d(kernel_size=kw, stride=2, padding=padw, ceil_mode=False)]
 
         nf = ndf
         for n in range(1, n_layers):
@@ -673,7 +672,6 @@ class NLayerDiscriminator(nn.Module):
                 norm_layer(nf), nn.LeakyReLU(0.2, True)
             ])
             sequence.append(blocks[-1])
-            decimation.append(nn.AvgPool2d(kernel_size=kw, stride=2, padding=padw, ceil_mode=False))
 
         nf_prev = nf
         nf = min(nf * 2, 512)
@@ -682,12 +680,9 @@ class NLayerDiscriminator(nn.Module):
             norm_layer(nf), nn.LeakyReLU(0.2, True)
         ])
         sequence.append(blocks[-1])
-        decimation.append(nn.AvgPool2d(kernel_size=kw, stride=1, padding=padw, ceil_mode=False))
 
         blocks.append([nn.Conv2d(nf, 1, kernel_size=kw, stride=1, padding=padw)])
         sequence.append(blocks[-1])
-        decimation = decimation[0:self.n_stage - 1]
-        decimation.append(lambda x: x)
 
         if use_sigmoid:
             sequence += [[nn.Sigmoid()]]
@@ -713,10 +708,11 @@ class NLayerDiscriminator(nn.Module):
         self.complete = False
         self.from_rgb = [nn.Conv2d(input_nc, ndf * (2 ** i), kernel_size=1, stride=1, padding=0, bias=True) for i in range(3)]
         self.from_rgb = [lambda x: x] + self.from_rgb
-        self.decimation = decimation
+        self.decimation = nn.AvgPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=False)
+        self.upsample = nn.Upsample(scale_factor=2, mode='nearest')
         
         n = 0
-        for layer in self.blocks + self.from_rgb + self.decimation:
+        for layer in self.blocks + self.from_rgb:
             if not isinstance(layer, torch.nn.Module):
                 continue
             setattr(self, 'layers' + str(n), layer)
@@ -738,12 +734,13 @@ class NLayerDiscriminator(nn.Module):
         factor = (self.n_stage - 1 - n)
         decimated_input = input
         for i in range(factor):
-            decimated_input = self.decimation[i](decimated_input)
+            decimated_input = self.decimation(decimated_input)
         if n == 0 or self.alpha >= 1:
             return self.forward_through(self.from_rgb[self.n_stage - 1 - n](decimated_input), n)
         
         a = self.alpha
-        further_decimated = self.decimation[self.n_stage - 1 - n](decimated_input)
+        decimated_input = self.combine_mixed_res(decimated_input)
+        further_decimated = self.decimation(decimated_input)
         further_decimated_rgb = self.from_rgb[self.n_stage - n](further_decimated)
         next_input = further_decimated_rgb * (1 - a) + self.blocks[self.n_stage - 1 - n](self.from_rgb[self.n_stage - 1 - n](decimated_input)) * a
         
@@ -759,6 +756,11 @@ class NLayerDiscriminator(nn.Module):
         for i in range(self.n_stage - 1 - n, self.n_stage):
             next_input = self.blocks[i](next_input)
         return next_input
+    
+    def combine_mixed_res(self, input):
+        if self.alpha >= 1:
+            return input
+        return self.upsample(self.decimation(input)) * (1 - self.alpha) + input * self.alpha
 
 class PixelDiscriminator(nn.Module):
     """Defines a 1x1 PatchGAN discriminator (pixelGAN)"""
