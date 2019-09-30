@@ -1,6 +1,23 @@
 import torch
 import torch.nn as nn
 
+def getUpsample(in_c, out_c, k_size, stride, padding, use_bias, upsample_mode, output_padding=0):
+    if upsample_mode == 'upsample':
+        return [nn.Upsample(scale_factor=stride, mode='nearest'),
+                nn.Conv2d(in_c, out_c,
+                    kernel_size=3, stride=1,
+                    padding=1, bias=use_bias)]
+    elif upsample_mode = 'subpixel':
+        return [nn.Conv2d(in_c, out_c * (2 ** 2),
+                    kernel_size=3, stride=1,
+                    padding=1, bias=use_bias),
+                    nn.PixelShuffle(2)
+                ]
+    else:
+        return [nn.ConvTranspose2d(in_c, out_c,
+                    kernel_size=k_size, stride=stride,
+                    padding=padding, output_padding=output_padding, bias=use_bias)]
+
 #Taken from https://github.com/bfortuner/pytorch_tiramisu
 
 class DenseLayer(nn.Sequential):
@@ -57,12 +74,17 @@ class TransitionDown(nn.Sequential):
 
 
 class TransitionUp(nn.Module):
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, out_channels, upsample_mode='transConv'):
         super().__init__()
-        self.convTrans = nn.ConvTranspose2d(
-            in_channels=in_channels, out_channels=out_channels,
-            kernel_size=3, stride=2, padding=0, bias=True)
-
+        if upsample_mode == 'transConv':
+            convTrans = getUpsample(in_channels, out_channels,
+                3, 1, 0, bias=True, upsample_mode)]
+            
+        else:
+            convTrans = getUpsample(in_channels, out_channels,
+                3, 1, 1, bias=True, upsample_mode)]
+        self.convTrans = nn.Sequential(*convTrans)
+        
     def forward(self, x, skip):
         out = self.convTrans(x)
         out = center_crop(out, skip.size(2), skip.size(3))

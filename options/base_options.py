@@ -48,6 +48,7 @@ class BaseOptions():
         parser.add_argument('--max_dataset_size', type=int, default=float("inf"), help='Maximum number of samples allowed per dataset. If the dataset directory contains more than max_dataset_size, only a subset is loaded.')
         parser.add_argument('--preprocess', type=str, default='resize_and_crop', help='scaling and cropping of images at load time [resize_and_crop | crop | scale_width | scale_width_and_crop | none]')
         parser.add_argument('--no_flip', action='store_true', help='if specified, do not flip the images for data augmentation')
+        parser.add_argument('--upsample_mode', type=str, default='transConv', help='transConv | upsample | subpixel')
         parser.add_argument('--display_winsize', type=int, default=256, help='display window size for both visdom and HTML')
         parser.add_argument('--image_type', type=str, default='uint8', help='Specify datatype of image.')
         parser.add_argument('--image_value_bound', type=int, default=255, help='max value in image.')
