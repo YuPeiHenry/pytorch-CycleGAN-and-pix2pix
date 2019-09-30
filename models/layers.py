@@ -1,17 +1,51 @@
 import torch
 import torch.nn as nn
 
+def getDownsample(in_c, out_c, k_size, stride, padding, use_bias, downsample_mode):
+    if downsample_mode == 'downsample':
+        return [nn.AvgPool2d(kernel_size=stride, stride=stride, padding=0, ceil_mode=False),
+                nn.Conv2d(in_c, out_c,
+                    kernel_size=3, stride=1,
+                    padding=1, bias=use_bias)]
+    elif downsample_mode == 'subpixel':
+        filter = []
+        for i in range(stride ** 2):
+            filter += [[
+                [[1 if j == i else 0 for j in range(stride ** 2)]]
+            ] for _ in range(in_c)]
+        filter = torch.FloatTensor(filter).view(in_c * (stride ** 2), 1, stride, stride)
+        filter.requires_grad = True
+        strided_pooling = nn.Conv2d(in_c, in_c * (stride ** 2),
+                    kernel_size=stride, stride=stride,
+                    padding=0, groups=in_c, bias=False)
+        with torch.no_grad():
+            strided_pooling.weight = nn.Parameter(filter)
+        return [strided_pooling,
+                    nn.Conv2d(in_c * (stride ** 2), out_c,
+                        kernel_size=3, stride=1,
+                        padding=1, bias=use_bias)
+                ]
+    elif downsample_mode == 'max_pool':
+        return [nn.Conv2d(in_c, out_c,
+                    kernel_size=1, stride=1,
+                    padding=0, bias=use_bias),
+                    nn.MaxPool2d(stride)]
+    else:
+        return [nn.Conv2d(in_c, out_c,
+                    kernel_size=k_size, stride=stride,
+                    padding=padding, bias=use_bias)]
+
 def getUpsample(in_c, out_c, k_size, stride, padding, use_bias, upsample_mode, output_padding=0):
     if upsample_mode == 'upsample':
         return [nn.Upsample(scale_factor=stride, mode='nearest'),
                 nn.Conv2d(in_c, out_c,
                     kernel_size=3, stride=1,
                     padding=1, bias=use_bias)]
-    elif upsample_mode = 'subpixel':
-        return [nn.Conv2d(in_c, out_c * (2 ** 2),
+    elif upsample_mode == 'subpixel':
+        return [nn.Conv2d(in_c, out_c * (stride ** 2),
                     kernel_size=3, stride=1,
                     padding=1, bias=use_bias),
-                    nn.PixelShuffle(2)
+                    nn.PixelShuffle(stride)
                 ]
     else:
         return [nn.ConvTranspose2d(in_c, out_c,
@@ -59,15 +93,14 @@ class DenseBlock(nn.Module):
 
 
 class TransitionDown(nn.Sequential):
-    def __init__(self, in_channels):
+    def __init__(self, in_channels, downsample_mode='max_pool'):
         super().__init__()
         self.add_module('norm', nn.BatchNorm2d(num_features=in_channels))
         self.add_module('leaky_relu', nn.LeakyReLU(0.2, True))
-        self.add_module('conv', nn.Conv2d(in_channels, in_channels,
-                                          kernel_size=1, stride=1,
-                                          padding=0, bias=True))
+        downsample = getDownsample(in_channels, in_channels, 4, 2, 1, True, downsample_mode=downsample_mode)
+        downsample = nn.Sequential(*downsample)
+        self.add_module('downsample', downsample)
         self.add_module('drop', nn.Dropout2d(0.2))
-        self.add_module('maxpool', nn.MaxPool2d(2))
 
     def forward(self, x):
         return super().forward(x)
@@ -78,11 +111,10 @@ class TransitionUp(nn.Module):
         super().__init__()
         if upsample_mode == 'transConv':
             convTrans = getUpsample(in_channels, out_channels,
-                3, 1, 0, bias=True, upsample_mode)]
-            
+                3, 1, 0, True, upsample_mode=upsample_mode)
         else:
             convTrans = getUpsample(in_channels, out_channels,
-                3, 1, 1, bias=True, upsample_mode)]
+                3, 1, 1, True, upsample_mode=upsample_mode)
         self.convTrans = nn.Sequential(*convTrans)
         
     def forward(self, x, skip):
