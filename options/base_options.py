@@ -50,6 +50,7 @@ class BaseOptions():
         parser.add_argument('--no_flip', action='store_true', help='if specified, do not flip the images for data augmentation')
         parser.add_argument('--downsample_mode', type=str, default='strided', help='strided | downsample | subpixel | max_pool')
         parser.add_argument('--upsample_mode', type=str, default='transConv', help='transConv | upsample | subpixel')
+		parser.add_argument('--upsample_method', type=str, default='nearest', help='bilinear | nearest')
         parser.add_argument('--display_winsize', type=int, default=256, help='display window size for both visdom and HTML')
         parser.add_argument('--image_type', type=str, default='uint8', help='Specify datatype of image.')
         parser.add_argument('--image_value_bound', type=int, default=255, help='max value in image.')

@@ -35,9 +35,9 @@ def getDownsample(in_c, out_c, k_size, stride, padding, use_bias, downsample_mod
                     kernel_size=k_size, stride=stride,
                     padding=padding, bias=use_bias)]
 
-def getUpsample(in_c, out_c, k_size, stride, padding, use_bias, upsample_mode, output_padding=0):
+def getUpsample(in_c, out_c, k_size, stride, padding, use_bias, upsample_mode, upsample_method='nearest', output_padding=0):
     if upsample_mode == 'upsample':
-        return [nn.Upsample(scale_factor=stride, mode='nearest'),
+        return [nn.Upsample(scale_factor=stride, mode=upsample_method),
                 nn.Conv2d(in_c, out_c,
                     kernel_size=3, stride=1,
                     padding=1, bias=use_bias)]

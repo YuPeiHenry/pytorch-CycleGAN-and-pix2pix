@@ -127,7 +127,7 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[]):
 
 
 def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, init_type='normal', init_gain=0.02, gpu_ids=[],
-    n_downsample_global=0, n_blocks_global=0, n_local_enhancers=0, n_blocks_local=0, progressive=False, progressive_stages=4, downsample_mode='strided', upsample_mode='transConv'):
+    n_downsample_global=0, n_blocks_global=0, n_local_enhancers=0, n_blocks_local=0, progressive=False, progressive_stages=4, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest'):
     """Create a generator
 
     Parameters:
@@ -158,15 +158,15 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
     norm_layer = get_norm_layer(norm_type=norm)
 
     if netG == 'resnet_9blocks':
-        net = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
+        net = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method)
     elif netG == 'resnet_6blocks':
-        net = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=6, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
+        net = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=6, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method)
     elif netG == 'unet_128':
-        net = UnetGenerator(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout, progressive=progressive, n_stage=progressive_stages, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
+        net = UnetGenerator(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout, progressive=progressive, n_stage=progressive_stages, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method)
     elif netG == 'unet_256':
-        net = UnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout, progressive=progressive, n_stage=progressive_stages, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
+        net = UnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout, progressive=progressive, n_stage=progressive_stages, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method)
     elif netG == 'global':
-        net = GlobalGenerator(input_nc, output_nc, ngf, n_downsample_global, n_blocks_global, norm_layer)       
+        net = GlobalGenerator(input_nc, output_nc, ngf, n_downsample_global, n_blocks_global, norm_layer)
     elif netG == 'local':        
         net = LocalEnhancer(input_nc, output_nc, ngf, n_downsample_global, n_blocks_global, 
                                   n_local_enhancers, n_blocks_local, norm_layer)
@@ -176,17 +176,17 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
         net = FCDenseNet(
             in_channels=input_nc, down_blocks=(4, 4, 4, 4, 4),
             up_blocks=(4, 4, 4, 4, 4), bottleneck_layers=4,
-            growth_rate=12, out_chans_first_conv=48, out_channels=output_nc, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
+            growth_rate=12, out_chans_first_conv=48, out_channels=output_nc, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method)
     elif netG == 'FCDenseNet67':
         net = FCDenseNet(
             in_channels=input_nc, down_blocks=(5, 5, 5, 5, 5),
             up_blocks=(5, 5, 5, 5, 5), bottleneck_layers=5,
-            growth_rate=16, out_chans_first_conv=48, out_channels=output_nc, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
+            growth_rate=16, out_chans_first_conv=48, out_channels=output_nc, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method)
     elif netG == 'FCDenseNet103':
         net = FCDenseNet(
             in_channels=input_nc, down_blocks=(4,5,7,10,12),
             up_blocks=(12,10,7,5,4), bottleneck_layers=15,
-            growth_rate=16, out_chans_first_conv=48, out_channels=output_nc, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
+            growth_rate=16, out_chans_first_conv=48, out_channels=output_nc, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method)
     else:
         raise NotImplementedError('Generator model name [%s] is not recognized' % netG)
     if not (netG == 'unet_256' or 'unet_128') and progressive:
@@ -374,7 +374,7 @@ class ResnetGenerator(nn.Module):
     We adapt Torch code and idea from Justin Johnson's neural style transfer project(https://github.com/jcjohnson/fast-neural-style)
     """
 
-    def __init__(self, input_nc, output_nc, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, n_blocks=6, padding_type='reflect', downsample_mode='strided', upsample_mode='transConv'):
+    def __init__(self, input_nc, output_nc, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, n_blocks=6, padding_type='reflect', downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest'):
         """Construct a Resnet-based generator
 
         Parameters:
@@ -412,7 +412,7 @@ class ResnetGenerator(nn.Module):
 
         for i in range(n_downsampling):  # add upsampling layers
             mult = 2 ** (n_downsampling - i)
-            upsample = getUpsample(ngf * mult, int(ngf * mult / 2), 3, 2, 1, use_bias, upsample_mode, output_padding=1)
+            upsample = getUpsample(ngf * mult, int(ngf * mult / 2), 3, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method, output_padding=1)
             model += upsample + [norm_layer(int(ngf * mult / 2)), nn.ReLU(True)]
         model += [nn.ReflectionPad2d(3)]
         model += [nn.Conv2d(ngf, output_nc, kernel_size=7, padding=0)]
@@ -488,7 +488,7 @@ class ResnetBlock(nn.Module):
 class UnetGenerator(nn.Module):
     """Create a Unet-based generator"""
 
-    def __init__(self, input_nc, output_nc, num_downs, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, progressive=False, n_stage=4, downsample_mode='strided', upsample_mode='transConv'):
+    def __init__(self, input_nc, output_nc, num_downs, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, progressive=False, n_stage=4, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest'):
         """Construct a Unet generator
         Parameters:
             input_nc (int)  -- the number of channels in input images
@@ -531,7 +531,7 @@ class UnetGenerator(nn.Module):
         self.to_rgb = [nn.Conv2d(ngf * (2 ** (self.n_stage - 1 - i)), output_nc, kernel_size=1, stride=1, padding=0, bias=True) for i in range(self.n_stage - 1)]
         self.to_rgb.append(lambda x: x)
         self.decimation = nn.AvgPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=False)
-        self.upsample = nn.Upsample(scale_factor=2, mode='nearest')
+        self.upsample = nn.Upsample(scale_factor=2, mode=upsample_method)
         
         n = 0
         for layer in self.to_rgb + self.from_rgb:
@@ -585,7 +585,7 @@ class UnetSkipConnectionBlock(nn.Module):
     """
 
     def __init__(self, outer_nc, inner_nc, input_nc=None,
-                 submodule=None, outermost=False, innermost=False, norm_layer=nn.BatchNorm2d, use_dropout=False, progressive=False, downsample_mode='strided', upsample_mode='transConv'):
+                 submodule=None, outermost=False, innermost=False, norm_layer=nn.BatchNorm2d, use_dropout=False, progressive=False, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest'):
         """Construct a Unet submodule with skip connections.
 
         Parameters:
@@ -617,17 +617,17 @@ class UnetSkipConnectionBlock(nn.Module):
         upnorm = norm_layer(outer_nc)
 
         if outermost:
-            upconv = getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, True, upsample_mode)
+            upconv = getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, True, upsample_mode, upsample_method=upsample_method)
             down = downconv
             up = [uprelu] + upconv + [nn.Tanh()]
             model = down + [submodule] + up
         elif innermost:
-            upconv = getUpsample(inner_nc, outer_nc, 4, 2, 1, use_bias, upsample_mode)
+            upconv = getUpsample(inner_nc, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method)
             down = [downrelu] + downconv
             up = [uprelu] + upconv + [upnorm]
             model = down + up
         else:
-            upconv = getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, use_bias, upsample_mode)
+            upconv = getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method)
             down = [downrelu] + downconv + [downnorm]
             up = [uprelu] + upconv + [upnorm]
 
@@ -655,7 +655,7 @@ class UnetSkipConnectionBlock(nn.Module):
 
 # Defines the PatchGAN discriminator with the specified arguments.
 class NLayerDiscriminator(nn.Module):
-    def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d, use_sigmoid=False, getIntermFeat=False, progressive=False, n_stage=4, downsample_mode='strided'):
+    def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d, use_sigmoid=False, getIntermFeat=False, progressive=False, n_stage=4, downsample_mode='strided', upsample_method='nearest'):
         super(NLayerDiscriminator, self).__init__()
         self.getIntermFeat = getIntermFeat
         self.n_layers = n_layers
@@ -713,7 +713,7 @@ class NLayerDiscriminator(nn.Module):
         self.from_rgb = [nn.Conv2d(input_nc, ndf * (2 ** i), kernel_size=1, stride=1, padding=0, bias=True) for i in range(3)]
         self.from_rgb = [lambda x: x] + self.from_rgb
         self.decimation = nn.AvgPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=False)
-        self.upsample = nn.Upsample(scale_factor=2, mode='nearest')
+        self.upsample = nn.Upsample(scale_factor=2, mode=upsample_method)
         
         n = 0
         for layer in self.blocks + self.from_rgb:
