@@ -61,5 +61,11 @@ class ErosionDataset(BaseDataset):
         """
         return max(self.A1_size, self.B_size)
 
+    def transform(self, image):
+        result = image
+        if 'resize' in self.opt.preprocess:
+             result = cv2.resize(result, (self.opt.load_size, self.opt.load_size))
+        return result
+
     def convert(self, image):
         return torch.Tensor((np.transpose(image, (2, 0, 1)) - self.opt.image_value_bound / 2) / (self.opt.image_value_bound / 2))
