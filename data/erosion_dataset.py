@@ -45,8 +45,8 @@ class ErosionDataset(BaseDataset):
         A1_path = self.A1_paths[index % self.A1_size]
         B_path = self.B_paths[index % self.B_size]
         #A_img = cv2.imread(A_path, -1)
-        A1_img = cv2.imread(A1_path, -1)
-        B_img = cv2.imread(B_path, -1)
+        A1_img = self.transform(cv2.imread(A1_path, -1))
+        B_img = self.transform(cv2.imread(B_path, -1))
         #A = torch.Tensor(A_img)
         A1 = self.convert(A1_img)
         B = self.convert(np.expand_dims(B_img, axis=2))
