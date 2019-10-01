@@ -194,7 +194,7 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
     return init_net(net, init_type, init_gain, gpu_ids)
 
 
-def define_D(input_nc, ndf, netD, n_layers_D=3, norm='batch', init_type='normal', init_gain=0.02, gpu_ids=[], num_D=0, use_gan_feat_loss=False, use_sigmoid=False, progressive=False, progressive_stages=4, downsample_mode='strided'):
+def define_D(input_nc, ndf, netD, n_layers_D=3, norm='batch', init_type='normal', init_gain=0.02, gpu_ids=[], num_D=0, use_gan_feat_loss=False, use_sigmoid=False, progressive=False, progressive_stages=4, downsample_mode='strided', upsample_method='nearest'):
     """Create a discriminator
 
     Parameters:
@@ -230,9 +230,9 @@ def define_D(input_nc, ndf, netD, n_layers_D=3, norm='batch', init_type='normal'
     if netD == 'multiscale':
         net = MultiscaleDiscriminator(input_nc, ndf, n_layers_D, norm_layer, use_sigmoid, num_D, use_gan_feat_loss, downsample_mode=downsample_mode)
     elif netD == 'basic':  # default PatchGAN classifier
-        net = NLayerDiscriminator(input_nc, ndf, n_layers=3, norm_layer=norm_layer, progressive=progressive, n_stage=progressive_stages, downsample_mode=downsample_mode)
+        net = NLayerDiscriminator(input_nc, ndf, n_layers=3, norm_layer=norm_layer, progressive=progressive, n_stage=progressive_stages, downsample_mode=downsample_mode, upsample_method=upsample_method)
     elif netD == 'n_layers':  # more options
-        net = NLayerDiscriminator(input_nc, ndf, n_layers_D, norm_layer=norm_layer, progressive=progressive, n_stage=progressive_stages, downsample_mode=downsample_mode)
+        net = NLayerDiscriminator(input_nc, ndf, n_layers_D, norm_layer=norm_layer, progressive=progressive, n_stage=progressive_stages, downsample_mode=downsample_mode, upsample_method=upsample_method)
     elif netD == 'pixel':     # classify if each pixel is real or fake
         net = PixelDiscriminator(input_nc, ndf, norm_layer=norm_layer)
     else:
