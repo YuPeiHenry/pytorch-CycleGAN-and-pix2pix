@@ -1162,7 +1162,7 @@ class MultiNLayerDiscriminator(nn.Module):
             output_map.append([
                 nn.Conv2d(nf, nf, kernel_size=kw, stride=1, padding=padw),
                 norm_layer(nf), nn.LeakyReLU(0.2, True),
-                [nn.Conv2d(nf, 1, kernel_size=kw, stride=1, padding=padw)] + output_activation)
+                nn.Conv2d(nf, 1, kernel_size=kw, stride=1, padding=padw)] + output_activation)
 
         self.input_map = nn.Conv2d(input_nc, ndf, kernel_size=1, stride=1, padding=0)
         new_input_maps = [nn.Conv2d(input_nc, num_filters[i]), kernel_size=1, stride=1, padding=0 for i in range(n_layers)]
