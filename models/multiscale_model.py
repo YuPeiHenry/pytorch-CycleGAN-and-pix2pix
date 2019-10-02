@@ -85,11 +85,11 @@ class MultiscaleModel(BaseModel):
 
     def backward_D(self):
         """Calculate GAN loss for the discriminator"""
-        real_As = netD.forward(self.real_A, create_series=True)
+        real_As = self.netD(self.real_A, create_series=True)
         
         fake_ABs = self.create_AB(real_As, self.fake_Bs, detach=True)
         pred_fake = self.netD(fake_ABs)
-        real_Bs = netD.forward(self.real_B, create_series=True)
+        real_Bs = self.netD(self.real_B, create_series=True)
         real_ABs = self.create_AB(real_As, real_Bs)
         pred_real = self.netD(real_ABs)
 
@@ -109,11 +109,11 @@ class MultiscaleModel(BaseModel):
 
     def backward_G(self):
         """Calculate GAN and L1 loss for the generator"""
-        real_As = netD.forward(self.real_A, create_series=True)
+        real_As = self.netD(self.real_A, create_series=True)
         
         fake_ABs = self.create_AB(real_As, self.fake_Bs)
         pred_fake = self.netD(fake_ABs)
-        real_Bs = netD.forward(self.real_B, create_series=True)
+        real_Bs = self.netD(self.real_B, create_series=True)
         real_ABs = self.create_AB(real_As, real_Bs, detach=True)
         pred_real = self.netD(real_ABs)
 
