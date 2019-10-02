@@ -160,7 +160,7 @@ class MultiscaleModel(BaseModel):
 
     def create_AB(self, As, Bs, detach=False):
         AB = []
-        for x, y in zip(A, B):
+        for x, y in zip(As, Bs):
             if detach:
                 AB.append(torch.cat((x, y), 1).detach())
             else:
