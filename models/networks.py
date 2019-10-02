@@ -675,10 +675,8 @@ class NLayerDiscriminator(nn.Module):
         for n in range(1, n_layers):
             nf_prev = nf
             nf = min(nf * 2, 512)
-            blocks.append([
-                getDownsample(nf_prev, nf, kw, 2, padw, True, downsample_mode=downsample_mode),
-                norm_layer(nf), nn.LeakyReLU(0.2, True)
-            ])
+            blocks.append(getDownsample(nf_prev, nf, kw, 2, padw, True, downsample_mode=downsample_mode) +
+                [norm_layer(nf), nn.LeakyReLU(0.2, True)])
             sequence.append(blocks[-1])
 
         nf_prev = nf
@@ -1150,10 +1148,8 @@ class MultiNLayerDiscriminator(nn.Module):
         num_filters = [ndf * (2 ** min(i, 3)) for i in range(n_layers + 1)]
         sequence = []
         for n in range(n_layers):
-            sequence.append([
-                getDownsample(num_filters[n], num_filters[n + 1], kw, 2, padw, True, downsample_mode=downsample_mode),
-                norm_layer(num_filters[n + 1]), nn.LeakyReLU(0.2, True)
-            ])
+            sequence.append(getDownsample(num_filters[n], num_filters[n + 1], kw, 2, padw, True, downsample_mode=downsample_mode) +
+                [norm_layer(num_filters[n + 1]), nn.LeakyReLU(0.2, True)])
 
         output_map = []
         output_activation = [nn.Sigmoid()] if use_sigmoid else []
