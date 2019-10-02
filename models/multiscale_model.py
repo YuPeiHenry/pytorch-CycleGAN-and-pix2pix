@@ -158,7 +158,7 @@ class MultiscaleModel(BaseModel):
         self.image_paths = [single['A_paths' if AtoB else 'B_paths']]
         self.forward()
 
-    def create_AB(As, Bs, detach=False):
+    def create_AB(self, As, Bs, detach=False):
         AB = []
         for x, y in zip(A, B):
             if detach:
