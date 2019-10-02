@@ -1165,7 +1165,7 @@ class MultiNLayerDiscriminator(nn.Module):
                 nn.Conv2d(nf, 1, kernel_size=kw, stride=1, padding=padw)] + output_activation)
 
         self.input_map = nn.Conv2d(input_nc, ndf, kernel_size=1, stride=1, padding=0)
-        new_input_maps = [nn.Conv2d(input_nc, num_filters[i]), kernel_size=1, stride=1, padding=0 for i in range(n_layers)]
+        new_input_maps = [nn.Conv2d(input_nc, num_filters[i], kernel_size=1, stride=1, padding=0) for i in range(n_layers)]
         self.decimation = nn.AvgPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=False)
         
         for i in range(n_layers):
