@@ -1126,12 +1126,12 @@ class ModifiedUnetBlock(nn.Module):
     def forward(self, x, input):
         transformed_input = self.inconv(input)
         residual_x = x + transformed_input
+        submodule_x = self.down(residual_x)
         
         if self.submodule is None:
-            submodule_outputs = [torch.cat([residual_x, self.up(residual_x)], 1)]
+            submodule_outputs = [torch.cat([residual_x, self.up(submodule_x)], 1)]
         else:
             decimated_input = self.decimation(input)
-            submodule_x = self.submodule(self.down(residual_x))
             submodule_outputs = self.submodule(submodule_x, decimated_input)
             feature_output = torch.cat([residual_x, self.up(submodule_outputs[-1])], 1)
             submodule_outputs.append(feature_output)
