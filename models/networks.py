@@ -1063,7 +1063,7 @@ class MultiUnetGenerator(nn.Module):
         self.num_downs = num_downs
         new_input_size = int(ngf / 2)
         # construct unet structure
-        unet_block = ModifiedUnetBlock(ngf * 8, ngf * 8, new_input_size, submodule=None, norm_layer=norm_layer, innermost=True, downsample_mode=downsample_mode, upsample_mode=upsample_mode)  # add the innermost layer
+        unet_block = ModifiedUnetBlock(ngf * 8, ngf * 8, new_input_size, submodule=None, norm_layer=norm_layer, downsample_mode=downsample_mode, upsample_mode=upsample_mode)  # add the innermost layer
         for i in range(num_downs - 4):          # add intermediate layers with ngf * 8 filters
             unet_block = ModifiedUnetBlock(ngf * 8, ngf * 8, new_input_size, submodule=unet_block, norm_layer=norm_layer, use_dropout=use_dropout, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
         # gradually reduce the number of filters from ngf * 8 to ngf
