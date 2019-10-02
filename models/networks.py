@@ -1154,7 +1154,7 @@ class MultiNLayerDiscriminator(nn.Module):
         output_map = []
         output_activation = [nn.Sigmoid()] if use_sigmoid else []
         for n in range(n_layers):
-            nf = num_filters[n + 1]
+            nf = num_filters[n]
             output_map.append([
                 nn.Conv2d(nf, nf, kernel_size=kw, stride=1, padding=padw),
                 norm_layer(nf), nn.LeakyReLU(0.2, True),
@@ -1179,7 +1179,7 @@ class MultiNLayerDiscriminator(nn.Module):
             total = getattr(self, 'new_input_maps'+str(i))(input[i]) + intermediate_features
             intermediate_features = getattr(self, 'sequence'+str(i))(total)
             outputs.append(getattr(self, 'output_map'+str(i))(total))
-            
+
         return outputs
 
     def create_series(self, input):
