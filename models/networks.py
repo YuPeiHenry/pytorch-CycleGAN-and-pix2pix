@@ -187,6 +187,8 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
             in_channels=input_nc, down_blocks=(4,5,7,10,12),
             up_blocks=(12,10,7,5,4), bottleneck_layers=15,
             growth_rate=16, out_chans_first_conv=48, out_channels=output_nc, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method)
+    elif netG == 'multi_unet':
+        net = MultiUnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method)
     else:
         raise NotImplementedError('Generator model name [%s] is not recognized' % netG)
     if not (netG == 'unet_256' or 'unet_128') and progressive:
@@ -235,6 +237,8 @@ def define_D(input_nc, ndf, netD, n_layers_D=3, norm='batch', init_type='normal'
         net = NLayerDiscriminator(input_nc, ndf, n_layers_D, norm_layer=norm_layer, progressive=progressive, n_stage=progressive_stages, downsample_mode=downsample_mode, upsample_method=upsample_method)
     elif netD == 'pixel':     # classify if each pixel is real or fake
         net = PixelDiscriminator(input_nc, ndf, norm_layer=norm_layer)
+    elif netD == 'multi_n_layers':
+        net = MultiNLayerDiscriminator(input_nc, ndf, n_layers_D, norm_layer=norm_layer, downsample_mode=downsample_mode, upsample_method=upsample_method)
     else:
         raise NotImplementedError('Discriminator model name [%s] is not recognized' % netD)
     if not (netD == 'n_layers' or netD == 'basic') and progressive:
@@ -1052,6 +1056,141 @@ class FCDenseNet(nn.Module):
 
         out = self.finalConv(out)
         return out
+
+class MultiUnetGenerator(nn.Module):
+    def __init__(self, input_nc, output_nc, num_downs, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest'):
+        super(MultiUnetGenerator, self).__init__()
+        self.num_downs = num_downs
+        new_input_size = int(ngf / 2)
+        # construct unet structure
+        unet_block = ModifiedUnetBlock(ngf * 8, ngf * 8, new_input_size, submodule=None, norm_layer=norm_layer, innermost=True, downsample_mode=downsample_mode, upsample_mode=upsample_mode)  # add the innermost layer
+        for i in range(num_downs - 4):          # add intermediate layers with ngf * 8 filters
+            unet_block = ModifiedUnetBlock(ngf * 8, ngf * 8, new_input_size, submodule=unet_block, norm_layer=norm_layer, use_dropout=use_dropout, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
+        # gradually reduce the number of filters from ngf * 8 to ngf
+        unet_block = ModifiedUnetBlock(ngf * 4, ngf * 8, new_input_size, submodule=unet_block, norm_layer=norm_layer, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
+        unet_block = ModifiedUnetBlock(ngf * 2, ngf * 4, new_input_size, submodule=unet_block, norm_layer=norm_layer, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
+        unet_block = ModifiedUnetBlock(ngf, ngf * 2, new_input_size, submodule=unet_block, norm_layer=norm_layer, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
+        self.model = unet_block
+        
+        self.input_map = nn.Conv2d(input_nc, ngf, kernel_size=1, stride=1, padding=0)
+        self.input_map2 = nn.Conv2d(input_nc, new_input_size, kernel_size=1, stride=1, padding=0)
+        self.upsample = nn.Upsample(scale_factor=2, mode=upsample_method)
+        for i in range(num_downs):
+            exponent = min(num_downs - i - 1, 3)
+            setattr(self, 'feature_conv'+str(i), nn.Conv2d(ngf * (2 ** exponent), output_nc, kernel_size=3, stride=1, padding=1))
+
+    def forward(self, input):
+        input1 = self.input_map(input)
+        input2 = self.input_map2(input)
+        submodule_outputs =  self.model(input1, input2)
+        outputs = [getattr(self, 'feature_conv'+str(0))(submodule_outputs[0])]
+        for i in range(1, self.num_downs):
+            outputs.append(self.upsample(outputs[-1]) + getattr(self, 'feature_conv'+str(i))(submodule_outputs[i]))
+        outputs.reverse() # Biggest output at the front
+        return outputs
+        
+class ModifiedUnetBlock(nn.Module):
+    def __init__(self, outer_nc, inner_nc, input_nc,
+                 submodule=None, norm_layer=nn.BatchNorm2d, use_dropout=False, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest'):
+        super(ModifiedUnetBlock, self).__init__()
+        if type(norm_layer) == functools.partial:
+            use_bias = norm_layer.func == nn.InstanceNorm2d
+        else:
+            use_bias = norm_layer == nn.InstanceNorm2d
+        downconv = getDownsample(outer_nc, inner_nc, 4, 2, 1, use_bias, downsample_mode=downsample_mode)
+        downrelu = nn.LeakyReLU(0.2, True)
+        downnorm = norm_layer(inner_nc)
+        uprelu = nn.ReLU(True)
+        upnorm = norm_layer(outer_nc)
+
+        if submodule is None:
+            upconv = getUpsample(inner_nc, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method)
+            down = [downrelu] + downconv
+            up = [uprelu] + upconv + [upnorm]
+        else:
+            upconv = getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method)
+            down = [downrelu] + downconv + [downnorm]
+            up = [uprelu] + upconv + [upnorm]
+
+            if use_dropout:
+                up = up + [nn.Dropout(0.5)]
+
+        self.down = nn.Sequential(*down)
+        self.up = nn.Sequential(*up)
+        self.submodule = submodule
+        inconv = [nn.Conv2d(input_nc, outer_nc, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(outer_nc, outer_nc, kernel_size=1, stride=1, padding=0)]
+        self.inconv = nn.Sequential(*inconv)
+        decimation = [nn.AvgPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=False),
+            nn.Conv2d(input_nc, input_nc, kernel_size=1, stride=1, padding=0)]
+        self.decimation = nn.Sequential(*decimation) if self.submodule is not None else None
+
+    def forward(self, x, input):
+        transformed_input = self.inconv(input)
+        residual_x = x + transformed_input
+        
+        if self.submodule is None:
+            submodule_outputs = [torch.cat([residual_x, self.up(residual_x)], 1)]
+        else:
+            decimated_input = self.decimation(input)
+            submodule_x = self.submodule(self.down(residual_x))
+            submodule_outputs = self.submodule(submodule_x, decimated_input)
+            feature_output = torch.cat([residual_x, self.up(submodule_outputs[-1])], 1)
+            submodule_outputs.append(feature_output)
+        return submodule_outputs
+
+class MultiNLayerDiscriminator(nn.Module):
+    def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d, use_sigmoid=False, downsample_mode='strided', upsample_method='nearest'):
+        super(MultiNLayerDiscriminator, self).__init__()
+        self.n_layers = n_layers
+
+        kw = 4
+        padw = 1
+
+        num_filters = [ndf * (2 ** min(i, 3)) for i in range(n_layers + 1)]
+        sequence = []
+        for n in range(n_layers):
+            sequence.append([
+                getDownsample(num_filters[n], num_filters[n + 1], kw, 2, padw, True, downsample_mode=downsample_mode),
+                norm_layer(num_filters[n + 1]), nn.LeakyReLU(0.2, True)
+            ])
+
+        output_map = []
+        output_activation = [nn.Sigmoid()] if use_sigmoid else []
+        for n in range(n_layers):
+            nf = num_filters[n + 1]
+            output_map.append([
+                nn.Conv2d(nf, nf, kernel_size=kw, stride=1, padding=padw),
+                norm_layer(nf), nn.LeakyReLU(0.2, True),
+                [nn.Conv2d(nf, 1, kernel_size=kw, stride=1, padding=padw)] + output_activation)
+
+        self.input_map = nn.Conv2d(input_nc, ndf, kernel_size=1, stride=1, padding=0)
+        new_input_maps = [nn.Conv2d(input_nc, num_filters[i]), kernel_size=1, stride=1, padding=0 for i in range(n_layers)]
+        self.decimation = nn.AvgPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=False)
+        
+        for i in range(n_layers):
+            setattr(self, 'sequence'+str(i), nn.Sequential(*sequence[i]))
+            setattr(self, 'output_map'+str(i), nn.Sequential(*output_map[i]))
+            setattr(self, 'new_input_maps'+str(i), new_input_maps[i])
+
+    def forward(self, input, create_series=False):
+        if create_series:
+            return self.create_series(input)
+        input1 = self.input_map(input[0])
+        intermediate_features = input1
+        outputs = []
+        for i in range(self.n_layers):
+            total = getattr(self, 'new_input_maps'+str(i))(input[i]) + intermediate_features
+            intermediate_features = getattr(self, 'sequence'+str(i))(total)
+            outputs.append(getattr(self, 'output_map'+str(i))(total))
+            
+        return outputs
+
+    def create_series(self, input):
+        output = [input]
+        for i in range(self.n_layers - 1):
+            output.append(self.decimation(output[-1]))
+        return output
 
 from torchvision import models
 class Vgg19(torch.nn.Module):
