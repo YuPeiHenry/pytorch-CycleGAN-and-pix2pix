@@ -17,6 +17,7 @@ class UnetModel(BaseModel):
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
         parser.set_defaults(norm='batch', netG='unet_256', dataset_mode='erosion', input_nc=3, output_nc=1, preprocess='N.A.', image_type='uint16', image_value_bound=26350, no_flip=True)
+        parser.add_argument('--generate_residue', action='store_true', help='')
         parser.add_argument('--fixed_example', action='store_true', help='')
         parser.add_argument('--fixed_index', type=int, default=0, help='')
         return parser
@@ -61,6 +62,8 @@ class UnetModel(BaseModel):
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
         self.fake_B = self.netG(self.real_A)  # G(A)
+        if self.opt.generate_residue:
+            self.fake_B = self.fake_B + self.real_A
 
     def backward_D(self):
         self.loss_D = torch.zeros([1]).to(self.device)
