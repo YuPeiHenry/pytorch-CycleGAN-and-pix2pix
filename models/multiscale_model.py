@@ -125,9 +125,7 @@ class MultiscaleModel(BaseModel):
             for pred_real_elem, pred_fake_elem in zip(pred_real, pred_fake):
                 self.loss_G_GAN += self.criterionGAN(pred_fake_elem, True)
 
-        self.loss_G_L1 = 0
-        for real_B, fake_B in zip(real_Bs, self.fake_Bs):
-            self.loss_G_L1 += self.criterionL1(fake_B, real_B) * self.opt.lambda_L1
+        self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B) * self.opt.lambda_L1
         # combine loss and calculate gradients
         self.loss_G = self.loss_G_GAN + self.loss_G_L1
         self.loss_G.backward()
