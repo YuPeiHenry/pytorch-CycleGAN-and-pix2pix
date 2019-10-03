@@ -1073,7 +1073,7 @@ class MultiUnetGenerator(nn.Module):
         self.input_map = nn.Conv2d(input_nc, ngf, kernel_size=1, stride=1, padding=0)
         self.input_map2 = nn.Conv2d(input_nc, new_input_size, kernel_size=1, stride=1, padding=0)
         self.upsample = nn.Upsample(scale_factor=2, mode=upsample_method)
-        for i in range(num_downs):
+        for i in range(num_downs - 3, num_downs):
             exponent = min(num_downs - i - 1, 3)
             setattr(self, 'feature_conv'+str(i),
                 nn.Sequential(*[nn.Conv2d(ngf * 2 * (2 ** exponent), ngf, kernel_size=4, stride=1, padding=1),
@@ -1084,8 +1084,8 @@ class MultiUnetGenerator(nn.Module):
         input1 = self.input_map(input)
         input2 = self.input_map2(input)
         submodule_outputs =  self.model(input1, input2)
-        outputs = [getattr(self, 'feature_conv'+str(0))(submodule_outputs[0])]
-        for i in range(1, self.num_downs):
+        outputs = [getattr(self, 'feature_conv'+str(num_downs - 3))(submodule_outputs[num_downs - 3])]
+        for i in range(num_downs - 3 + 1, self.num_downs):
             outputs.append(self.upsample(outputs[-1]) + getattr(self, 'feature_conv'+str(i))(submodule_outputs[i]))
         outputs.reverse() # Biggest output at the front
         return outputs
