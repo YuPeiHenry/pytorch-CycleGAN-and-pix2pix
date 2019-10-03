@@ -63,7 +63,7 @@ class UnetModel(BaseModel):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
         self.fake_B = self.netG(self.real_A)  # G(A)
         if self.opt.generate_residue:
-            self.fake_B = self.fake_B + self.real_A
+            self.fake_B = self.fake_B + self.real_A[:, 1, :, :]
 
     def backward_D(self):
         self.loss_D = torch.zeros([1]).to(self.device)
