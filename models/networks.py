@@ -1076,7 +1076,7 @@ class MultiUnetGenerator(nn.Module):
         for i in range(num_downs):
             exponent = min(num_downs - i - 1, 3)
             setattr(self, 'feature_conv'+str(i),
-                nn.Sequential(*[nn.ReLU(True), nn.Conv2d(ngf * 2 * (2 ** exponent), output_nc, kernel_size=3, stride=1, padding=1), nn.Tanh()]))
+                nn.Sequential(*[nn.Conv2d(ngf * 2 * (2 ** exponent), output_nc, kernel_size=3, stride=1, padding=1), nn.Tanh()]))
 
     def forward(self, input):
         input1 = self.input_map(input)
@@ -1084,7 +1084,7 @@ class MultiUnetGenerator(nn.Module):
         submodule_outputs =  self.model(input1, input2)
         outputs = [getattr(self, 'feature_conv'+str(0))(submodule_outputs[0])]
         for i in range(1, self.num_downs):
-            outputs.append(self.upsample(outputs[-1].clone()) + getattr(self, 'feature_conv'+str(i))(submodule_outputs[i]))
+            outputs.append(self.upsample(outputs[-1]) + getattr(self, 'feature_conv'+str(i))(submodule_outputs[i]))
         outputs.reverse() # Biggest output at the front
         return outputs
         
