@@ -1119,7 +1119,7 @@ class ModifiedUnetBlock(nn.Module):
         self.submodule = submodule
         inconv = [nn.Conv2d(input_nc, outer_nc, kernel_size=1, stride=1, padding=0), norm_layer(outer_nc)]
         self.inconv = nn.Sequential(*inconv)
-        self.inconv_scalar = torch.FloatTensor(1)
+        self.inconv_scalar = torch.cuda.FloatTensor(1)
         self.inconv_scalar.requires_grad = True
         decimation = [nn.AvgPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=False),
             nn.Conv2d(input_nc, input_nc, kernel_size=1, stride=1, padding=0),
@@ -1167,7 +1167,7 @@ class MultiNLayerDiscriminator(nn.Module):
             norm_layer(ndf), nn.LeakyReLU(0.2, True)])
         new_input_maps = [nn.Sequential(*[nn.Conv2d(input_nc, num_filters[i], kernel_size=1, stride=1, padding=0),
             norm_layer(num_filters[i]), nn.LeakyReLU(0.2, True)]) for i in range(n_layers)]
-        self.input_map_scalars = [torch.FloatTensor(1) for i in range(n_layers)]
+        self.input_map_scalars = [torch.cuda.FloatTensor(1) for i in range(n_layers)]
         for i in range(n_layers):
             self.input_map_scalars[i].requires_grad = True
         self.decimation = nn.AvgPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=False)
