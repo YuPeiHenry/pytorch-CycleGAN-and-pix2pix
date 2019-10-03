@@ -1123,7 +1123,7 @@ class ModifiedUnetBlock(nn.Module):
         self.inconv_scalar.requires_grad = True
         decimation = [nn.AvgPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=False),
             nn.Conv2d(input_nc, input_nc, kernel_size=1, stride=1, padding=0),
-            downnorm, nn.LeakyReLU(0.2, True)]
+            norm_layer(input_nc), nn.LeakyReLU(0.2, True)]
         self.decimation = nn.Sequential(*decimation) if self.submodule is not None else None
 
     def forward(self, x, input):
