@@ -1070,15 +1070,18 @@ class MultiUnetGenerator(nn.Module):
         unet_block = ModifiedUnetBlock(ngf, ngf * 2, new_input_size, submodule=unet_block, norm_layer=norm_layer, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
         self.model = unet_block
         
-        self.input_map = nn.Conv2d(input_nc, ngf, kernel_size=1, stride=1, padding=0)
-        self.input_map2 = nn.Conv2d(input_nc, new_input_size, kernel_size=1, stride=1, padding=0)
+        self.input_map = nn.Sequential(*[nn.Conv2d(input_nc, ngf, kernel_size=3, stride=1, padding=1, bias=False),
+            norm_layer(ndf), nn.LeakyReLU(0.2, True)])
+        self.input_map2 = nn.Sequential(*[nn.Conv2d(input_nc, new_input_size, kernel_size=3, stride=1, padding=1, bias=False),
+            norm_layer(ndf), nn.LeakyReLU(0.2, True)])
         self.upsample = nn.Upsample(scale_factor=2, mode=upsample_method)
         for i in range(num_downs - 3, num_downs):
             exponent = min(num_downs - i - 1, 3)
             setattr(self, 'feature_conv'+str(i),
-                nn.Sequential(*[nn.Conv2d(ngf * 2 * (2 ** exponent), ngf, kernel_size=3, stride=1, padding=1),
+                nn.Sequential(*[nn.Conv2d(ngf * 2 * (2 ** exponent), ngf, kernel_size=3, stride=1, padding=1, bias=False),
                 norm_layer(ngf), nn.LeakyReLU(0.2, True),
-                nn.Conv2d(ngf, output_nc, kernel_size=3, stride=1, padding=1),nn.Tanh()]))
+                nn.Conv2d(ngf, output_nc, kernel_size=3, stride=1, padding=1)]))
+        self.tanh = nn.Tanh()
 
     def forward(self, input):
         input1 = self.input_map(input)
@@ -1089,7 +1092,7 @@ class MultiUnetGenerator(nn.Module):
         for i in range(num_downs - 3 + 1, self.num_downs):
             outputs.append(self.upsample(outputs[-1]) + getattr(self, 'feature_conv'+str(i))(submodule_outputs[i]))
         outputs.reverse() # Biggest output at the front
-        return outputs
+        return [self.tanh(output) for output in outputs]
         
 class ModifiedUnetBlock(nn.Module):
     def __init__(self, outer_nc, inner_nc, input_nc,
@@ -1126,8 +1129,8 @@ class ModifiedUnetBlock(nn.Module):
         self.inconv_scalar = torch.cuda.FloatTensor(1)
         self.inconv_scalar.requires_grad = True
         decimation = [nn.AvgPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=False),
-            nn.Conv2d(input_nc, input_nc, kernel_size=3, stride=1, padding=1),
-            nn.Conv2d(input_nc, input_nc, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(input_nc, input_nc, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.Conv2d(input_nc, input_nc, kernel_size=3, stride=1, padding=1, bias=False),
             norm_layer(input_nc), nn.LeakyReLU(0.2, True)]
         self.decimation = nn.Sequential(*decimation) if self.submodule is not None else None
 
@@ -1164,11 +1167,11 @@ class MultiNLayerDiscriminator(nn.Module):
         for n in range(n_layers):
             nf = num_filters[n]
             output_map.append([
-                nn.Conv2d(nf, nf, kernel_size=kw, stride=1, padding=padw),
+                nn.Conv2d(nf, nf, kernel_size=kw, stride=1, padding=padw, bias=False),
                 norm_layer(nf), nn.LeakyReLU(0.2, True),
                 nn.Conv2d(nf, 1, kernel_size=kw, stride=1, padding=padw)] + output_activation)
 
-        self.input_map = nn.Sequential(*[nn.Conv2d(input_nc, ndf, kernel_size=3, stride=1, padding=1),
+        self.input_map = nn.Sequential(*[nn.Conv2d(input_nc, ndf, kernel_size=3, stride=1, padding=1, bias=False),
             norm_layer(ndf), nn.LeakyReLU(0.2, True)])
         new_input_maps = [nn.Sequential(*[nn.Conv2d(input_nc, num_filters[i], kernel_size=1, stride=1, padding=0),
             norm_layer(num_filters[i]), nn.LeakyReLU(0.2, True)]) for i in range(n_layers)]
