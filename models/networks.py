@@ -1071,9 +1071,9 @@ class MultiUnetGenerator(nn.Module):
         self.model = unet_block
         
         self.input_map = nn.Sequential(*[nn.Conv2d(input_nc, ngf, kernel_size=3, stride=1, padding=1, bias=False),
-            norm_layer(ndf), nn.LeakyReLU(0.2, True)])
+            norm_layer(ngf), nn.LeakyReLU(0.2, True)])
         self.input_map2 = nn.Sequential(*[nn.Conv2d(input_nc, new_input_size, kernel_size=3, stride=1, padding=1, bias=False),
-            norm_layer(ndf), nn.LeakyReLU(0.2, True)])
+            norm_layer(new_input_size), nn.LeakyReLU(0.2, True)])
         self.upsample = nn.Upsample(scale_factor=2, mode=upsample_method)
         for i in range(num_downs - 3, num_downs):
             exponent = min(num_downs - i - 1, 3)
