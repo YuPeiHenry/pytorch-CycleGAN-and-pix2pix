@@ -1120,7 +1120,8 @@ class ModifiedUnetBlock(nn.Module):
         self.down = nn.Sequential(*down)
         self.up = nn.Sequential(*up)
         self.submodule = submodule
-        inconv = [nn.Conv2d(input_nc, outer_nc, kernel_size=1, stride=1, padding=0), norm_layer(outer_nc)]
+        inconv = [nn.Conv2d(input_nc, outer_nc, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(input_nc, outer_nc, kernel_size=3, stride=1, padding=1), norm_layer(outer_nc)]
         self.inconv = nn.Sequential(*inconv)
         self.inconv_scalar = torch.cuda.FloatTensor(1)
         self.inconv_scalar.requires_grad = True
@@ -1167,7 +1168,7 @@ class MultiNLayerDiscriminator(nn.Module):
                 norm_layer(nf), nn.LeakyReLU(0.2, True),
                 nn.Conv2d(nf, 1, kernel_size=kw, stride=1, padding=padw)] + output_activation)
 
-        self.input_map = nn.Sequential(*[nn.Conv2d(input_nc, ndf, kernel_size=1, stride=1, padding=0),
+        self.input_map = nn.Sequential(*[nn.Conv2d(input_nc, ndf, kernel_size=3, stride=1, padding=1),
             norm_layer(ndf), nn.LeakyReLU(0.2, True)])
         new_input_maps = [nn.Sequential(*[nn.Conv2d(input_nc, num_filters[i], kernel_size=1, stride=1, padding=0),
             norm_layer(num_filters[i]), nn.LeakyReLU(0.2, True)]) for i in range(n_layers)]
@@ -1192,7 +1193,7 @@ class MultiNLayerDiscriminator(nn.Module):
             intermediate_features = getattr(self, 'sequence'+str(i))(total)
             outputs.append(getattr(self, 'output_map'+str(i))(total))
 
-        return [outputs[-1]]
+        return outputs
 
     def create_series(self, input):
         output = [input]
