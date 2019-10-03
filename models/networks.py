@@ -1083,6 +1083,7 @@ class MultiUnetGenerator(nn.Module):
     def forward(self, input):
         input1 = self.input_map(input)
         input2 = self.input_map2(input)
+        num_downs = self.num_downs
         submodule_outputs =  self.model(input1, input2)
         outputs = [getattr(self, 'feature_conv'+str(num_downs - 3))(submodule_outputs[num_downs - 3])]
         for i in range(num_downs - 3 + 1, self.num_downs):
