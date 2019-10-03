@@ -1076,7 +1076,7 @@ class MultiUnetGenerator(nn.Module):
         for i in range(num_downs):
             exponent = min(num_downs - i - 1, 3)
             setattr(self, 'feature_conv'+str(i),
-                nn.Sequential(*[nn.Conv2d(ngf * 2 * (2 ** exponent), output_nc, kernel_size=3, stride=1, padding=1), nn.Tanh()]))
+                nn.Sequential(*[nn.ReLU(True), nn.Conv2d(ngf * 2 * (2 ** exponent), output_nc, kernel_size=3, stride=1, padding=1), nn.Tanh()]))
 
     def forward(self, input):
         input1 = self.input_map(input)
@@ -1117,16 +1117,18 @@ class ModifiedUnetBlock(nn.Module):
         self.down = nn.Sequential(*down)
         self.up = nn.Sequential(*up)
         self.submodule = submodule
-        inconv = [nn.Conv2d(input_nc, outer_nc, kernel_size=3, stride=1, padding=1),
-            nn.Conv2d(outer_nc, outer_nc, kernel_size=1, stride=1, padding=0)]
+        inconv = [nn.Conv2d(outer_nc, outer_nc, kernel_size=1, stride=1, padding=0), downnorm]
         self.inconv = nn.Sequential(*inconv)
+        self.inconv_scalar = torch.FloatTensor(1)
+        self.inconv_scalar.requires_grad = True
         decimation = [nn.AvgPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=False),
-            nn.Conv2d(input_nc, input_nc, kernel_size=1, stride=1, padding=0)]
+            nn.Conv2d(input_nc, input_nc, kernel_size=1, stride=1, padding=0),
+            downnorm, nn.LeakyReLU(0.2, True)]
         self.decimation = nn.Sequential(*decimation) if self.submodule is not None else None
 
     def forward(self, x, input):
         transformed_input = self.inconv(input)
-        residual_x = x + transformed_input
+        residual_x = x + self.inconv_scalar * transformed_input
         submodule_x = self.down(residual_x)
         
         if self.submodule is None:
@@ -1161,8 +1163,13 @@ class MultiNLayerDiscriminator(nn.Module):
                 norm_layer(nf), nn.LeakyReLU(0.2, True),
                 nn.Conv2d(nf, 1, kernel_size=kw, stride=1, padding=padw)] + output_activation)
 
-        self.input_map = nn.Conv2d(input_nc, ndf, kernel_size=1, stride=1, padding=0)
-        new_input_maps = [nn.Conv2d(input_nc, num_filters[i], kernel_size=1, stride=1, padding=0) for i in range(n_layers)]
+        self.input_map = nn.Sequential(*[nn.Conv2d(input_nc, ndf, kernel_size=1, stride=1, padding=0),
+            norm_layer(ndf), nn.LeakyReLU(0.2, True)])
+        new_input_maps = [nn.Sequential(*[nn.Conv2d(input_nc, num_filters[i], kernel_size=1, stride=1, padding=0),
+            norm_layer(num_filters[i]), nn.LeakyReLU(0.2, True)]) for i in range(n_layers)]
+        self.input_map_scalars = [torch.FloatTensor(1) for i in range(n_layers)]
+        for i in range(n_layers):
+            self.input_map_scalars[i].requires_grad = True
         self.decimation = nn.AvgPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=False)
         
         for i in range(n_layers):
@@ -1177,7 +1184,7 @@ class MultiNLayerDiscriminator(nn.Module):
         intermediate_features = input1
         outputs = []
         for i in range(self.n_layers):
-            total = getattr(self, 'new_input_maps'+str(i))(input[i]) + intermediate_features
+            total = self.input_map_scalars[i] * getattr(self, 'new_input_maps'+str(i))(input[i]) + intermediate_features
             intermediate_features = getattr(self, 'sequence'+str(i))(total)
             outputs.append(getattr(self, 'output_map'+str(i))(total))
 
