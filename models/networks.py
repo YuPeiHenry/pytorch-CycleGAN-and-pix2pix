@@ -1084,7 +1084,7 @@ class MultiUnetGenerator(nn.Module):
         submodule_outputs =  self.model(input1, input2)
         outputs = [getattr(self, 'feature_conv'+str(0))(submodule_outputs[0])]
         for i in range(1, self.num_downs):
-            outputs.append(self.upsample(outputs[-1]) + getattr(self, 'feature_conv'+str(i))(submodule_outputs[i]))
+            outputs.append(self.upsample(outputs[-1].clone()) + getattr(self, 'feature_conv'+str(i))(submodule_outputs[i]))
         outputs.reverse() # Biggest output at the front
         return outputs
         
