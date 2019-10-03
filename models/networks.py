@@ -1076,9 +1076,9 @@ class MultiUnetGenerator(nn.Module):
         for i in range(num_downs - 3, num_downs):
             exponent = min(num_downs - i - 1, 3)
             setattr(self, 'feature_conv'+str(i),
-                nn.Sequential(*[nn.Conv2d(ngf * 2 * (2 ** exponent), ngf, kernel_size=4, stride=1, padding=1),
+                nn.Sequential(*[nn.Conv2d(ngf * 2 * (2 ** exponent), ngf, kernel_size=3, stride=1, padding=1),
                 norm_layer(ngf), nn.LeakyReLU(0.2, True),
-                nn.Conv2d(ngf, output_nc, kernel_size=4, stride=1, padding=1),nn.Tanh()]))
+                nn.Conv2d(ngf, output_nc, kernel_size=3, stride=1, padding=1),nn.Tanh()]))
 
     def forward(self, input):
         input1 = self.input_map(input)
