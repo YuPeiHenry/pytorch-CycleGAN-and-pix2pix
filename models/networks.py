@@ -1192,7 +1192,7 @@ class MultiNLayerDiscriminator(nn.Module):
             intermediate_features = getattr(self, 'sequence'+str(i))(total)
             outputs.append(getattr(self, 'output_map'+str(i))(total))
 
-        return outputs
+        return [outputs[-1]]
 
     def create_series(self, input):
         output = [input]
