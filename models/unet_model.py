@@ -62,6 +62,8 @@ class UnetModel(BaseModel):
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
         self.fake_B = self.netG(self.real_A)  # G(A)
+        if self.opt.generate_residue:
+            self.fake_B = self.fake_B + self.real_A[:, 1, :, :].view(-1, 1, self.fake_B.size[2], self.fake_B.size[3])
 
     def backward_D(self):
         self.loss_D = torch.zeros([1]).to(self.device)
@@ -69,10 +71,7 @@ class UnetModel(BaseModel):
     def backward_G(self):
         """Calculate GAN and L1 loss for the generator"""
         # Second, G(A) = B
-        if self.opt.generate_residue:
-            self.loss_G_L2 = self.criterionL2(self.fake_B, self.real_B - self.real_A[:, 1, :, :])
-        else:
-            self.loss_G_L2 = self.criterionL2(self.fake_B, self.real_B)
+        self.loss_G_L2 = self.criterionL2(self.fake_B, self.real_B)
         # combine loss and calculate gradients
         self.loss_G = self.loss_G_L2
         self.loss_G.backward()
