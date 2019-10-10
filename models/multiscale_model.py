@@ -15,6 +15,7 @@ class MultiscaleModel(BaseModel):
             parser.set_defaults(pool_size=0, gan_mode='vanilla')
             parser.add_argument('--lambda_L1', type=float, default=100.0, help='weight for L1 loss')
             parser.add_argument('--relativistic', type=int, default=0, help='relativistic loss')
+            parser.add_argument('--fp16', action='store_true', help='')
 
         return parser
 
@@ -41,6 +42,16 @@ class MultiscaleModel(BaseModel):
         if self.isTrain:  # define a discriminator; conditional GANs need to take both input and output images; Therefore, #channels for D is input_nc + output_nc
             self.netD = networks.define_D(opt.input_nc + opt.output_nc, opt.ndf, 'multi_n_layers',
                                           opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids, upsample_method=opt.upsample_method)
+
+        if self.isTrain and self.opt.fp16:
+            self.netD.half()
+            for layer in self.netD.modules():
+                if isinstance(layer, nn.BatchNorm2d):
+                    layer.float()
+            self.netG.half()
+            for layer in self.netG.modules():
+                if isinstance(layer, nn.BatchNorm2d):
+                    layer.float()
 
         if self.isTrain:
             # define loss functions
