@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 from .base_model import BaseModel
 from . import networks
 import numpy as np
