@@ -41,7 +41,7 @@ def get_norm_layer(norm_type='instance', style_dim=512):
         norm_layer = functools.partial(nn.InstanceNorm2d, affine=False, track_running_stats=False)
     elif norm_type == 'adain':
         norm_layer = functools.partial(AdaptiveInstanceNorm, style_dim=style_dim)
-    elif norm_type == 'pixel'
+    elif norm_type == 'pixel':
         norm_layer = pixelwise_norm_layer
     elif norm_type == 'none':
         norm_layer = lambda x: Identity()
@@ -193,7 +193,7 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
             up_blocks=(12,10,7,5,4), bottleneck_layers=15,
             growth_rate=16, out_chans_first_conv=48, out_channels=output_nc, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method)
     elif netG == 'multi_unet':
-        net = MultiUnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method)
+        net = MultiUnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout, styled=norm=='adain', downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method)
     else:
         raise NotImplementedError('Generator model name [%s] is not recognized' % netG)
     if not (netG == 'unet_256' or 'unet_128') and progressive:
@@ -618,7 +618,7 @@ class UnetSkipConnectionBlock(nn.Module):
         self.styled = styled
         if self.styled:
             use_bias = True
-            self.adain = norm_layer(inner_nc)
+            self.adain = norm_layer(inner_nc if self.innermost else inner_nc * 2)
             self.add_noise = NoiseInjection(inner_nc)
             self.position = 0 if submodule is None else submodule.position + 1
             if innermost:
@@ -626,7 +626,7 @@ class UnetSkipConnectionBlock(nn.Module):
                 self.linear2 = nn.Linear(inner_nc, inner_nc)
         elif type(norm_layer) == functools.partial:
             use_bias = norm_layer.func == nn.InstanceNorm2d
-        elif:
+        else:
             use_bias = norm_layer != nn.BatchNorm2d
         if input_nc is None:
             input_nc = outer_nc
@@ -1086,18 +1086,20 @@ class MultiUnetGenerator(nn.Module):
         super(MultiUnetGenerator, self).__init__()
         self.num_downs = num_downs
         self.styled = styled
+        core_norm_layer = norm_layer
         if styled:
-            norm_layer = get_norm_layer('adain', style_dim=8 * ngf)
+            core_norm_layer = get_norm_layer('adain', style_dim=8 * ngf)
+            norm_layer = nn.BatchNorm2d
         
         new_input_size = int(ngf / 2)
         # construct unet structure
-        unet_block = ModifiedUnetBlock(ngf * 8, ngf * 8, new_input_size, submodule=None, norm_layer=norm_layer, styled=styled, downsample_mode=downsample_mode, upsample_mode=upsample_mode)  # add the innermost layer
+        unet_block = ModifiedUnetBlock(ngf * 8, ngf * 8, new_input_size, submodule=None, norm_layer=core_norm_layer, styled=styled, downsample_mode=downsample_mode, upsample_mode=upsample_mode)  # add the innermost layer
         for i in range(num_downs - 4):          # add intermediate layers with ngf * 8 filters
-            unet_block = ModifiedUnetBlock(ngf * 8, ngf * 8, new_input_size, submodule=unet_block, norm_layer=norm_layer, use_dropout=use_dropout, styled=styled, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
+            unet_block = ModifiedUnetBlock(ngf * 8, ngf * 8, new_input_size, submodule=unet_block, norm_layer=core_norm_layer, use_dropout=use_dropout, styled=styled, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
         # gradually reduce the number of filters from ngf * 8 to ngf
-        unet_block = ModifiedUnetBlock(ngf * 4, ngf * 8, new_input_size, submodule=unet_block, norm_layer=norm_layer, styled=styled, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
-        unet_block = ModifiedUnetBlock(ngf * 2, ngf * 4, new_input_size, submodule=unet_block, norm_layer=norm_layer, styled=styled, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
-        unet_block = ModifiedUnetBlock(ngf, ngf * 2, new_input_size, submodule=unet_block, norm_layer=norm_layer, styled=styled, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
+        unet_block = ModifiedUnetBlock(ngf * 4, ngf * 8, new_input_size, submodule=unet_block, norm_layer=core_norm_layer, styled=styled, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
+        unet_block = ModifiedUnetBlock(ngf * 2, ngf * 4, new_input_size, submodule=unet_block, norm_layer=core_norm_layer, styled=styled, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
+        unet_block = ModifiedUnetBlock(ngf, ngf * 2, new_input_size, submodule=unet_block, norm_layer=core_norm_layer, styled=styled, outermost=True downsample_mode=downsample_mode, upsample_mode=upsample_mode)
         self.model = unet_block
         
         self.input_map = nn.Sequential(*[nn.Conv2d(input_nc, ngf, kernel_size=3, stride=1, padding=1, bias=False),
@@ -1126,12 +1128,14 @@ class MultiUnetGenerator(nn.Module):
         
 class ModifiedUnetBlock(nn.Module):
     def __init__(self, outer_nc, inner_nc, input_nc,
-                 submodule=None, norm_layer=nn.BatchNorm2d, use_dropout=False, styled=False, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest'):
+                 submodule=None, norm_layer=nn.BatchNorm2d, use_dropout=False, styled=False, outermost=False, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest'):
         super(ModifiedUnetBlock, self).__init__()
+        self.styled = styled
         if self.styled:
             use_bias = True
-            self.adain = norm_layer(inner_nc)
-            if innermost:
+            self.adain = norm_layer(inner_nc if submodule is None else inner_nc * 2)
+            norm_layer = nn.BatchNorm2d
+            if submodule is None:
                 self.linear1 = nn.Linear(inner_nc, inner_nc)
                 self.linear2 = nn.Linear(inner_nc, inner_nc)
         elif type(norm_layer) == functools.partial:
@@ -1161,6 +1165,8 @@ class ModifiedUnetBlock(nn.Module):
         self.submodule = submodule
         inconv = [nn.Conv2d(input_nc, outer_nc, kernel_size=3, stride=1, padding=1),
             nn.Conv2d(outer_nc, outer_nc, kernel_size=3, stride=1, padding=1), norm_layer(outer_nc)]
+        if self.styled:
+            inconv += [nn.AvgPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=False)]
         self.inconv = nn.Sequential(*inconv)
         self.inconv_scalar = torch.cuda.FloatTensor(1)
         self.inconv_scalar.requires_grad = True
@@ -1172,7 +1178,7 @@ class ModifiedUnetBlock(nn.Module):
 
     def forward(self, x, input):
         if self.styled:
-            return styled_forward(x, input)
+            return self.styled_forward(x, input)
         transformed_input = self.inconv(input)
         residual_x = x + self.inconv_scalar * transformed_input
         submodule_x = self.down(residual_x)
@@ -1192,13 +1198,18 @@ class ModifiedUnetBlock(nn.Module):
         submodule_x = self.down(x)
         if self.submodule is None:
             style = self.linear2(self.linear1(submodule_x.mean(-1).mean(-1)))
-            submodule_outputs = [torch.cat([x, self.up(submodule_x)], 1)]
+            intermediate = self.adain(submodule_x + noise, style)
+            intermediate = self.up(intermediate)
+            submodule_outputs = [torch.cat([x, intermediate], 1)]
         else:
             decimated_input = self.decimation(input)
             submodule_outputs, style = self.submodule(submodule_x, decimated_input)
-            intermediate = self.up(submodule_outputs[-1]) + noise
+            intermediate = submodule_outputs[-1]
+            if noise.size() == intermediate.size():
+                intermediate = intermediate + noise
             intermediate = self.adain(intermediate, style)
-            feature_output = torch.cat([residual_x, intermediate], 1)
+            intermediate = self.up(intermediate)
+            feature_output = torch.cat([x, intermediate], 1)
             submodule_outputs.append(feature_output)
 
         return submodule_outputs, style

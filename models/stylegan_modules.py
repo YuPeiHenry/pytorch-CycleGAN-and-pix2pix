@@ -1,3 +1,4 @@
+import torch.nn as nn
 
 # Taken from https://github.com/rosinality/style-based-gan-pytorch
 
@@ -30,8 +31,8 @@ class AdaptiveInstanceNorm(nn.Module):
         self.style = nn.Linear(style_dim, in_channel * 2)
         self.style.weight.data.normal_()
 
-        self.style.linear.bias.data[:in_channel] = 1
-        self.style.linear.bias.data[in_channel:] = 0
+        self.style.bias.data[:in_channel] = 1
+        self.style.bias.data[in_channel:] = 0
 
     def forward(self, input, style):
         style = self.style(style).unsqueeze(2).unsqueeze(3)
