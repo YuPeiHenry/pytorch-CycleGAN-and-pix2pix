@@ -1203,7 +1203,7 @@ class ModifiedUnetBlock(nn.Module):
             decimated_input = self.decimation(input)
             submodule_outputs, style = self.submodule(submodule_x, decimated_input)
             intermediate = submodule_outputs[-1]
-            intermediate = self.adain(intermediate.copy(), style)
+            intermediate = self.adain(intermediate.clone(), style)
             feature_output = torch.cat([residual_x, self.up(intermediate)], 1)
             submodule_outputs.append(feature_output)
 
