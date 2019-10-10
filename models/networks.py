@@ -1099,7 +1099,7 @@ class MultiUnetGenerator(nn.Module):
         # gradually reduce the number of filters from ngf * 8 to ngf
         unet_block = ModifiedUnetBlock(ngf * 4, ngf * 8, new_input_size, submodule=unet_block, norm_layer=core_norm_layer, styled=styled, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
         unet_block = ModifiedUnetBlock(ngf * 2, ngf * 4, new_input_size, submodule=unet_block, norm_layer=core_norm_layer, styled=styled, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
-        unet_block = ModifiedUnetBlock(ngf, ngf * 2, new_input_size, submodule=unet_block, norm_layer=core_norm_layer, styled=styled, outermost=True downsample_mode=downsample_mode, upsample_mode=upsample_mode)
+        unet_block = ModifiedUnetBlock(ngf, ngf * 2, new_input_size, submodule=unet_block, norm_layer=core_norm_layer, styled=styled,  downsample_mode=downsample_mode, upsample_mode=upsample_mode)
         self.model = unet_block
         
         self.input_map = nn.Sequential(*[nn.Conv2d(input_nc, ngf, kernel_size=3, stride=1, padding=1, bias=False),
