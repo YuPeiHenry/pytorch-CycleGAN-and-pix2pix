@@ -511,7 +511,6 @@ class UnetGenerator(nn.Module):
         It is a recursive process.
         """
         super(UnetGenerator, self).__init__()
-        self.styled = styled
         self.progressive = progressive
         self.n_stage = n_stage
         blocks = []
@@ -622,6 +621,9 @@ class UnetSkipConnectionBlock(nn.Module):
             self.adain = norm_layer(inner_nc)
             self.add_noise = NoiseInjection(inner_nc)
             self.position = 0 if submodule is None else submodule.position + 1
+            if innermost:
+                self.linear1 = nn.Linear(inner_nc, inner_nc)
+                self.linear2 = nn.Linear(inner_nc, inner_nc)
         elif type(norm_layer) == functools.partial:
             use_bias = norm_layer.func == nn.InstanceNorm2d
         elif:
@@ -663,7 +665,7 @@ class UnetSkipConnectionBlock(nn.Module):
         style = None
         if self.submodule is None and self.styled:
             intermediate = self.down(x)
-            style = intermediate.mean(-1).mean(-1)
+            style = self.linear2(self.linear1(intermediate.mean(-1).mean(-1)))
         else:
             intermediate, style = self.submodule(self.down(x), noise)
 
@@ -1086,8 +1088,6 @@ class MultiUnetGenerator(nn.Module):
         self.styled = styled
         if styled:
             norm_layer = get_norm_layer('adain', style_dim=8 * ngf)
-            self.noise_length = [2 ** min(i, 3) for i in range(num_downs)]
-            self.noise_length.reverse()
         
         new_input_size = int(ngf / 2)
         # construct unet structure
@@ -1117,7 +1117,7 @@ class MultiUnetGenerator(nn.Module):
         input1 = self.input_map(input)
         input2 = self.input_map2(input)
         num_downs = self.num_downs
-        submodule_outputs =  self.model(input1, input2)
+        submodule_outputs =  self.model(input1, input2)[0]
         outputs = [getattr(self, 'feature_conv'+str(num_downs - 3))(submodule_outputs[num_downs - 3])]
         for i in range(num_downs - 3 + 1, self.num_downs):
             outputs.append(self.upsample(outputs[-1]) + getattr(self, 'feature_conv'+str(i))(submodule_outputs[i]))
@@ -1128,24 +1128,30 @@ class ModifiedUnetBlock(nn.Module):
     def __init__(self, outer_nc, inner_nc, input_nc,
                  submodule=None, norm_layer=nn.BatchNorm2d, use_dropout=False, styled=False, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest'):
         super(ModifiedUnetBlock, self).__init__()
-        if type(norm_layer) == functools.partial:
+        if self.styled:
+            use_bias = True
+            self.adain = norm_layer(inner_nc)
+            if innermost:
+                self.linear1 = nn.Linear(inner_nc, inner_nc)
+                self.linear2 = nn.Linear(inner_nc, inner_nc)
+        elif type(norm_layer) == functools.partial:
             use_bias = norm_layer.func == nn.InstanceNorm2d
         else:
             use_bias = norm_layer == nn.InstanceNorm2d
         downconv = getDownsample(outer_nc, inner_nc, 4, 2, 1, use_bias, downsample_mode=downsample_mode)
         downrelu = nn.LeakyReLU(0.2, True)
-        downnorm = norm_layer(inner_nc)
+        downnorm = [norm_layer(inner_nc)] if not self.styled else []
         uprelu = nn.ReLU(True)
-        upnorm = norm_layer(outer_nc)
+        upnorm = [norm_layer(outer_nc)] if not self.styled else []
 
         if submodule is None:
             upconv = getUpsample(inner_nc, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method)
             down = [downrelu] + downconv
-            up = [uprelu] + upconv + [upnorm]
+            up = [uprelu] + upconv + upnorm
         else:
             upconv = getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method)
-            down = [downrelu] + downconv + [downnorm]
-            up = [uprelu] + upconv + [upnorm]
+            down = [downrelu] + downconv + downnorm
+            up = [uprelu] + upconv + upnorm
 
             if use_dropout:
                 up = up + [nn.Dropout(0.5)]
@@ -1185,7 +1191,7 @@ class ModifiedUnetBlock(nn.Module):
         noise = self.inconv_scalar * transformed_input
         submodule_x = self.down(x)
         if self.submodule is None:
-            style = submodule_x.mean(-1).mean(-1)
+            style = self.linear2(self.linear1(submodule_x.mean(-1).mean(-1)))
             submodule_outputs = [torch.cat([x, self.up(submodule_x)], 1)]
         else:
             decimated_input = self.decimation(input)
