@@ -1192,21 +1192,20 @@ class ModifiedUnetBlock(nn.Module):
             submodule_outputs.append(feature_output)
         return submodule_outputs, None
 
-    def styled_forward(self, x):
+    def styled_forward(self, x, input):
         transformed_input = self.inconv(input)
         noise = self.inconv_scalar * transformed_input
         submodule_x = self.down(x)
         if self.submodule is None:
             style = self.linear2(self.linear1(submodule_x.mean(-1).mean(-1)))
-            intermediate = self.adain(submodule_x + noise, style)
+            intermediate = self.adain(submodule_x + noise.repeat(1, 2, 1, 1), style)
             intermediate = self.up(intermediate)
             submodule_outputs = [torch.cat([x, intermediate], 1)]
         else:
             decimated_input = self.decimation(input)
             submodule_outputs, style = self.submodule(submodule_x, decimated_input)
             intermediate = submodule_outputs[-1]
-            if noise.size() == intermediate.size():
-                intermediate = intermediate + noise
+            intermediate = intermediate + noise.repeat(1, 4, 1, 1)
             intermediate = self.adain(intermediate, style)
             intermediate = self.up(intermediate)
             feature_output = torch.cat([x, intermediate], 1)
