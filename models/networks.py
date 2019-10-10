@@ -1165,8 +1165,6 @@ class ModifiedUnetBlock(nn.Module):
         self.submodule = submodule
         inconv = [nn.Conv2d(input_nc, outer_nc, kernel_size=3, stride=1, padding=1),
             nn.Conv2d(outer_nc, outer_nc, kernel_size=3, stride=1, padding=1), norm_layer(outer_nc)]
-        if self.styled:
-            inconv += [nn.AvgPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=False)]
         self.inconv = nn.Sequential(*inconv)
         self.inconv_scalar = torch.cuda.FloatTensor(1)
         self.inconv_scalar.requires_grad = True
