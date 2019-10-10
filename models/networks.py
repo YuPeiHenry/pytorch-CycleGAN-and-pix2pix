@@ -5,6 +5,7 @@ import functools
 from torch.optim import lr_scheduler
 from torch.autograd import Variable
 from .layers import *
+from .stylegan_modules import *
 import numpy as np
 
 
@@ -25,7 +26,7 @@ class pixelwise_norm_layer(nn.Module):
     def forward(self, x):
         return x / (torch.mean(x**2, dim=1, keepdim=True) + self.eps) ** 0.5
 
-def get_norm_layer(norm_type='instance'):
+def get_norm_layer(norm_type='instance', style_dim=512):
     """Return a normalization layer
 
     Parameters:
@@ -38,6 +39,10 @@ def get_norm_layer(norm_type='instance'):
         norm_layer = functools.partial(nn.BatchNorm2d, affine=True, track_running_stats=True)
     elif norm_type == 'instance':
         norm_layer = functools.partial(nn.InstanceNorm2d, affine=False, track_running_stats=False)
+    elif norm_type == 'adain':
+        norm_layer = functools.partial(AdaptiveInstanceNorm, style_dim=style_dim)
+    elif norm_type == 'pixel'
+        norm_layer = pixelwise_norm_layer
     elif norm_type == 'none':
         norm_layer = lambda x: Identity()
     else:
@@ -162,9 +167,9 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
     elif netG == 'resnet_6blocks':
         net = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=6, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method)
     elif netG == 'unet_128':
-        net = UnetGenerator(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout, progressive=progressive, n_stage=progressive_stages, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method)
+        net = UnetGenerator(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout, styled=norm=='adain', progressive=progressive, n_stage=progressive_stages, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method)
     elif netG == 'unet_256':
-        net = UnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout, progressive=progressive, n_stage=progressive_stages, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method)
+        net = UnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout, styled=norm=='adain', progressive=progressive, n_stage=progressive_stages, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method)
     elif netG == 'global':
         net = GlobalGenerator(input_nc, output_nc, ngf, n_downsample_global, n_blocks_global, norm_layer)
     elif netG == 'local':        
@@ -492,7 +497,7 @@ class ResnetBlock(nn.Module):
 class UnetGenerator(nn.Module):
     """Create a Unet-based generator"""
 
-    def __init__(self, input_nc, output_nc, num_downs, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, progressive=False, n_stage=4, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest'):
+    def __init__(self, input_nc, output_nc, num_downs, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, styled=False, progressive=False, n_stage=4, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest'):
         """Construct a Unet generator
         Parameters:
             input_nc (int)  -- the number of channels in input images
@@ -506,21 +511,27 @@ class UnetGenerator(nn.Module):
         It is a recursive process.
         """
         super(UnetGenerator, self).__init__()
+        self.styled = styled
         self.progressive = progressive
         self.n_stage = n_stage
         blocks = []
+        
+        if styled:
+            norm_layer = get_norm_layer('adain', style_dim=8 * ngf)
+			self.noise_length = [2 ** min(i, 3) for i in range(num_downs)]
+			self.noise_length.reverse()
         # construct unet structure
-        unet_block = UnetSkipConnectionBlock(ngf * 8, ngf * 8, input_nc=None, submodule=None, norm_layer=norm_layer, innermost=True, downsample_mode=downsample_mode, upsample_mode=upsample_mode)  # add the innermost layer
+        unet_block = UnetSkipConnectionBlock(ngf * 8, ngf * 8, input_nc=None, submodule=None, norm_layer=norm_layer, styled=styled, innermost=True, downsample_mode=downsample_mode, upsample_mode=upsample_mode)  # add the innermost layer
         for i in range(num_downs - 5):          # add intermediate layers with ngf * 8 filters
-            unet_block = UnetSkipConnectionBlock(ngf * 8, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer, use_dropout=use_dropout, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
+            unet_block = UnetSkipConnectionBlock(ngf * 8, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer, styled=styled, use_dropout=use_dropout, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
         # gradually reduce the number of filters from ngf * 8 to ngf
-        unet_block = UnetSkipConnectionBlock(ngf * 4, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer, progressive=progressive, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
+        unet_block = UnetSkipConnectionBlock(ngf * 4, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer, styled=styled, progressive=progressive, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
         blocks.append(unet_block)
-        unet_block = UnetSkipConnectionBlock(ngf * 2, ngf * 4, input_nc=None, submodule=unet_block, norm_layer=norm_layer, progressive=progressive, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
+        unet_block = UnetSkipConnectionBlock(ngf * 2, ngf * 4, input_nc=None, submodule=unet_block, norm_layer=norm_layer, styled=styled, progressive=progressive, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
         blocks.append(unet_block)
-        unet_block = UnetSkipConnectionBlock(ngf, ngf * 2, input_nc=None, submodule=unet_block, norm_layer=norm_layer, progressive=progressive, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
+        unet_block = UnetSkipConnectionBlock(ngf, ngf * 2, input_nc=None, submodule=unet_block, norm_layer=norm_layer, styled=styled, progressive=progressive, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
         blocks.append(unet_block)
-        unet_block = UnetSkipConnectionBlock(output_nc, ngf, input_nc=input_nc, submodule=unet_block, outermost=True, norm_layer=norm_layer, progressive=progressive, downsample_mode=downsample_mode, upsample_mode=upsample_mode)  # add the outermost layer
+        unet_block = UnetSkipConnectionBlock(output_nc, ngf, input_nc=input_nc, submodule=unet_block, outermost=True, norm_layer=norm_layer, styled=styled, progressive=progressive, downsample_mode=downsample_mode, upsample_mode=upsample_mode)  # add the outermost layer
         blocks.append(unet_block)
         self.model = unet_block
         if not self.progressive:
@@ -544,10 +555,10 @@ class UnetGenerator(nn.Module):
             setattr(self, 'layers' + str(n), layer)
             n += 1
 
-    def forward(self, input):
+    def forward(self, input, noise=None):
         """Standard forward"""
         if not self.progressive or self.complete:
-            return self.model(input)
+            return self.model(input, noise)[0]
 
         n = self.current_block
         factor = (self.n_stage - 1 - n)
@@ -555,7 +566,7 @@ class UnetGenerator(nn.Module):
         for i in range(factor):
             decimated_input = self.decimation(decimated_input)
         if n == 0 or self.alpha >= 1:
-            combined_output = self.to_rgb[n](self.blocks[n](self.from_rgb[n](decimated_input)))
+            combined_output = self.to_rgb[n](self.blocks[n](self.from_rgb[n](decimated_input), noise)[0])
             for i in range(factor):
                 combined_output = self.upsample(combined_output)
             return combined_output        
@@ -566,11 +577,11 @@ class UnetGenerator(nn.Module):
         further_decimated_rgb = self.from_rgb[n - 1](further_decimated)
         next_input = further_decimated_rgb * (1 - a) + self.blocks[n].down(decimated_input_rgb) * a
         
-        output = self.blocks[n - 1](next_input)
+        output, style = self.blocks[n - 1](next_input, noise)
         if n < self.n_stage - 1:
-            upper_output = torch.cat([decimated_input_rgb, self.blocks[n].up(output)], 1)
+            upper_output = torch.cat([decimated_input_rgb, self.blocks[n].up_forward(output, noise, style)], 1)
         else:
-            upper_output = self.blocks[n].up(output)
+            upper_output = self.blocks[n].up_forward(output, noise, style)
         combined_output = self.upsample(self.to_rgb[n - 1](output.clone()) * (1 - a)) + self.to_rgb[n](upper_output)* a
         
         for i in range(factor):
@@ -589,7 +600,7 @@ class UnetSkipConnectionBlock(nn.Module):
     """
 
     def __init__(self, outer_nc, inner_nc, input_nc=None,
-                 submodule=None, outermost=False, innermost=False, norm_layer=nn.BatchNorm2d, use_dropout=False, progressive=False, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest'):
+                 submodule=None, outermost=False, innermost=False, norm_layer=nn.BatchNorm2d, use_dropout=False, styled=False, progressive=False, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest'):
         """Construct a Unet submodule with skip connections.
 
         Parameters:
@@ -605,20 +616,23 @@ class UnetSkipConnectionBlock(nn.Module):
         super(UnetSkipConnectionBlock, self).__init__()
         self.outermost = outermost
         self.progressive = progressive
-        if progressive:
+        self.styled = styled
+        if self.styled:
             use_bias = True
-            norm_layer = pixelwise_norm_layer
+            self.adain = norm_layer(inner_nc)
+			self.add_noise = NoiseInjection(inner_nc)
+			self.position = 0 if submodule is None else submodule.position + 1
         elif type(norm_layer) == functools.partial:
             use_bias = norm_layer.func == nn.InstanceNorm2d
-        else:
-            use_bias = norm_layer == nn.InstanceNorm2d
+        elif:
+            use_bias = norm_layer != nn.BatchNorm2d
         if input_nc is None:
             input_nc = outer_nc
         downconv = getDownsample(input_nc, inner_nc, 4, 2, 1, use_bias, downsample_mode=downsample_mode)
         downrelu = nn.LeakyReLU(0.2, True)
-        downnorm = norm_layer(inner_nc)
+        downnorm = [norm_layer(inner_nc)] if not self.styled else []
         uprelu = nn.ReLU(True)
-        upnorm = norm_layer(outer_nc)
+        upnorm = [norm_layer(outer_nc)] if not self.styled else []
 
         if outermost:
             upconv = getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, True, upsample_mode, upsample_method=upsample_method)
@@ -628,34 +642,44 @@ class UnetSkipConnectionBlock(nn.Module):
         elif innermost:
             upconv = getUpsample(inner_nc, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method)
             down = [downrelu] + downconv
-            up = [uprelu] + upconv + [upnorm]
+            up = [uprelu] + upconv + upnorm
             model = down + up
         else:
             upconv = getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method)
-            down = [downrelu] + downconv + [downnorm]
-            up = [uprelu] + upconv + [upnorm]
+            down = [downrelu] + downconv + downnorm
+            up = [uprelu] + upconv + upnorm
 
             if use_dropout:
                 up = up + [nn.Dropout(0.5)]
             model = down + [submodule] + up
 
-        if not self.progressive:
-            self.model = nn.Sequential(*model)
-            return
-        else:
-            self.down = nn.Sequential(*down)
-            self.up = nn.Sequential(*up)
-            self.submodule = submodule
 
-    def forward(self, x):
-        if self.outermost:
-            if self.progressive:
-                return self.up(self.submodule(self.down(x)))
-            return self.model(x)
-        elif self.progressive:
-            return torch.cat([x, self.up(self.submodule(self.down(x)))], 1)
-        else:   # add skip connections
-            return torch.cat([x, self.model(x)], 1)
+        self.down = nn.Sequential(*down)
+        self.up = nn.Sequential(*up)
+        self.submodule = submodule
+
+    def forward(self, x, noise=None):
+        result = None
+        style = None
+        if self.submodule is None and self.styled:
+            intermediate = self.down(x)
+            style = intermediate.mean(-1).mean(-1)
+        else:
+            intermediate, style = self.submodule(self.down(x), noise)
+
+		result = self.up_forward(x, noise)
+
+        if not self.outermost:
+            result = torch.cat([x, self.up(result)], 1)
+
+        return result, style
+
+	def up_forward(self, intermediate, noise=None, style=None):
+        if self.styled:
+			intermediate = self.add_noise(intermediate, noise[self.position])
+            intermediate = self.adain(intermediate, style)
+
+		return self.up(intermediate)
 
 # Defines the PatchGAN discriminator with the specified arguments.
 class NLayerDiscriminator(nn.Module):

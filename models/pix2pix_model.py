@@ -30,7 +30,7 @@ class Pix2PixModel(BaseModel):
         By default, we use vanilla GAN loss, UNet with batchnorm, and aligned datasets.
         """
         # changing the default values to match the pix2pix paper (https://phillipi.github.io/pix2pix/)
-        parser.set_defaults(norm='batch', netG='unet_256', dataset_mode='aligned')
+        parser.set_defaults(norm='batch', norm_G='batch', netG='unet_256', dataset_mode='aligned')
         parser.add_argument('--progressive', action='store_true', help='progressive growing of networks')
         parser.add_argument('--progressive_stages', type=int, default=4, help='Number of stages in progression.')
         if is_train:
@@ -61,7 +61,7 @@ class Pix2PixModel(BaseModel):
         else:  # during test time, only load G
             self.model_names = ['G']
         # define networks (both generator and discriminator)
-        self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm,
+        self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.normG,
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, progressive=opt.progressive, progressive_stages=opt.progressive_stages, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method)
 
         if self.isTrain:  # define a discriminator; conditional GANs need to take both input and output images; Therefore, #channels for D is input_nc + output_nc
@@ -92,10 +92,23 @@ class Pix2PixModel(BaseModel):
         self.real_A = input['A' if AtoB else 'B'].to(self.device)
         self.real_B = input['B' if AtoB else 'A'].to(self.device)
         self.image_paths = input['A_paths' if AtoB else 'B_paths']
+        
+        if self.opt.normG == 'adain':
+            noise_inputs = []
+            batch_size = self.real_A.size()[0]
+            for length in self.netG.module.noise_length:
+                z = (np.random.randn((batch_size, length)).astype(np.float32) - 0.5) / 0.5
+                z = torch.autograd.Variable(torch.from_numpy(z), requires_grad=False).to(self.device)
+                noise_inputs.append(z)
+        else:
+            self.noise_inputs = None
 
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
-        self.fake_B = self.netG(self.real_A)  # G(A)
+        if 'unet' in self.opt.netG:
+            self.fake_B = self.netG(self.real_A, self.noise_inputs)
+        else:
+            self.fake_B = self.netG(self.real_A)
 
     def backward_D(self):
         """Calculate GAN loss for the discriminator"""
