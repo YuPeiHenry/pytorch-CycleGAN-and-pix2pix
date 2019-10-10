@@ -518,8 +518,8 @@ class UnetGenerator(nn.Module):
         
         if styled:
             norm_layer = get_norm_layer('adain', style_dim=8 * ngf)
-			self.noise_length = [2 ** min(i, 3) for i in range(num_downs)]
-			self.noise_length.reverse()
+            self.noise_length = [2 ** min(i, 3) for i in range(num_downs)]
+            self.noise_length.reverse()
         # construct unet structure
         unet_block = UnetSkipConnectionBlock(ngf * 8, ngf * 8, input_nc=None, submodule=None, norm_layer=norm_layer, styled=styled, innermost=True, downsample_mode=downsample_mode, upsample_mode=upsample_mode)  # add the innermost layer
         for i in range(num_downs - 5):          # add intermediate layers with ngf * 8 filters
@@ -620,8 +620,8 @@ class UnetSkipConnectionBlock(nn.Module):
         if self.styled:
             use_bias = True
             self.adain = norm_layer(inner_nc)
-			self.add_noise = NoiseInjection(inner_nc)
-			self.position = 0 if submodule is None else submodule.position + 1
+            self.add_noise = NoiseInjection(inner_nc)
+            self.position = 0 if submodule is None else submodule.position + 1
         elif type(norm_layer) == functools.partial:
             use_bias = norm_layer.func == nn.InstanceNorm2d
         elif:
@@ -667,19 +667,19 @@ class UnetSkipConnectionBlock(nn.Module):
         else:
             intermediate, style = self.submodule(self.down(x), noise)
 
-		result = self.up_forward(x, noise)
+        result = self.up_forward(x, noise)
 
         if not self.outermost:
             result = torch.cat([x, self.up(result)], 1)
 
         return result, style
 
-	def up_forward(self, intermediate, noise=None, style=None):
+    def up_forward(self, intermediate, noise=None, style=None):
         if self.styled:
-			intermediate = self.add_noise(intermediate, noise[self.position])
+            intermediate = self.add_noise(intermediate, noise[self.position])
             intermediate = self.adain(intermediate, style)
 
-		return self.up(intermediate)
+        return self.up(intermediate)
 
 # Defines the PatchGAN discriminator with the specified arguments.
 class NLayerDiscriminator(nn.Module):
@@ -1080,18 +1080,24 @@ class FCDenseNet(nn.Module):
         return out
 
 class MultiUnetGenerator(nn.Module):
-    def __init__(self, input_nc, output_nc, num_downs, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest'):
+    def __init__(self, input_nc, output_nc, num_downs, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, styled=False, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest'):
         super(MultiUnetGenerator, self).__init__()
         self.num_downs = num_downs
+        self.styled = styled
+        if styled:
+            norm_layer = get_norm_layer('adain', style_dim=8 * ngf)
+            self.noise_length = [2 ** min(i, 3) for i in range(num_downs)]
+            self.noise_length.reverse()
+        
         new_input_size = int(ngf / 2)
         # construct unet structure
-        unet_block = ModifiedUnetBlock(ngf * 8, ngf * 8, new_input_size, submodule=None, norm_layer=norm_layer, downsample_mode=downsample_mode, upsample_mode=upsample_mode)  # add the innermost layer
+        unet_block = ModifiedUnetBlock(ngf * 8, ngf * 8, new_input_size, submodule=None, norm_layer=norm_layer, styled=styled, downsample_mode=downsample_mode, upsample_mode=upsample_mode)  # add the innermost layer
         for i in range(num_downs - 4):          # add intermediate layers with ngf * 8 filters
-            unet_block = ModifiedUnetBlock(ngf * 8, ngf * 8, new_input_size, submodule=unet_block, norm_layer=norm_layer, use_dropout=use_dropout, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
+            unet_block = ModifiedUnetBlock(ngf * 8, ngf * 8, new_input_size, submodule=unet_block, norm_layer=norm_layer, use_dropout=use_dropout, styled=styled, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
         # gradually reduce the number of filters from ngf * 8 to ngf
-        unet_block = ModifiedUnetBlock(ngf * 4, ngf * 8, new_input_size, submodule=unet_block, norm_layer=norm_layer, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
-        unet_block = ModifiedUnetBlock(ngf * 2, ngf * 4, new_input_size, submodule=unet_block, norm_layer=norm_layer, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
-        unet_block = ModifiedUnetBlock(ngf, ngf * 2, new_input_size, submodule=unet_block, norm_layer=norm_layer, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
+        unet_block = ModifiedUnetBlock(ngf * 4, ngf * 8, new_input_size, submodule=unet_block, norm_layer=norm_layer, styled=styled, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
+        unet_block = ModifiedUnetBlock(ngf * 2, ngf * 4, new_input_size, submodule=unet_block, norm_layer=norm_layer, styled=styled, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
+        unet_block = ModifiedUnetBlock(ngf, ngf * 2, new_input_size, submodule=unet_block, norm_layer=norm_layer, styled=styled, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
         self.model = unet_block
         
         self.input_map = nn.Sequential(*[nn.Conv2d(input_nc, ngf, kernel_size=3, stride=1, padding=1, bias=False),
@@ -1120,7 +1126,7 @@ class MultiUnetGenerator(nn.Module):
         
 class ModifiedUnetBlock(nn.Module):
     def __init__(self, outer_nc, inner_nc, input_nc,
-                 submodule=None, norm_layer=nn.BatchNorm2d, use_dropout=False, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest'):
+                 submodule=None, norm_layer=nn.BatchNorm2d, use_dropout=False, styled=False, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest'):
         super(ModifiedUnetBlock, self).__init__()
         if type(norm_layer) == functools.partial:
             use_bias = norm_layer.func == nn.InstanceNorm2d
@@ -1159,6 +1165,8 @@ class ModifiedUnetBlock(nn.Module):
         self.decimation = nn.Sequential(*decimation) if self.submodule is not None else None
 
     def forward(self, x, input):
+        if self.styled:
+            return styled_forward(x, input)
         transformed_input = self.inconv(input)
         residual_x = x + self.inconv_scalar * transformed_input
         submodule_x = self.down(residual_x)
@@ -1167,10 +1175,27 @@ class ModifiedUnetBlock(nn.Module):
             submodule_outputs = [torch.cat([residual_x, self.up(submodule_x)], 1)]
         else:
             decimated_input = self.decimation(input)
-            submodule_outputs = self.submodule(submodule_x, decimated_input)
+            submodule_outputs, _ = self.submodule(submodule_x, decimated_input)
             feature_output = torch.cat([residual_x, self.up(submodule_outputs[-1])], 1)
             submodule_outputs.append(feature_output)
-        return submodule_outputs
+        return submodule_outputs, None
+
+    def styled_forward(self, x):
+        transformed_input = self.inconv(input)
+        noise = self.inconv_scalar * transformed_input
+        submodule_x = self.down(x)
+        if self.submodule is None:
+            style = submodule_x.mean(-1).mean(-1)
+            submodule_outputs = [torch.cat([x, self.up(submodule_x)], 1)]
+        else:
+            decimated_input = self.decimation(input)
+            submodule_outputs, style = self.submodule(submodule_x, decimated_input)
+            intermediate = self.up(submodule_outputs[-1]) + noise
+            intermediate = self.adain(intermediate, style)
+            feature_output = torch.cat([residual_x, intermediate], 1)
+            submodule_outputs.append(feature_output)
+
+        return submodule_outputs, style
 
 class MultiNLayerDiscriminator(nn.Module):
     def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d, use_sigmoid=False, downsample_mode='strided', upsample_method='nearest'):
