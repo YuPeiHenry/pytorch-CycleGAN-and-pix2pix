@@ -517,7 +517,7 @@ class UnetGenerator(nn.Module):
         
         if styled:
             norm_layer = get_norm_layer('adain', style_dim=8 * ngf)
-            self.noise_length = [2 ** min(i, 3) for i in range(num_downs)]
+            self.noise_length = [ngf * 2 * 2 ** min(i, 3) for i in range(num_downs - 1)] + [ngf * 8]
             self.noise_length.reverse()
         # construct unet structure
         unet_block = UnetSkipConnectionBlock(ngf * 8, ngf * 8, input_nc=None, submodule=None, norm_layer=norm_layer, styled=styled, innermost=True, downsample_mode=downsample_mode, upsample_mode=upsample_mode)  # add the innermost layer

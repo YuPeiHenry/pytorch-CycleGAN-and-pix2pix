@@ -94,12 +94,12 @@ class Pix2PixModel(BaseModel):
         self.image_paths = input['A_paths' if AtoB else 'B_paths']
         
         if self.opt.normG == 'adain':
-            noise_inputs = []
+            self.noise_inputs = []
             batch_size = self.real_A.size()[0]
             for length in self.netG.module.noise_length:
-                z = (np.random.randn((batch_size, length)).astype(np.float32) - 0.5) / 0.5
+                z = (np.random.rand(batch_size, length).astype(np.float32) - 0.5) / 0.5
                 z = torch.autograd.Variable(torch.from_numpy(z), requires_grad=False).to(self.device)
-                noise_inputs.append(z)
+                self.noise_inputs.append(z)
         else:
             self.noise_inputs = None
 
@@ -118,7 +118,7 @@ class Pix2PixModel(BaseModel):
         # Real
         real_B = self.real_B
         if self.opt.add_noise:
-            z = (np.random.randn(*self.fake_B.size()).astype(np.float32) - 0.5) * 0.1
+            z = (np.random.rand(*self.fake_B.size()).astype(np.float32) - 0.5) * 0.1
             z = torch.autograd.Variable(torch.from_numpy(z), requires_grad=False).to(self.device)
             real_B = real_B + z
         real_AB = torch.cat((self.real_A, real_B), 1)
