@@ -5,15 +5,6 @@ import numpy as np
 
 
 class UnetModel(BaseModel):
-    """ This class implements the pix2pix model, for learning a mapping from input images to output images given paired data.
-
-    The model training requires '--dataset_mode aligned' dataset.
-    By default, it uses a '--netG unet256' U-Net generator,
-    a '--netD basic' discriminator (PatchGAN),
-    and a '--gan_mode' vanilla GAN loss (the cross-entropy objective used in the orignal GAN paper).
-
-    pix2pix paper: https://arxiv.org/pdf/1611.07004.pdf
-    """
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
         parser.set_defaults(norm='batch', norm_G='batch', netG='unet_256', dataset_mode='erosion', input_nc=3, output_nc=1, preprocess='N.A.', image_type='uint16', image_value_bound=26350, no_flip=True)
@@ -23,11 +14,6 @@ class UnetModel(BaseModel):
         return parser
 
     def __init__(self, opt):
-        """Initialize the pix2pix class.
-
-        Parameters:
-            opt (Option class)-- stores all the experiment flags; needs to be a subclass of BaseOptions
-        """
         BaseModel.__init__(self, opt)
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
         self.loss_names = ['G_L2']

@@ -7,7 +7,7 @@ from torch.autograd import Variable
 from .layers import *
 from .stylegan_modules import *
 import numpy as np
-
+import types
 
 ###############################################################################
 # Helper Functions
@@ -540,7 +540,7 @@ class UnetGenerator(nn.Module):
         self.blocks = blocks
         self.current_block = 0
         self.complete = False
-        self.from_rgb = [nn.Conv2d(input_nc, ngf * (2 ** (2 - i)), kernel_size=1, stride=1, padding=0, bias=True) for i in range(self.n_stage - 1)]
+        self.from_rgb = [nn.Conv2d(input_nc, ngf * 2 ** (2 - i), kernel_size=1, stride=1, padding=0, bias=True) for i in range(self.n_stage - 1)]
         self.from_rgb.append(lambda x: x)
         self.to_rgb = [nn.Conv2d(ngf * (2 ** (self.n_stage - 1 - i)), output_nc, kernel_size=1, stride=1, padding=0, bias=True) for i in range(self.n_stage - 1)]
         self.to_rgb.append(lambda x: x)
@@ -620,10 +620,11 @@ class UnetSkipConnectionBlock(nn.Module):
             use_bias = True
             self.adain = norm_layer(inner_nc if self.innermost else inner_nc * 2)
             self.add_noise = NoiseInjection(inner_nc)
+            self.up_activation = nn.ReLU(True)
             self.position = 0 if submodule is None else submodule.position + 1
             if innermost:
-                self.linear1 = nn.Linear(inner_nc, inner_nc)
-                self.linear2 = nn.Linear(inner_nc, inner_nc)
+                self.linear1 = nn.Sequential(nn.ReLU(True), nn.Linear(inner_nc, inner_nc))
+                self.linear2 = nn.Sequential(nn.ReLU(True), nn.Linear(inner_nc, inner_nc))
         elif type(norm_layer) == functools.partial:
             use_bias = norm_layer.func == nn.InstanceNorm2d
         else:
@@ -632,24 +633,24 @@ class UnetSkipConnectionBlock(nn.Module):
             input_nc = outer_nc
         downconv = getDownsample(input_nc, inner_nc, 4, 2, 1, use_bias, downsample_mode=downsample_mode)
         downrelu = nn.LeakyReLU(0.2, True)
-        downnorm = [norm_layer(inner_nc)] if not self.styled else []
-        uprelu = nn.ReLU(True)
+        downnorm = [norm_layer(inner_nc)]
+        uprelu = [nn.ReLU(True)] if not self.styled else []
         upnorm = [norm_layer(outer_nc)] if not self.styled else []
 
         if outermost:
             upconv = getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, True, upsample_mode, upsample_method=upsample_method)
             down = downconv
-            up = [uprelu] + upconv + [nn.Tanh()]
+            up = uprelu + upconv + [nn.Tanh()]
             model = down + [submodule] + up
         elif innermost:
             upconv = getUpsample(inner_nc, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method)
             down = [downrelu] + downconv
-            up = [uprelu] + upconv + upnorm
+            up = uprelu + upconv + upnorm
             model = down + up
         else:
             upconv = getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method)
             down = [downrelu] + downconv + downnorm
-            up = [uprelu] + upconv + upnorm
+            up = uprelu + upconv + upnorm
 
             if use_dropout:
                 up = up + [nn.Dropout(0.5)]
@@ -677,8 +678,8 @@ class UnetSkipConnectionBlock(nn.Module):
         return result, style
 
     def up_forward(self, intermediate, noise=None, style=None):
-        if self.styled:
-            intermediate = self.add_noise(intermediate, noise[self.position])
+        if self.styled and not self.outermost:
+            intermediate = self.up_activation(self.add_noise(intermediate, noise[self.position]))
             intermediate = self.adain(intermediate, style)
 
         return self.up(intermediate)
@@ -1102,17 +1103,17 @@ class MultiUnetGenerator(nn.Module):
         unet_block = ModifiedUnetBlock(ngf, ngf * 2, new_input_size, submodule=unet_block, norm_layer=core_norm_layer, styled=styled,  downsample_mode=downsample_mode, upsample_mode=upsample_mode)
         self.model = unet_block
         
-        self.input_map = nn.Sequential(*[nn.Conv2d(input_nc, ngf, kernel_size=3, stride=1, padding=1, bias=False),
-            norm_layer(ngf), nn.LeakyReLU(0.2, True)])
-        self.input_map2 = nn.Sequential(*[nn.Conv2d(input_nc, new_input_size, kernel_size=3, stride=1, padding=1, bias=False),
-            norm_layer(new_input_size), nn.LeakyReLU(0.2, True)])
+        self.input_map = nn.Sequential(nn.Conv2d(input_nc, ngf, kernel_size=3, stride=1, padding=1, bias=False),
+            norm_layer(ngf), nn.LeakyReLU(0.2, True))
+        self.input_map2 = nn.Sequential(nn.Conv2d(input_nc, new_input_size, kernel_size=3, stride=1, padding=1, bias=False),
+            norm_layer(new_input_size), nn.LeakyReLU(0.2, True))
         self.upsample = nn.Upsample(scale_factor=2, mode=upsample_method)
         for i in range(num_downs - 3, num_downs):
             exponent = min(num_downs - i - 1, 3)
             setattr(self, 'feature_conv'+str(i),
-                nn.Sequential(*[nn.Conv2d(ngf * 2 * (2 ** exponent), ngf, kernel_size=3, stride=1, padding=1, bias=False),
+                nn.Sequential(nn.LeakyReLU(0.2, True), nn.Conv2d(ngf * 2 * (2 ** exponent), ngf, kernel_size=3, stride=1, padding=1, bias=False),
                 norm_layer(ngf), nn.LeakyReLU(0.2, True),
-                nn.Conv2d(ngf, output_nc, kernel_size=3, stride=1, padding=1)]))
+                nn.Conv2d(ngf, output_nc, kernel_size=3, stride=1, padding=1)))
         self.tanh = nn.Tanh()
 
     def forward(self, input):
@@ -1134,28 +1135,29 @@ class ModifiedUnetBlock(nn.Module):
         if self.styled:
             use_bias = True
             self.adain = norm_layer(inner_nc if submodule is None else inner_nc * 2)
+            self.up_activation = nn.ReLU(True)
             norm_layer = nn.BatchNorm2d
             if submodule is None:
-                self.linear1 = nn.Linear(inner_nc, inner_nc)
-                self.linear2 = nn.Linear(inner_nc, inner_nc)
+                self.linear1 = nn.Sequential(nn.ReLU(True), nn.Linear(inner_nc, inner_nc))
+                self.linear2 = nn.Sequential(nn.ReLU(True), nn.Linear(inner_nc, inner_nc))
         elif type(norm_layer) == functools.partial:
             use_bias = norm_layer.func == nn.InstanceNorm2d
         else:
             use_bias = norm_layer == nn.InstanceNorm2d
         downconv = getDownsample(outer_nc, inner_nc, 4, 2, 1, use_bias, downsample_mode=downsample_mode)
         downrelu = nn.LeakyReLU(0.2, True)
-        downnorm = [norm_layer(inner_nc)] if not self.styled else []
-        uprelu = nn.ReLU(True)
+        downnorm = [norm_layer(inner_nc)]
+        uprelu = [nn.ReLU(True)] if not self.styled else []
         upnorm = [norm_layer(outer_nc)] if not self.styled else []
 
         if submodule is None:
             upconv = getUpsample(inner_nc, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method)
             down = [downrelu] + downconv
-            up = [uprelu] + upconv + upnorm
+            up = uprelu + upconv + upnorm
         else:
             upconv = getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method)
             down = [downrelu] + downconv + downnorm
-            up = [uprelu] + upconv + upnorm
+            up = uprelu + upconv + upnorm
 
             if use_dropout:
                 up = up + [nn.Dropout(0.5)]
@@ -1163,7 +1165,7 @@ class ModifiedUnetBlock(nn.Module):
         self.down = nn.Sequential(*down)
         self.up = nn.Sequential(*up)
         self.submodule = submodule
-        inconv = [nn.Conv2d(input_nc, outer_nc, kernel_size=3, stride=1, padding=1),
+        inconv = [nn.LeakyReLU(0.2, True), nn.Conv2d(input_nc, outer_nc, kernel_size=3, stride=1, padding=1),
             nn.Conv2d(outer_nc, outer_nc, kernel_size=3, stride=1, padding=1), norm_layer(outer_nc)]
         self.inconv = nn.Sequential(*inconv)
         self.inconv_scalar = torch.cuda.FloatTensor(1)
@@ -1196,14 +1198,14 @@ class ModifiedUnetBlock(nn.Module):
         submodule_x = self.down(residual_x)
         if self.submodule is None:
             style = self.linear2(self.linear1(submodule_x.mean(-1).mean(-1)))
-            intermediate = self.adain(submodule_x, style)
+            intermediate = self.adain(self.up_activation(submodule_x), style)
             intermediate = self.up(intermediate)
             submodule_outputs = [torch.cat([residual_x, intermediate], 1)]
         else:
             decimated_input = self.decimation(input)
             submodule_outputs, style = self.submodule(submodule_x, decimated_input)
             intermediate = submodule_outputs[-1]
-            intermediate = self.adain(intermediate.clone(), style)
+            intermediate = self.adain(self.up_activation(intermediate), style)
             feature_output = torch.cat([residual_x, self.up(intermediate)], 1)
             submodule_outputs.append(feature_output)
 
@@ -1232,10 +1234,10 @@ class MultiNLayerDiscriminator(nn.Module):
                 norm_layer(nf), nn.LeakyReLU(0.2, True),
                 nn.Conv2d(nf, 1, kernel_size=kw, stride=1, padding=padw)] + output_activation)
 
-        self.input_map = nn.Sequential(*[nn.Conv2d(input_nc, ndf, kernel_size=3, stride=1, padding=1, bias=False),
-            norm_layer(ndf), nn.LeakyReLU(0.2, True)])
-        new_input_maps = [nn.Sequential(*[nn.Conv2d(input_nc, num_filters[i], kernel_size=1, stride=1, padding=0),
-            norm_layer(num_filters[i]), nn.LeakyReLU(0.2, True)]) for i in range(n_layers)]
+        self.input_map = nn.Sequential(nn.Conv2d(input_nc, ndf, kernel_size=3, stride=1, padding=1, bias=False),
+            norm_layer(ndf), nn.LeakyReLU(0.2, True))
+        new_input_maps = [nn.Sequential(nn.Conv2d(input_nc, num_filters[i], kernel_size=1, stride=1, padding=0),
+            norm_layer(num_filters[i]), nn.LeakyReLU(0.2, True)) for i in range(n_layers)]
         self.input_map_scalars = [torch.cuda.FloatTensor(1) for i in range(n_layers)]
         for i in range(n_layers):
             self.input_map_scalars[i].requires_grad = True
@@ -1263,6 +1265,161 @@ class MultiNLayerDiscriminator(nn.Module):
         output = [input]
         for i in range(self.n_layers - 1):
             output.append(self.decimation(output[-1]))
+        return output
+
+class StyledGenerator128(nn.Module):
+    def __init__(self, input_nc, output_nc, n_class, task, ngf=64, norm_layer=nn.BatchNorm2d):
+        super(StyledGenerator128, self).__init__()
+        self.input_map1 = nn.Sequential(nn.Conv2d(input_nc, ngf, kernel_size=3, stride=1, padding=1),
+            norm_layer(ngf))
+        self.input_map2 = nn.Sequential(nn.Conv2d(input_nc + 1, ngf, kernel_size=3, stride=1, padding=1),
+            norm_layer(ngf))
+        self.task = task
+        self.encoder = StyledEncoder128(n_class, task, ngf)
+        self.decoder = StyledDecoder128(ngf)
+
+        self.upsample = nn.Upsample(scale_factor=2, mode='nearest')
+        for i in range(5):
+            setattr(self, 'feature_conv'+str(4 - i),
+                nn.Sequential(nn.LeakyReLU(0.2, True), nn.Conv2d(ngf * 2 ** i, output_nc, kernel_size=1, stride=1, padding=0)))
+        self.tanh = nn.Tanh()
+
+        if task == 'classify':
+            self.forward = types.MethodType(self.classify, self)
+        elif task == 'embedding':
+            self.forward = types.MethodType(self.embedding, self)
+
+    def classify(self, input):
+        mapped_input = self.input_map1(input)
+        logits = self.encoder(mapped_input)
+        return logits
+        
+    def embedding(self, input):
+        mapped_input = self.input_map2(input)
+        encoder_outputs, embedding = self.encoder(mapped_input)
+        encoder_outputs.reverse()
+        decoder_outputs = self.decoder(encoder_outputs[0], embedding, encoder_outputs[1:])
+        output = [getattr(self, 'feature_conv'+str(0))(decoder_outputs[0])]
+        for i in range(1, 5):
+            output = self.upsample(output) + getattr(self, 'feature_conv'+str(i))(decoder_outputs[i])
+        return self.tanh(output)
+
+class StyledDiscriminator(nn.Module):
+    def __init__(self, input_nc, n_class, task, ngf=64):
+        self.input_map = nn.Sequential(nn.Conv2d(input_nc, ngf, kernel_size=3, stride=1, padding=1),
+            norm_layer(ngf))
+        self.encoder = StyledEncoder128(n_class, task, ngf)
+
+        if task == 'classify':
+            self.forward = types.MethodType(self.classify, self)
+        elif task == 'embedding':
+            self.forward = types.MethodType(self.embedding, self)
+        elif task == 'discriminate':
+            self.forward = types.MethodType(self.discriminate, self)
+
+    def classify(self, input):
+        mapped_input = self.input_map(input)
+        logits = self.encoder(mapped_input)
+        return logits
+        
+    def embedding(self, input):
+        mapped_input = self.input_map(input)
+        encoder_outputs, _ = self.encoder(mapped_input)
+        return encoder_outputs
+
+    def discriminate(self, input):
+        mapped_input = self.input_map(input)
+        return self.encoder(mapped_input)
+
+class StyledEncoder128(nn.Module):
+    def __init__(self, n_class, task, ngf):
+        super(StyledEncoder128, self).__init__()
+        self.blocks = []
+        for i in range(5):
+            self.blocks.append(StyledEncoderBlock(ngf * 2 ** i))
+        self.linear1 = nn.Sequential(nn.ReLU(True), nn.Linear(ngf * 2 ** 6 - ngf * 2, 1024))
+        self.linear2 = nn.Sequential(nn.ReLU(True), nn.Linear(1024, 1024))
+        self.linear3 = nn.Sequential(nn.ReLU(True), nn.Linear(1024, n_class))
+        
+        if task == 'classify':
+            self.forward = types.MethodType(self.classify, self)
+        elif task == 'embedding':
+            self.forward = types.MethodType(self.embedding, self)
+        elif task == 'discriminate':
+            self.forward = types.MethodType(self.discriminate, self)
+
+    def classify(self, x):
+        _, embedding = self.embedding(flat)
+        logits = self.linear3(embedding)
+        return logits
+
+    def embedding(self, x):
+        outputs = [x]
+        for i in range(5):
+            outputs.append(self.blocks[i](outputs[-1]))
+        outputs = outputs[1:]
+        flat = torch.cat([output.mean(-1).mean(-1) for output in outputs], 1)
+        embedding = self.linear2(self.linear1(flat))
+        return outputs, embedding
+
+    def discriminate(self, x):
+        output = x
+        for i in range(5):
+            output = self.blocks[i](output)
+        return output
+
+class StyledEncoderBlock(nn.Module):
+    def __init__(self, n_c, norm_layer=nn.BatchNorm2d):
+        super(StyledEncoderBlock, self).__init__()
+        self.conv1 = nn.Sequential(nn.LeakyReLU(0.2, True), nn.Conv2d(n_c, n_c, kernel_size=3, stride=1, padding=1), norm_layer(inner_nc))
+        self.conv1 = nn.Sequential(nn.LeakyReLU(0.2, True), nn.Conv2d(n_c, n_c, kernel_size=3, stride=1, padding=1), norm_layer(inner_nc))
+        self.pool = nn.AvgPool2d(kernel_size=stride, stride=stride, padding=0, ceil_mode=False)
+    
+    def forward(x):
+        feat1 = self.conv1(x)
+        feat2 = self.conv2(x)
+        concat = torch.cat((feat1, feat2), 1)
+        return self.pool(concat + x)
+
+class StyledDecoder128(nn.Module):
+    def __init__(self, ngf):
+        super(StyledEncoder128, self).__init__()
+        norm_layer = get_norm_layer('adain', style_dim=1024)
+        self.blocks = [StyledDecoderBlock(ngf * 2 ** i, norm_layer, noiseless=True)]
+        for i in range(1, 5):
+            self.blocks.append(StyledDecoderBlock(ngf * 2 ** i, norm_layer))
+        self.blocks.reverse()
+        
+        if task == 'classify':
+            self.forward = types.MethodType(self.classify, self)
+        elif task == 'embedding':
+            self.forward = types.MethodType(self.embedding, self)
+        elif task == 'discriminate':
+            self.forward = types.MethodType(self.discriminate, self)
+
+    def forward(self, x, style, noise):
+        outputs = [x]
+        for i in range(5):
+            outputs.append(self.blocks[i](outputs[-1], style, noise[i]))
+        outputs = outputs[1:]
+        return outputs
+
+class StyledDecoderBlock(nn.Module):
+    def __init__(self, output_nc, norm_layer, noiseless=False):
+        super(ModifiedUnetBlock, self).__init__()
+        #upsample, conv, noise, activation, adain
+        self.upconv = nn.Sequential(*(getUpsample(output_nc * 2, output_nc, 3, 2, 1, True, 'upsample', upsample_method='nearest')))
+        if not noiseless:
+            self.add_noise = NoiseInjection(output_nc)
+        self.uprelu = nn.ReLU(True)
+        self.adain = norm_layer(output_nc)
+
+    def forward(self, x, style, noise):
+        output = self.upconv(x)
+        if not noiselss:
+            output = self.add_noise(output, noise)
+        output = self.uprelu(output)
+        output = self.adain(output, style)
         return output
 
 from torchvision import models

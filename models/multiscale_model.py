@@ -8,7 +8,6 @@ import numpy as np
 class MultiscaleModel(BaseModel):
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
-        # changing the default values to match the pix2pix paper (https://phillipi.github.io/pix2pix/)
         parser.set_defaults(norm='batch', norm_G='batch', dataset_mode='erosion', input_nc=3, output_nc=1, preprocess='N.A.', image_type='uint16', image_value_bound=26350, no_flip=True)
         parser.add_argument('--fixed_example', action='store_true', help='')
         parser.add_argument('--fixed_index', type=int, default=0, help='')
