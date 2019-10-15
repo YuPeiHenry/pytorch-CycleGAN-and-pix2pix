@@ -61,7 +61,7 @@ class CategoricalDataset(BaseDataset):
         path = self.paths[index % self.size]  # make sure index is within then range
         img = Image.open(path).convert('RGB')
 
-        filename = os.path.split(path)
+        _, filename = os.path.split(path)
 
         label = self.class_dict.get(filename)
         image = self.transform(img)
