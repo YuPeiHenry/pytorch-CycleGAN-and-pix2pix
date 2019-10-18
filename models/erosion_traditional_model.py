@@ -63,13 +63,7 @@ class ErosionTraditionalModel(BaseModel):
         self.loss_G_L2 = self.criterionL2(self.fake_B, self.real_B.double()) * 10000
         # combine loss and calculate gradients
         self.loss_G = self.loss_G_L2
-        #torch.nn.utils.clip_grad_value_(self.netG.parameters(), 1e-10)
         self.loss_G.backward()
-        for name, p in self.netG.named_parameters():
-            if p.grad is None:
-                continue
-            print(name)
-            print(p.grad.data)
 
     def optimize_parameters(self):
         self.forward()                   # compute fake images: G(A)
