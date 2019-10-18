@@ -32,7 +32,7 @@ class UnetModel(BaseModel):
             # define loss functions
             self.criterionL2 = torch.nn.MSELoss()
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
-            self.optimizer_G = torch.optim.Adam(self.netG.parameters() + self.netErosion.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+            self.optimizer_G = torch.optim.Adam(list(self.netG.parameters()) + list(self.netErosion.parameters()), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
 
     def set_input(self, input):
