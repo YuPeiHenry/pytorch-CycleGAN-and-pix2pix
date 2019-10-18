@@ -664,9 +664,10 @@ class UnetSkipConnectionBlock(nn.Module):
     def forward(self, x, noise=None):
         result = None
         style = None
-        if self.submodule is None and self.styled:
+        if self.submodule is None:
             intermediate = self.down(x)
-            style = self.linear2(self.linear1(intermediate.mean(-1).mean(-1)))
+            if self.styled:
+                style = self.linear2(self.linear1(intermediate.mean(-1).mean(-1)))
         else:
             intermediate, style = self.submodule(self.down(x), noise)
 
