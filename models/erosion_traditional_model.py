@@ -9,7 +9,7 @@ class ErosionTraditionalModel(BaseModel):
     def modify_commandline_options(parser, is_train=True):
         parser.set_defaults(dataset_mode='erosion', lr=0.0002, input_nc=3, output_nc=1, preprocess='N.A.', image_type='uint16', image_value_bound=26350, no_flip=True)
         parser.add_argument('--width', type=int, default=512)
-        parser.add_argument('--iterations', type=int, default=1)
+        parser.add_argument('--iterations', type=int, default=10)
         return parser
 
     def __init__(self, opt):

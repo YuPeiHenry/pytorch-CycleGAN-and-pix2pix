@@ -1100,8 +1100,8 @@ class ErosionLayer(nn.Module):
         dy = 0.5 * torch.cat(((input[:, :, 0] * 0.9 - input[:, :, 0]).view(-1, self.width, 1),
             input[:, :, 2:] - input[:, :, :-2],
             (input[:, :, -1] * 0.9 - input[:, :, -1]).view(-1, self.width, 1)), 2)
-        magnitude = torch.sqrt(dx * dx + dy * dy)
-            
+        magnitude = torch.sqrt(dx * dx + dy * dy + self.epsilon / 10)
+
         randomX = noise
         randomY = 1 - torch.sqrt(randomX * randomX)
         factor = self.relu(self.epsilon - magnitude)
