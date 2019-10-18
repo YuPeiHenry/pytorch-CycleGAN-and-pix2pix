@@ -990,6 +990,173 @@ class MultiscaleDiscriminator(nn.Module):
                 input_downsampled = self.downsample(input_downsampled)
         return result
 
+class ErosionLayer(nn.Module):
+    def __init__(self, width=512, iterations=10):
+        super(ErosionLayer, self).__init__()
+        self.width = width
+        self.iterations = iterations
+        coord_grid = np.array([[[[i, j] for i in range(self.width)] for j in range(self.width)]])
+        self.coord_grid = torch.Tensor(coord_grid).double().cuda()
+        self.zeros = torch.Tensor(np.zeros([1, self.width, self.width])).double().cuda()
+        self.blur = nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=1)
+        self.relu = nn.ReLU(True)
+        self.epsilon = 1e-10
+
+        self.cell_area = (200 / self.width) ** 2
+        # Learnable variables
+        # Water-related constants
+        
+        #inf
+        self.rain_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.1 * self.cell_area]))
+        self.rain_rate.requires_grad = True
+        #inf
+        self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.02]))
+        self.evaporation_rate.requires_grad = True
+        # Slope constants
+        #inf
+        self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([0.05]))
+        self.min_height_delta.requires_grad = True
+        self.repose_slope = torch.nn.Parameter(torch.cuda.DoubleTensor([0.015]))
+        self.repose_slope.requires_grad = True
+        #inf
+        self.gravity = torch.nn.Parameter(torch.cuda.DoubleTensor([50.0]))
+        self.gravity.requires_grad = True
+        # Sediment constants
+        #inf
+        self.sediment_capacity_constant = torch.nn.Parameter(torch.cuda.DoubleTensor([15.0]))
+        self.sediment_capacity_constant.requires_grad = True
+        #inf
+        self.dissolving_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.1]))
+        self.dissolving_rate.requires_grad = True
+        #0
+        self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.0025]))
+        self.deposition_rate.requires_grad = True
+        
+    def forward(self, input_terrain, noise, noise2):
+        batch_size = input_terrain.size()[0]
+
+        # These tensors are BatchSize x Height X Width
+        terrain = ((1 - input_terrain) / 2).view(-1, self.width, self.width).double()
+        # `sediment` is the amount of suspended "dirt" in the water. Terrain will be
+        # transfered to/from sediment depending on a number of different factors.
+        sediment = self.zeros.clone().repeat(batch_size, 1, 1)
+        # The amount of water. Responsible for carrying sediment.
+        water = sediment.clone()
+        # The water velocity.
+        velocity = sediment.clone()
+
+
+        for i in range(0, self.iterations):
+            # Add precipitation.
+            water = water + noise[:, i, :, :].view(-1, self.width, self.width) * self.rain_rate
+
+            # Compute the normalized gradient of the terrain height to determine direction of water and sediment.
+            # Gradient is 4D. BatchSize x Height X Width x 2
+            gradient = self.simple_gradient(terrain, noise2[:, i, :, :].view(-1, self.width, self.width) * self.rain_rate)
+
+            # Compute the difference between the current height the height offset by `gradient`.
+            neighbor_height = self.sample(terrain, -gradient)
+            # NOTE: height_delta has approximately no gradient
+            height_delta = terrain - neighbor_height
+
+            # If the sediment exceeds the quantity, then it is deposited, otherwise terrain is eroded.
+            sediment_capacity = (torch.max(height_delta, self.min_height_delta) / self.width) * velocity * water * self.sediment_capacity_constant
+
+            # Sediment is deposited as height is higher
+            # first_term = self.relu(-height_delta) * torch.min(1, sediment / (torch.abs(-height_delta) + self.epsilon))
+            first_term = self.relu(-height_delta) * -self.relu(-sediment / (torch.abs(-height_delta) + self.epsilon) + 1)
+            # Sediment is deposited as it exceeded capacity
+            sediment_diff = sediment - sediment_capacity
+            second_term = self.relu(sediment_diff) * self.deposition_rate
+            # Sediment is eroded otherwise
+            deposited_sediment_delta = first_term + second_term
+            deposited_sediment = self.relu(deposited_sediment_delta) * self.dissolving_rate * (sediment - sediment_capacity) + deposited_sediment_delta
+
+            # Don't erode more sediment than the current terrain height.
+            deposited_sediment = torch.max(-height_delta, deposited_sediment)
+
+            # Update terrain and sediment quantities.
+            # NOTE: Gradient needs to go through deposited_sediment
+            sediment = sediment - deposited_sediment
+            terrain = terrain + deposited_sediment
+            sediment = self.displace(sediment, gradient)
+            water = self.displace(water, gradient)
+
+            # Smooth out steep slopes.
+            #terrain = self.apply_slippage(terrain, self.repose_slope, noise2[:, i, :, :].view(-1, self.width, self.width))
+
+            # Update velocity
+            velocity = self.gravity * height_delta / self.width
+        
+            # Apply evaporation
+            water = water * (1 - self.evaporation_rate)
+
+        return (1 - terrain * 2).view(-1, 1, self.width, self.width)
+
+    def simple_gradient(self, input, noise):
+        dx = 0.5 * torch.cat(((input[:, 0, :] * 0.9 - input[:, 0, :]).view(-1, 1, self.width),
+            input[:, 2:, :] - input[:, :-2, :],
+            (input[:, -1, :] * 0.9 - input[:,-1, :]).view(-1, 1, self.width)), 1)
+        dy = 0.5 * torch.cat(((input[:, :, 0] * 0.9 - input[:, :, 0]).view(-1, self.width, 1),
+            input[:, :, 2:] - input[:, :, :-2],
+            (input[:, :, -1] * 0.9 - input[:, :, -1]).view(-1, self.width, 1)), 2)
+        magnitude = torch.sqrt(dx * dx + dy * dy)
+            
+        randomX = noise
+        randomY = 1 - torch.sqrt(randomX * randomX)
+        factor = self.relu(self.epsilon - magnitude)
+        
+        final_dx = (dx + factor * randomX) / (magnitude + self.epsilon)
+        final_dy = (dy + factor * randomY) / (magnitude + self.epsilon)
+        
+        # 4D Tensor
+        return torch.cat((final_dx.unsqueeze(3), final_dy.unsqueeze(3)), 3)
+
+    def sample(self, input, offset):
+        # coords are between [0, self.width - 1]. Normalize to [-1, 1]
+        coords = self.coord_grid.repeat(input.size()[0], 1, 1, 1) + offset
+        normalized = (coords / (self.width - 1) * 2) - 1
+        # For example, values: x: -1, y: -1 is the left-top pixel of the input
+        # values: x: 1, y: 1 is the right-bottom pixel of the input
+        return nn.functional.grid_sample(input.unsqueeze(1), normalized, mode='bilinear', padding_mode='zeros', align_corners=True).view(-1, self.width, self.width)
+ 
+    def displace(self, a, delta):
+        """
+        fns = {
+            -1: lambda x: -x,
+            0: lambda x: 1 - np.abs(x),
+            1: lambda x: x,
+        }"""
+        delta_x, delta_y = delta[:, :, :, 0], delta[:, :, :, 1]
+        delta_x = delta_x.unsqueeze(3)
+        delta_y = delta_y.unsqueeze(3)
+        # BatchSize x Height X Width x 3
+        x_multipliers = self.relu(torch.cat((-delta_x, 1 - torch.abs(delta_x), delta_x), 3))
+        y_multipliers = self.relu(torch.cat((-delta_y, 1 - torch.abs(delta_y), delta_y), 3))
+        
+        post_x = self.sum_3tensors_with_offsets(x_multipliers * a.unsqueeze(3).repeat(1, 1, 1, 3), 1)
+        post_y = self.sum_3tensors_with_offsets(y_multipliers * a.unsqueeze(3).repeat(1, 1, 1, 3), 2)
+        
+        return post_y
+
+    def sum_3tensors_with_offsets(self, tensors, offset_axis):
+        tensor1, tensor2, tensor3 = tensors[:, :, :, 0], tensors[:, :, :, 1], tensors[:, :, :, 2]
+        if offset_axis == 1:
+            tensor1 = torch.cat((tensor1[:, :-1, :], (tensor1[:, 0, :] - tensor1[:, 0, :]).view(-1, 1, self.width)), 1)
+            tensor3 = torch.cat(((tensor3[:, 0, :] - tensor3[:, 0, :]).view(-1, 1, self.width), tensor3[:, 1:, :]), 1)
+        elif offset_axis == 2:
+            tensor1 = torch.cat((tensor1[:, :, :-1], (tensor1[:, :, 0] - tensor1[:, :, 0]).view(-1, self.width, 1)), 2)
+            tensor3 = torch.cat(((tensor3[:, :, 0] - tensor3[:, :, 0]).view(-1, self.width, 1), tensor3[:, :, 1:]), 2)
+        return torch.sum(torch.cat((tensor1.unsqueeze(3), tensor2.unsqueeze(3), tensor3.unsqueeze(3)), 3), 3)
+
+    def apply_slippage(self, terrain, repose_slope, noise):
+        delta = self.simple_gradient(terrain, noise) / self.width
+        smoothed = self.blur(terrain.unsqueeze(1).float()).view(-1, self.width, self.width).double()
+        diff = torch.sqrt(delta[:, :, :, 0] ** 2 + delta[:, :, :, 1] ** 2) - self.repose_slope
+        sign = self.relu(diff) / (torch.abs(diff) + self.epsilon)
+        result = terrain * (1 - sign) + sign * smoothed
+        return result
+
 #Taken from https://github.com/bfortuner/pytorch_tiramisu
 
 class FCDenseNet(nn.Module):
@@ -1168,7 +1335,7 @@ class ModifiedUnetBlock(nn.Module):
         inconv = [nn.LeakyReLU(0.2, True), nn.Conv2d(input_nc, outer_nc, kernel_size=3, stride=1, padding=1),
             nn.Conv2d(outer_nc, outer_nc, kernel_size=3, stride=1, padding=1), norm_layer(outer_nc)]
         self.inconv = nn.Sequential(*inconv)
-        self.inconv_scalar = torch.cuda.FloatTensor(1)
+        self.inconv_scalar = torch.nn.Parameter(torch.cuda.FloatTensor(1))
         self.inconv_scalar.requires_grad = True
         decimation = [nn.AvgPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=False),
             nn.Conv2d(input_nc, input_nc, kernel_size=3, stride=1, padding=1, bias=False),
@@ -1238,7 +1405,7 @@ class MultiNLayerDiscriminator(nn.Module):
             norm_layer(ndf), nn.LeakyReLU(0.2, True))
         new_input_maps = [nn.Sequential(nn.Conv2d(input_nc, num_filters[i], kernel_size=1, stride=1, padding=0),
             norm_layer(num_filters[i]), nn.LeakyReLU(0.2, True)) for i in range(n_layers)]
-        self.input_map_scalars = [torch.cuda.FloatTensor(1) for i in range(n_layers)]
+        self.input_map_scalars = [torch.nn.Parameter(torch.cuda.FloatTensor(1)) for i in range(n_layers)]
         for i in range(n_layers):
             self.input_map_scalars[i].requires_grad = True
         self.decimation = nn.AvgPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=False)
