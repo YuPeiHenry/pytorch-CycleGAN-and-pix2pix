@@ -996,8 +996,8 @@ class ErosionLayer(nn.Module):
         self.width = width
         self.iterations = iterations
         coord_grid = np.array([[[[i, j] for i in range(self.width)] for j in range(self.width)]])
-        self.coord_grid = torch.Tensor(coord_grid).double()
-        self.zeros = torch.Tensor(np.zeros([1, self.width, self.width])).double()
+        self.coord_grid = torch.Tensor(coord_grid).double().cuda()
+        self.zeros = torch.Tensor(np.zeros([1, self.width, self.width])).double().cuda()
         self.blur = nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=1)
         self.relu = nn.ReLU(True)
         self.epsilon = 1e-10
@@ -1007,29 +1007,29 @@ class ErosionLayer(nn.Module):
         # Water-related constants
         
         #inf
-        self.rain_rate = torch.nn.Parameter(torch.DoubleTensor([0.1 * self.cell_area]))
+        self.rain_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.1 * self.cell_area]))
         self.rain_rate.requires_grad = True
         #inf
-        self.evaporation_rate = torch.nn.Parameter(torch.DoubleTensor([0.02]))
+        self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.02]))
         self.evaporation_rate.requires_grad = True
         # Slope constants
         #inf
-        self.min_height_delta = torch.nn.Parameter(torch.DoubleTensor([0.05]))
+        self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([0.05]))
         self.min_height_delta.requires_grad = True
-        self.repose_slope = torch.nn.Parameter(torch.DoubleTensor([0.015]))
+        self.repose_slope = torch.nn.Parameter(torch.cuda.DoubleTensor([0.015]))
         self.repose_slope.requires_grad = True
         #inf
-        self.gravity = torch.nn.Parameter(torch.DoubleTensor([50.0]))
+        self.gravity = torch.nn.Parameter(torch.cuda.DoubleTensor([50.0]))
         self.gravity.requires_grad = True
         # Sediment constants
         #inf
-        self.sediment_capacity_constant = torch.nn.Parameter(torch.DoubleTensor([15.0]))
+        self.sediment_capacity_constant = torch.nn.Parameter(torch.cuda.DoubleTensor([15.0]))
         self.sediment_capacity_constant.requires_grad = True
         #inf
-        self.dissolving_rate = torch.nn.Parameter(torch.DoubleTensor([0.1]))
+        self.dissolving_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.1]))
         self.dissolving_rate.requires_grad = True
         #0
-        self.deposition_rate = torch.nn.Parameter(torch.DoubleTensor([0.0025]))
+        self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.0025]))
         self.deposition_rate.requires_grad = True
         
     def forward(self, input_terrain, noise, noise2):
@@ -1335,7 +1335,7 @@ class ModifiedUnetBlock(nn.Module):
         inconv = [nn.LeakyReLU(0.2, True), nn.Conv2d(input_nc, outer_nc, kernel_size=3, stride=1, padding=1),
             nn.Conv2d(outer_nc, outer_nc, kernel_size=3, stride=1, padding=1), norm_layer(outer_nc)]
         self.inconv = nn.Sequential(*inconv)
-        self.inconv_scalar = torch.nn.Parameter(torch.FloatTensor(1))
+        self.inconv_scalar = torch.nn.Parameter(torch.cuda.FloatTensor(1))
         self.inconv_scalar.requires_grad = True
         decimation = [nn.AvgPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=False),
             nn.Conv2d(input_nc, input_nc, kernel_size=3, stride=1, padding=1, bias=False),
@@ -1405,7 +1405,7 @@ class MultiNLayerDiscriminator(nn.Module):
             norm_layer(ndf), nn.LeakyReLU(0.2, True))
         new_input_maps = [nn.Sequential(nn.Conv2d(input_nc, num_filters[i], kernel_size=1, stride=1, padding=0),
             norm_layer(num_filters[i]), nn.LeakyReLU(0.2, True)) for i in range(n_layers)]
-        self.input_map_scalars = [torch.nn.Parameter(torch.FloatTensor(1)) for i in range(n_layers)]
+        self.input_map_scalars = [torch.nn.Parameter(torch.cuda.FloatTensor(1)) for i in range(n_layers)]
         for i in range(n_layers):
             self.input_map_scalars[i].requires_grad = True
         self.decimation = nn.AvgPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=False)
