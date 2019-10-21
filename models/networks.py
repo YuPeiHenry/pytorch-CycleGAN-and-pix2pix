@@ -1042,13 +1042,13 @@ class ErosionLayer(nn.Module):
 
             # Sediment is deposited as height is higher
             # first_term = self.relu(-height_delta) * torch.min(1, sediment / (torch.abs(-height_delta) + self.epsilon))
-            first_term = self.relu(-height_delta) * -self.relu(-sediment / (torch.abs(-height_delta) + self.epsilon) + 1)
+            first_term = torch.min(-height_delta, sediment)
             # Sediment is deposited as it exceeded capacity
             sediment_diff = sediment - sediment_capacity
             second_term = self.relu(sediment_diff) * self.deposition_rate
             # Sediment is eroded otherwise
             deposited_sediment_delta = first_term + second_term
-            deposited_sediment = self.relu(deposited_sediment_delta) * self.dissolving_rate * (sediment - sediment_capacity) + deposited_sediment_delta
+            deposited_sediment = self.relu(-deposited_sediment_delta) / (deposited_sediment_delta + self.epsilon) * self.dissolving_rate * (sediment - sediment_capacity) + deposited_sediment_delta
 
             # Don't erode more sediment than the current terrain height.
             deposited_sediment = torch.max(-height_delta, deposited_sediment)
