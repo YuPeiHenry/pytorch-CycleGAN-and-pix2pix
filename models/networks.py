@@ -662,7 +662,6 @@ class UnetSkipConnectionBlock(nn.Module):
         self.submodule = submodule
 
     def forward(self, x, noise=None):
-        result = None
         style = None
         if self.submodule is None:
             intermediate = self.down(x)
@@ -671,10 +670,10 @@ class UnetSkipConnectionBlock(nn.Module):
         else:
             intermediate, style = self.submodule(self.down(x), noise)
 
-        result = self.up_forward(x, noise)
+        result = self.up_forward(intermediate, noise)
 
         if not self.outermost:
-            result = torch.cat([x, self.up(result)], 1)
+            result = torch.cat([x, result], 1)
 
         return result, style
 
