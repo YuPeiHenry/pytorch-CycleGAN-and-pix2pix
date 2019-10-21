@@ -1070,7 +1070,7 @@ class ErosionLayer(nn.Module):
             water = water * (1 - self.evaporation_rate)
 
         terrain = terrain.unsqueeze(1)
-        return (1 - terrain * 2) - terrain
+        return (1 - terrain * 2)
 
     def simple_gradient(self, input, noise):
         dx = 0.5 * torch.cat(((input[:, 0, :] * 0.9 - input[:, 0, :]).view(-1, 1, self.width),
