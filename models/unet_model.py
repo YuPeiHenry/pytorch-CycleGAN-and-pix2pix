@@ -60,7 +60,7 @@ class UnetModel(BaseModel):
         z2 = np.random.rand(batch_size, self.opt.iterations, self.opt.width, self.opt.width)
         z2 = torch.autograd.Variable(torch.from_numpy(z2), requires_grad=False).to(self.device)
         noise2 = z2
-        self.fake_B = self.fake_B + self.netErosion(self.fake_B, z, z2)  # G(A)
+        self.fake_B = self.fake_B + self.netErosion(self.fake_B, z, z2).float()  # G(A)
 
     def backward_D(self):
         self.loss_D = torch.zeros([1]).to(self.device)
