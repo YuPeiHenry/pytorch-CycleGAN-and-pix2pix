@@ -11,6 +11,8 @@ class UnetModel(BaseModel):
         parser.add_argument('--generate_residue', action='store_true', help='')
         parser.add_argument('--fixed_example', action='store_true', help='')
         parser.add_argument('--fixed_index', type=int, default=0, help='')
+        parser.add_argument('--width', type=int, default=512)
+        parser.add_argument('--iterations', type=int, default=10)
         return parser
 
     def __init__(self, opt):
@@ -20,16 +22,17 @@ class UnetModel(BaseModel):
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
         self.visual_names = ['real_A', 'fake_B', 'real_B']
         # specify the models you want to save to the disk. The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>
-        self.model_names = ['G']
+        self.model_names = ['G', 'Erosion']
         # define networks
         self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm_G,
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method)
+        self.netErosion = networks.init_net(networks.ErosionLayer(opt.width, opt.iterations), gpu_ids=[self.device])
 
         if self.isTrain:
             # define loss functions
             self.criterionL2 = torch.nn.MSELoss()
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
-            self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+            self.optimizer_G = torch.optim.Adam(list(self.netG.parameters()) + list(self.netErosion.parameters()), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
 
     def set_input(self, input):
@@ -50,6 +53,14 @@ class UnetModel(BaseModel):
         self.fake_B = self.netG(self.real_A)  # G(A)
         if self.opt.generate_residue:
             self.fake_B = self.fake_B + self.real_A[:, 1, :, :].view(-1, 1, self.fake_B.size()[2], self.fake_B.size()[3])
+        batch_size = self.real_A.size()[0]
+        z = np.random.rand(batch_size, self.opt.iterations, self.opt.width, self.opt.width)
+        z = torch.autograd.Variable(torch.from_numpy(z), requires_grad=False).to(self.device)
+        noise = z
+        z2 = np.random.rand(batch_size, self.opt.iterations, self.opt.width, self.opt.width)
+        z2 = torch.autograd.Variable(torch.from_numpy(z2), requires_grad=False).to(self.device)
+        noise2 = z2
+        self.fake_B = self.netErosion(self.fake_B, z, z2).float()  # G(A)
 
     def backward_D(self):
         self.loss_D = torch.zeros([1]).to(self.device)

@@ -10,6 +10,7 @@ class ErosionTraditionalModel(BaseModel):
         parser.set_defaults(dataset_mode='erosion', lr=0.0002, input_nc=3, output_nc=1, preprocess='N.A.', image_type='uint16', image_value_bound=26350, no_flip=True)
         parser.add_argument('--width', type=int, default=512)
         parser.add_argument('--iterations', type=int, default=10)
+        parser.add_argument('--debug', type=int, default=0)
         return parser
 
     def __init__(self, opt):
@@ -61,14 +62,15 @@ class ErosionTraditionalModel(BaseModel):
         # Second, G(A) = B
         self.loss_G_L2 = self.criterionL2(self.fake_B, self.real_B.double()) * 10000
         # combine loss and calculate gradients
+        if self.opt.debug == 1:
+            for name, p in self.netG.named_parameters():
+                if p.grad is None:
+                    continue
+                print(name)
+                print(p.data)
+                print(p.grad.data)
         self.loss_G = self.loss_G_L2
-        #torch.nn.utils.clip_grad_value_(self.netG.parameters(), 1e-10)
         self.loss_G.backward()
-        for name, p in self.netG.named_parameters():
-            if p.grad is None:
-                continue
-            print(name)
-            print(p.grad.data)
 
     def optimize_parameters(self):
         self.forward()                   # compute fake images: G(A)
