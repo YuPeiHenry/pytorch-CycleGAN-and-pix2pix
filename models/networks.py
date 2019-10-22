@@ -980,9 +980,9 @@ class ErosionLayer(nn.Module):
         self.relu = nn.ReLU(True)
         self.epsilon = 1e-10
 
-        self.random_rainfall = torch.nn.Parameter(np.random.rand(1, self.iterations, self.width, self.width))
+        self.random_rainfall = torch.nn.Parameter(torch.cuda.DoubleTensor(np.random.rand(1, self.iterations, self.width, self.width)))
         self.random_rainfall.requires_grad = False
-        self.random_gradient = torch.nn.Parameter(np.random.rand(1, self.iterations, self.width, self.width))
+        self.random_gradient = torch.nn.Parameter(torch.cuda.DoubleTensor(np.random.rand(1, self.iterations, self.width, self.width)))
         self.random_gradient.requires_grad = False
 
         self.cell_width = 200 / self.width
