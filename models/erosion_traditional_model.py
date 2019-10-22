@@ -7,7 +7,7 @@ import numpy as np
 class ErosionTraditionalModel(BaseModel):
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
-        parser.set_defaults(dataset_mode='erosion', lr=0.0002, input_nc=3, output_nc=1, preprocess='N.A.', image_type='uint16', image_value_bound=26350, no_flip=True)
+        parser.set_defaults(dataset_mode='erosion', input_nc=3, output_nc=1, preprocess='N.A.', image_type='uint16', image_value_bound=26350, no_flip=True)
         parser.add_argument('--width', type=int, default=512)
         parser.add_argument('--iterations', type=int, default=10)
         parser.add_argument('--debug', type=int, default=0)
@@ -23,8 +23,6 @@ class ErosionTraditionalModel(BaseModel):
         self.model_names = ['G']
         # define networks
         self.netG = networks.init_net(networks.ErosionLayer(opt.width, opt.iterations), gpu_ids=[self.device])
-        self.z1 = np.random.rand(1, self.opt.iterations, self.opt.width, self.opt.width)
-        self.z1 = torch.autograd.Variable(torch.from_numpy(self.z1), requires_grad=False).to(self.device)
 
         if self.isTrain:
             # define loss functions
@@ -49,10 +47,7 @@ class ErosionTraditionalModel(BaseModel):
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
         batch_size = self.real_A.size()[0]
-        z2 = np.random.rand(batch_size, self.opt.iterations, self.opt.width, self.opt.width)
-        z2 = torch.autograd.Variable(torch.from_numpy(z2), requires_grad=False).to(self.device)
-        noise2 = z2
-        self.fake_B = self.netG(self.real_A[:, 1, :, :].unsqueeze(1), z2)  # G(A)
+        self.fake_B = self.netG(self.real_A[:, 1].unsqueeze(1))  # G(A)
 
     def backward_D(self):
         self.loss_D = torch.zeros([1]).to(self.device)
