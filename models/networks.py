@@ -981,9 +981,9 @@ class ErosionLayer(nn.Module):
         self.epsilon = 1e-10
 
         self.random_rainfall = torch.nn.Parameter(torch.cuda.DoubleTensor(np.random.rand(1, self.iterations, self.width, self.width)))
-        self.random_rainfall.requires_grad = False
+        self.random_rainfall.requires_grad = True
         self.random_gradient = torch.nn.Parameter(torch.cuda.DoubleTensor(np.random.rand(1, self.iterations, self.width, self.width)))
-        self.random_gradient.requires_grad = False
+        self.random_gradient.requires_grad = True
 
         self.cell_width = 200 / self.width
         self.cell_area = self.cell_width ** 2
@@ -991,30 +991,30 @@ class ErosionLayer(nn.Module):
         # Water-related constants
         
         #inf
-        self.rain_rate = torch.nn.Parameter(torch.cuda.DoubleTensor(0.1 * self.cell_area))
+        self.rain_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.1 * self.cell_area]))
         self.rain_rate.requires_grad = True
         #inf
         self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.02]))
-        self.evaporation_rate.requires_grad = False
+        self.evaporation_rate.requires_grad = True
         # Slope constants
         #inf
         self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([0.05]))
-        self.min_height_delta.requires_grad = False
+        self.min_height_delta.requires_grad = True
         #self.repose_slope = torch.nn.Parameter(torch.cuda.DoubleTensor([0.015]))
-        #self.repose_slope.requires_grad = False
+        #self.repose_slope.requires_grad = True
         #inf
         self.gravity = torch.nn.Parameter(torch.cuda.DoubleTensor([50.0]))
-        self.gravity.requires_grad = False
+        self.gravity.requires_grad = True
         # Sediment constants
         #inf
         self.sediment_capacity_constant = torch.nn.Parameter(torch.cuda.DoubleTensor([15.0]))
-        self.sediment_capacity_constant.requires_grad = False
+        self.sediment_capacity_constant.requires_grad = True
         #inf
         self.dissolving_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.1]))
-        self.dissolving_rate.requires_grad = False
+        self.dissolving_rate.requires_grad = True
         #0
         self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.0025]))
-        self.deposition_rate.requires_grad = False
+        self.deposition_rate.requires_grad = True
         
     def forward(self, input_terrain):
         batch_size = input_terrain.size()[0]
@@ -1032,7 +1032,7 @@ class ErosionLayer(nn.Module):
 
         for i in range(0, self.iterations):
             # Add precipitation.
-            water = water + self.rain_rate * self.random_rainfall
+            water = water + self.rain_rate * self.random_rainfall[:, i]
 
             # Compute the normalized gradient of the terrain height to determine direction of water and sediment.
             # Gradient is 4D. BatchSize x Height X Width x 2
@@ -1044,7 +1044,7 @@ class ErosionLayer(nn.Module):
             height_delta = terrain - neighbor_height
 
             # If the sediment exceeds the quantity, then it is deposited, otherwise terrain is eroded.
-            sediment_capacity = (torch.max(height_delta, self.min_height_delta) / self.width) * velocity * water * self.sediment_capacity_constant
+            sediment_capacity = (torch.max(height_delta, self.min_height_delta) / self.cell_width) * velocity * water * self.sediment_capacity_constant
 
             # Sediment is deposited as height is higher
             first_term_boolean = self.relu(torch.sign(-height_delta))
@@ -1070,7 +1070,7 @@ class ErosionLayer(nn.Module):
             #terrain = self.apply_slippage(terrain, self.repose_slope, self.random_gradient[:, i].view(-1, self.width, self.width))
 
             # Update velocity
-            velocity = self.gravity * height_delta / self.width
+            velocity = self.gravity * height_delta / self.cell_width
         
             # Apply evaporation
             water = water * (1 - self.evaporation_rate)
