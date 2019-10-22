@@ -991,7 +991,7 @@ class ErosionLayer(nn.Module):
         # Water-related constants
         
         #inf
-        self.rain_rate = torch.nn.Parameter(0.1 * cell_area)
+        self.rain_rate = torch.nn.Parameter(0.1 * self.cell_area)
         self.rain_rate.requires_grad = True
         #inf
         self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.02]))
