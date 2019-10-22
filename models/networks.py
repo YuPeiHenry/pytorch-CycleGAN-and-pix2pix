@@ -1007,32 +1007,32 @@ class ErosionLayer(nn.Module):
         # Water-related constants
         
         #inf
-        self.rain_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.1 * self.cell_area]))
+        self.rain_rate = torch.nn.Parameter(100 * torch.Tensor(np.random.rand(1, self.width, self.width)))
         self.rain_rate.requires_grad = True
         #inf
         self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.02]))
-        self.evaporation_rate.requires_grad = True
+        self.evaporation_rate.requires_grad = False
         # Slope constants
         #inf
         self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([0.05]))
-        self.min_height_delta.requires_grad = True
+        self.min_height_delta.requires_grad = False
         self.repose_slope = torch.nn.Parameter(torch.cuda.DoubleTensor([0.015]))
-        self.repose_slope.requires_grad = True
+        self.repose_slope.requires_grad = False
         #inf
         self.gravity = torch.nn.Parameter(torch.cuda.DoubleTensor([50.0]))
-        self.gravity.requires_grad = True
+        self.gravity.requires_grad = False
         # Sediment constants
         #inf
         self.sediment_capacity_constant = torch.nn.Parameter(torch.cuda.DoubleTensor([15.0]))
-        self.sediment_capacity_constant.requires_grad = True
+        self.sediment_capacity_constant.requires_grad = False
         #inf
         self.dissolving_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.1]))
-        self.dissolving_rate.requires_grad = True
+        self.dissolving_rate.requires_grad = False
         #0
         self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.0025]))
-        self.deposition_rate.requires_grad = True
+        self.deposition_rate.requires_grad = False
         
-    def forward(self, input_terrain, noise, noise2):
+    def forward(self, input_terrain, noise2):
         batch_size = input_terrain.size()[0]
 
         # These tensors are BatchSize x Height X Width
@@ -1048,7 +1048,7 @@ class ErosionLayer(nn.Module):
 
         for i in range(0, self.iterations):
             # Add precipitation.
-            water = water + noise[:, i, :, :].view(-1, self.width, self.width) * self.rain_rate
+            water = water + self.rain_rate
 
             # Compute the normalized gradient of the terrain height to determine direction of water and sediment.
             # Gradient is 4D. BatchSize x Height X Width x 2
