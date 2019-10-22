@@ -980,9 +980,9 @@ class ErosionLayer(nn.Module):
         self.relu = nn.ReLU(True)
         self.epsilon = 1e-10
 
-        self.random_rainfall = torch.nn.Parameter(np.random.rand(1, self.opt.iterations, self.opt.width, self.opt.width))
+        self.random_rainfall = torch.nn.Parameter(np.random.rand(1, self.iterations, self.width, self.width))
         self.random_rainfall.requires_grad = False
-        self.random_gradient = torch.nn.Parameter(np.random.rand(1, self.opt.iterations, self.opt.width, self.opt.width))
+        self.random_gradient = torch.nn.Parameter(np.random.rand(1, self.iterations, self.width, self.width))
         self.random_gradient.requires_grad = False
 
         self.cell_width = 200 / self.width
@@ -991,7 +991,7 @@ class ErosionLayer(nn.Module):
         # Water-related constants
         
         #inf
-        self.rain_rate = torch.nn.Parameter(0.2 * cell_area * torch.Tensor(np.random.rand(1, self.width, self.width)))
+        self.rain_rate = torch.nn.Parameter(0.1 * cell_area)
         self.rain_rate.requires_grad = True
         #inf
         self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.02]))
