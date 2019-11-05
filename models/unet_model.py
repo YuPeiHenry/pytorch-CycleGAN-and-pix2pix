@@ -62,6 +62,8 @@ class UnetModel(BaseModel):
         self.post_unet = self.netG(self.real_A)  # G(A)
         if self.opt.generate_residue:
             self.post_unet = self.post_unet + self.real_A[:, 1, :, :].view(-1, 1, self.post_unet.size()[2], self.post_unet.size()[3])
+        if self.opt.preload_unet:
+            self.post_unet = self.post_unet.detach()
         self.fake_B = self.netErosion(self.post_unet).float()  # G(A)
 
     def backward_D(self):
