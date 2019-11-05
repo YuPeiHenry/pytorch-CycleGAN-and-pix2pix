@@ -23,7 +23,7 @@ class UnetModel(BaseModel):
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
         self.loss_names = ['G_L2']
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
-        self.visual_names = ['real_A', 'fake_B', 'real_B']
+        self.visual_names = ['real_A', 'post_unet', 'fake_B', 'real_B']
         # specify the models you want to save to the disk. The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>
         self.model_names = ['G', 'Erosion']
         self.preload_names = []
@@ -40,7 +40,7 @@ class UnetModel(BaseModel):
             self.criterionL2 = torch.nn.MSELoss()
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
             self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
-            self.optimizers.append(self.optimizer_G)
+            if not opt.preload_unet: self.optimizers.append(self.optimizer_G)
             self.optimizer_Erosion = torch.optim.Adam(self.netErosion.parameters(), lr=opt.erosion_lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_Erosion)
 
@@ -59,10 +59,10 @@ class UnetModel(BaseModel):
 
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
-        self.fake_B = self.netG(self.real_A)  # G(A)
+        self.post_unet = self.netG(self.real_A)  # G(A)
         if self.opt.generate_residue:
-            self.fake_B = self.fake_B + self.real_A[:, 1, :, :].view(-1, 1, self.fake_B.size()[2], self.fake_B.size()[3])
-        self.fake_B = self.netErosion(self.fake_B).float()  # G(A)
+            self.post_unet = self.post_unet + self.real_A[:, 1, :, :].view(-1, 1, self.post_unet.size()[2], self.post_unet.size()[3])
+        self.fake_B = self.netErosion(self.post_unet).float()  # G(A)
 
     def backward_D(self):
         self.loss_D = torch.zeros([1]).to(self.device)
