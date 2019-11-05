@@ -2,6 +2,7 @@ import torch
 from .base_model import BaseModel
 from . import networks
 import numpy as np
+import os
 
 
 class UnetModel(BaseModel):
