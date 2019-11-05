@@ -33,6 +33,7 @@ class UnetModel(BaseModel):
         self.netErosion = networks.init_net(networks.ErosionLayer(opt.width, opt.iterations), gpu_ids=[self.device])
         if opt.preload_unet:
             self.preload_names += ['G']
+            self.set_requires_grad(self.netG, False)
         self.load_base_networks()
 
         if self.isTrain:
