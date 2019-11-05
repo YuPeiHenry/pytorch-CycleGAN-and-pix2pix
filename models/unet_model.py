@@ -62,7 +62,7 @@ class UnetModel(BaseModel):
         self.fake_B = self.netG(self.real_A)  # G(A)
         if self.opt.generate_residue:
             self.fake_B = self.fake_B + self.real_A[:, 1, :, :].view(-1, 1, self.fake_B.size()[2], self.fake_B.size()[3])
-        self.fake_B = self.netErosion(self.fake_B, z, z2).float()  # G(A)
+        self.fake_B = self.netErosion(self.fake_B).float()  # G(A)
 
     def backward_D(self):
         self.loss_D = torch.zeros([1]).to(self.device)
