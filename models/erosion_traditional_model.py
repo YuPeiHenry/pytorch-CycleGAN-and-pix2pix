@@ -29,6 +29,7 @@ class ErosionTraditionalModel(BaseModel):
             self.criterionL2 = torch.nn.MSELoss()
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
             self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+            #self.optimizer_G = torch.optim.RMSprop(self.netG.parameters(), lr=opt.lr)
             self.optimizers.append(self.optimizer_G)
 
     def set_input(self, input):
@@ -57,6 +58,8 @@ class ErosionTraditionalModel(BaseModel):
         # Second, G(A) = B
         self.loss_G_L2 = self.criterionL2(self.fake_B, self.real_B.double()) * 10000
         # combine loss and calculate gradients
+        self.loss_G = self.loss_G_L2 / 10000
+        self.loss_G.backward()
         if self.opt.debug == 1:
             for name, p in self.netG.named_parameters():
                 if p.grad is None:
@@ -64,8 +67,6 @@ class ErosionTraditionalModel(BaseModel):
                 print(name)
                 print(p.data)
                 print(p.grad.data)
-        self.loss_G = self.loss_G_L2
-        self.loss_G.backward()
 
     def optimize_parameters(self):
         self.forward()                   # compute fake images: G(A)
