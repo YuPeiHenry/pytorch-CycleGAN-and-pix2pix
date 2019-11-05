@@ -14,6 +14,7 @@ class UnetModel(BaseModel):
         parser.add_argument('--width', type=int, default=512)
         parser.add_argument('--iterations', type=int, default=10)
         parser.add_argument('--preload_unet', action='store_true', help='')
+        parser.add_argument('--erosion_lr', type=float, default=0.001, help='')
         return parser
 
     def __init__(self, opt):
@@ -39,7 +40,7 @@ class UnetModel(BaseModel):
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
             self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
-            self.optimizer_Erosion = torch.optim.Adam(self.netErosion.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+            self.optimizer_Erosion = torch.optim.Adam(self.netErosion.parameters(), lr=opt.erosion_lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_Erosion)
 
     def set_input(self, input):
