@@ -108,7 +108,7 @@ class UnetModel(BaseModel):
     def load_base_networks(self):
         for name in self.preload_names:
             if isinstance(name, str):
-                load_filename = 'base_net_%s.pth' % (, name)
+                load_filename = 'base_net_%s.pth' % (name)
                 load_path = os.path.join(self.save_dir, load_filename)
                 net = getattr(self, 'net' + name)
                 if isinstance(net, torch.nn.DataParallel):
