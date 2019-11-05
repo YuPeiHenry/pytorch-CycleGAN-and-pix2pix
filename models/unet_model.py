@@ -13,6 +13,7 @@ class UnetModel(BaseModel):
         parser.add_argument('--fixed_index', type=int, default=0, help='')
         parser.add_argument('--width', type=int, default=512)
         parser.add_argument('--iterations', type=int, default=10)
+        parser.add_argument('--preload_unet', action='store_true', help='')
         return parser
 
     def __init__(self, opt):
@@ -23,17 +24,23 @@ class UnetModel(BaseModel):
         self.visual_names = ['real_A', 'fake_B', 'real_B']
         # specify the models you want to save to the disk. The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>
         self.model_names = ['G', 'Erosion']
+        self.preload_names = []
         # define networks
         self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm_G,
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method)
         self.netErosion = networks.init_net(networks.ErosionLayer(opt.width, opt.iterations), gpu_ids=[self.device])
+        if opt.preload_unet:
+            self.preload_names += ['G']
+        self.load_base_networks()
 
         if self.isTrain:
             # define loss functions
             self.criterionL2 = torch.nn.MSELoss()
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
-            self.optimizer_G = torch.optim.Adam(list(self.netG.parameters()) + list(self.netErosion.parameters()), lr=opt.lr, betas=(opt.beta1, 0.999))
+            self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
+            self.optimizer_Erosion = torch.optim.Adam(self.netErosion.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+            self.optimizers.append(self.optimizer_Erosion)
 
     def set_input(self, input):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
@@ -53,33 +60,25 @@ class UnetModel(BaseModel):
         self.fake_B = self.netG(self.real_A)  # G(A)
         if self.opt.generate_residue:
             self.fake_B = self.fake_B + self.real_A[:, 1, :, :].view(-1, 1, self.fake_B.size()[2], self.fake_B.size()[3])
-        batch_size = self.real_A.size()[0]
-        z = np.random.rand(batch_size, self.opt.iterations, self.opt.width, self.opt.width)
-        z = torch.autograd.Variable(torch.from_numpy(z), requires_grad=False).to(self.device)
-        noise = z
-        z2 = np.random.rand(batch_size, self.opt.iterations, self.opt.width, self.opt.width)
-        z2 = torch.autograd.Variable(torch.from_numpy(z2), requires_grad=False).to(self.device)
-        noise2 = z2
         self.fake_B = self.netErosion(self.fake_B, z, z2).float()  # G(A)
 
     def backward_D(self):
         self.loss_D = torch.zeros([1]).to(self.device)
 
     def backward_G(self):
-        """Calculate GAN and L1 loss for the generator"""
-        # Second, G(A) = B
-        self.loss_G_L2 = self.criterionL2(self.fake_B, self.real_B)
-        # combine loss and calculate gradients
-        self.loss_G = self.loss_G_L2
+        self.loss_G_L2 = self.criterionL2(self.fake_B, self.real_B) * 1000
+        self.loss_G = self.loss_G_L2 / 1000
         self.loss_G.backward()
 
     def optimize_parameters(self):
-        self.forward()                   # compute fake images: G(A)
+        self.forward()
         self.backward_D()
         # update G
-        self.optimizer_G.zero_grad()        # set G's gradients to zero
-        self.backward_G()                   # calculate graidents for G
-        self.optimizer_G.step()             # udpate G's weights
+        if not self.opt.preload_unet: self.optimizer_G.zero_grad()
+        self.optimizer_Erosion.zero_grad()
+        self.backward_G()
+        if not self.opt.preload_unet: self.optimizer_G.step()
+        self.optimizer_Erosion.step()
 
     def compute_visuals(self, dataset=None):
         if not self.opt.fixed_example or dataset is None:
@@ -90,3 +89,37 @@ class UnetModel(BaseModel):
         self.real_B = single['B' if AtoB else 'A'].unsqueeze(0).to(self.device)
         self.image_paths = [single['A_paths' if AtoB else 'B_paths']]
         self.forward()
+
+    def __patch_instance_norm_state_dict(self, state_dict, module, keys, i=0):
+        """Fix InstanceNorm checkpoints incompatibility (prior to 0.4)"""
+        key = keys[i]
+        if i + 1 == len(keys):  # at the end, pointing to a parameter/buffer
+            if module.__class__.__name__.startswith('InstanceNorm') and \
+                    (key == 'running_mean' or key == 'running_var'):
+                if getattr(module, key) is None:
+                    state_dict.pop('.'.join(keys))
+            if module.__class__.__name__.startswith('InstanceNorm') and \
+               (key == 'num_batches_tracked'):
+                state_dict.pop('.'.join(keys))
+        else:
+            self.__patch_instance_norm_state_dict(state_dict, getattr(module, key), keys, i + 1)
+
+    def load_base_networks(self):
+        for name in self.preload_names:
+            if isinstance(name, str):
+                load_filename = 'base_net_%s.pth' % (, name)
+                load_path = os.path.join(self.save_dir, load_filename)
+                net = getattr(self, 'net' + name)
+                if isinstance(net, torch.nn.DataParallel):
+                    net = net.module
+                print('loading the model from %s' % load_path)
+                # if you are using PyTorch newer than 0.4 (e.g., built from
+                # GitHub source), you can remove str() on self.device
+                state_dict = torch.load(load_path, map_location=str(self.device))
+                if hasattr(state_dict, '_metadata'):
+                    del state_dict._metadata
+
+                # patch InstanceNorm checkpoints prior to 0.4
+                for key in list(state_dict.keys()):  # need to copy keys here because we mutate in loop
+                    self.__patch_instance_norm_state_dict(state_dict, net, key.split('.'))
+                net.load_state_dict(state_dict)
