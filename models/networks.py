@@ -995,11 +995,11 @@ class ErosionLayer(nn.Module):
         self.rain_rate.requires_grad = True
         #inf
         self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.02]))
-        self.evaporation_rate.requires_grad = True
+        self.evaporation_rate.requires_grad = False
         # Slope constants
         #inf
         self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([0.05]))
-        self.min_height_delta.requires_grad = True
+        self.min_height_delta.requires_grad = False
         #self.repose_slope = torch.nn.Parameter(torch.cuda.DoubleTensor([0.015]))
         #self.repose_slope.requires_grad = True
         #inf
@@ -1014,7 +1014,7 @@ class ErosionLayer(nn.Module):
         self.dissolving_rate.requires_grad = True
         #0
         self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.0025]))
-        self.deposition_rate.requires_grad = True
+        self.deposition_rate.requires_grad = False
         
     def forward(self, input_terrain):
         batch_size = input_terrain.size()[0]
@@ -1032,7 +1032,7 @@ class ErosionLayer(nn.Module):
 
         for i in range(0, self.iterations):
             # Add precipitation.
-            water = water + self.rain_rate * self.random_rainfall[:, i]
+            water = water + self.relu(self.rain_rate) * self.random_rainfall[:, i]
 
             # Compute the normalized gradient of the terrain height to determine direction of water and sediment.
             # Gradient is 4D. BatchSize x Height X Width x 2
@@ -1044,7 +1044,7 @@ class ErosionLayer(nn.Module):
             height_delta = terrain - neighbor_height
 
             # If the sediment exceeds the quantity, then it is deposited, otherwise terrain is eroded.
-            sediment_capacity = (torch.max(height_delta, self.min_height_delta) / self.cell_width) * velocity * water * self.sediment_capacity_constant
+            sediment_capacity = (torch.max(height_delta, self.relu(self.min_height_delta)) / self.cell_width) * velocity * water * self.relu(self.sediment_capacity_constant)
 
             # Sediment is deposited as height is higher
             first_term_boolean = self.relu(torch.sign(-height_delta))
@@ -1052,9 +1052,9 @@ class ErosionLayer(nn.Module):
             # Sediment is deposited as it exceeded capacity
             sediment_diff = sediment - sediment_capacity
             second_term_boolean = self.relu(torch.sign(sediment_diff))
-            second_term = (1 - first_term_boolean) * second_term_boolean * sediment_diff * self.deposition_rate
+            second_term = (1 - first_term_boolean) * second_term_boolean * sediment_diff * self.relu(self.deposition_rate)
             # Sediment is eroded otherwise
-            third_term = (1 - first_term_boolean) * (1 - second_term_boolean) * sediment_diff * self.dissolving_rate
+            third_term = (1 - first_term_boolean) * (1 - second_term_boolean) * sediment_diff * self.relu(self.dissolving_rate)
             deposited_sediment = first_term + second_term + third_term
 
             # Don't erode more sediment than the current terrain height.
@@ -1070,13 +1070,13 @@ class ErosionLayer(nn.Module):
             #terrain = self.apply_slippage(terrain, self.repose_slope, self.random_gradient[:, i].view(-1, self.width, self.width))
 
             # Update velocity
-            velocity = self.gravity * height_delta / self.cell_width
+            velocity = self.relu(self.gravity) * height_delta / self.cell_width
         
             # Apply evaporation
-            water = water * (1 - self.evaporation_rate)
+            water = water * (1 - self.relu(self.evaporation_rate))
 
         terrain = terrain.unsqueeze(1)
-        return (1 - terrain * 2)
+        return self.relu(1 + (1 - terrain * 2)) - 1
 
     def simple_gradient(self, input, noise):
         dx = 0.5 * torch.cat(((input[:, 0, :] * 0.9 - input[:, 0, :]).view(-1, 1, self.width),
