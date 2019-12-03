@@ -656,12 +656,20 @@ class UnetSkipConnectionBlock(nn.Module):
                 up = up + [nn.Dropout(0.5)]
             model = down + [submodule] + up
 
-
+        if not self.progressive and not self.styled:
+            self.model = nn.Sequential(*model)
+            return
+        
         self.down = nn.Sequential(*down)
         self.up = nn.Sequential(*up)
         self.submodule = submodule
 
     def forward(self, x, noise=None):
+        if not self.progressive and not self.styled:
+            if self.outermost:
+                return self.model(x)
+            return torch.cat([x, self.model(x)], 1)
+
         style = None
         if self.submodule is None:
             intermediate = self.down(x)
