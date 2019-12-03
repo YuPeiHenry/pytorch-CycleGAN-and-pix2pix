@@ -557,7 +557,7 @@ class UnetGenerator(nn.Module):
     def forward(self, input, noise=None):
         """Standard forward"""
         if not self.progressive or self.complete:
-            return self.model(input, noise)[0]
+            return self.model(input, noise)
 
         n = self.current_block
         factor = (self.n_stage - 1 - n)
