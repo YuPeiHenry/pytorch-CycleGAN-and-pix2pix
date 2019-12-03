@@ -60,19 +60,20 @@ class TwocatDataset(BaseDataset):
         if indexRandomB == index:
             indexRandomB += 1
         B_path = self.B_paths[index]
-        randomA_path = self.A_paths[indexRandomA]
-        randomB_path = self.B_paths[indexRandomB]
+        #randomA_path = self.A_paths[indexRandomA]
+        #randomB_path = self.B_paths[indexRandomB]
         A_img = Image.open(A_path).convert('RGB')
         B_img = Image.open(B_path).convert('RGB')
-        randomA_img = Image.open(randomA_path).convert('RGB')
-        randomB_img = Image.open(randomB_path).convert('RGB')
+        #randomA_img = Image.open(randomA_path).convert('RGB')
+        #randomB_img = Image.open(randomB_path).convert('RGB')
         # apply image transformation
         A = self.transform_A(A_img)
         B = self.transform_B(B_img)
-        randomA = self.transform_A(randomA_img)
-        randomB = self.transform_B(randomB_img)
+        #randomA = self.transform_A(randomA_img)
+        #randomB = self.transform_B(randomB_img)
 
-        return {'A': A, 'B': B, 'randomA' : randomA, 'randomB' : randomB, 'A_paths': A_path, 'B_paths': B_path}
+        #return {'A': A, 'B': B, 'randomA' : randomA, 'randomB' : randomB, 'A_paths': A_path, 'B_paths': B_path}
+        return {'A': A, 'B': B, 'A_paths': A_path, 'B_paths': B_path}
 
     def __len__(self):
         """Return the total number of images in the dataset.

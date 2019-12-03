@@ -1468,10 +1468,11 @@ class StyledGenerator128(nn.Module):
                 nn.Sequential(nn.LeakyReLU(0.2, True), nn.Conv2d(ngf * 2 ** i, output_nc, kernel_size=1, stride=1, padding=0)))
         self.tanh = nn.Tanh()
 
-        if task == 'classify':
-            self.forward = types.MethodType(self.classify, self)
-        elif task == 'embedding':
-            self.forward = types.MethodType(self.embedding, self)
+    def forward(self, input):
+        if self.task == 'classify':
+            return self.classify(input)
+        elif self.task == 'embedding':
+            return self.embedding(input)
 
     def classify(self, input):
         mapped_input = self.input_map1(input)
@@ -1482,24 +1483,28 @@ class StyledGenerator128(nn.Module):
         mapped_input = self.input_map2(input)
         encoder_outputs, embedding = self.encoder(mapped_input)
         encoder_outputs.reverse()
-        decoder_outputs = self.decoder(encoder_outputs[0], embedding, encoder_outputs[1:])
-        output = [getattr(self, 'feature_conv'+str(0))(decoder_outputs[0])]
+        decoder_outputs = self.decoder(encoder_outputs[0], embedding, encoder_outputs[1:] + [None])
+        output = getattr(self, 'feature_conv'+str(0))(decoder_outputs[0])
         for i in range(1, 5):
             output = self.upsample(output) + getattr(self, 'feature_conv'+str(i))(decoder_outputs[i])
         return self.tanh(output)
 
 class StyledDiscriminator(nn.Module):
-    def __init__(self, input_nc, n_class, task, ngf=64):
+    def __init__(self, input_nc, n_class, task, ngf=64, norm_layer=nn.BatchNorm2d):
+        super(StyledDiscriminator, self).__init__()
+        self.task = task
         self.input_map = nn.Sequential(nn.Conv2d(input_nc, ngf, kernel_size=3, stride=1, padding=1),
             norm_layer(ngf))
         self.encoder = StyledEncoder128(n_class, task, ngf)
 
-        if task == 'classify':
-            self.forward = types.MethodType(self.classify, self)
-        elif task == 'embedding':
-            self.forward = types.MethodType(self.embedding, self)
-        elif task == 'discriminate':
-            self.forward = types.MethodType(self.discriminate, self)
+    def forward(self, input):
+        if self.task == 'classify':
+            return self.classify(input)
+        elif self.task == 'embedding':
+            return self.embedding(input)
+        elif self.task == 'discriminate':
+            return self.discriminate(input)
+
 
     def classify(self, input):
         mapped_input = self.input_map(input)
@@ -1518,29 +1523,30 @@ class StyledDiscriminator(nn.Module):
 class StyledEncoder128(nn.Module):
     def __init__(self, n_class, task, ngf):
         super(StyledEncoder128, self).__init__()
-        self.blocks = []
+        self.task = task
         for i in range(5):
-            self.blocks.append(StyledEncoderBlock(ngf * 2 ** i))
+            setattr(self, 'blocks' + str(i), StyledEncoderBlock(ngf * 2 ** i))
         self.linear1 = nn.Sequential(nn.ReLU(True), nn.Linear(ngf * 2 ** 6 - ngf * 2, 1024))
         self.linear2 = nn.Sequential(nn.ReLU(True), nn.Linear(1024, 1024))
         self.linear3 = nn.Sequential(nn.ReLU(True), nn.Linear(1024, n_class))
-        
-        if task == 'classify':
-            self.forward = types.MethodType(self.classify, self)
-        elif task == 'embedding':
-            self.forward = types.MethodType(self.embedding, self)
-        elif task == 'discriminate':
-            self.forward = types.MethodType(self.discriminate, self)
+
+    def forward(self, input):
+        if self.task == 'classify':
+            return self.classify(input)
+        elif self.task == 'embedding':
+            return self.embedding(input)
+        elif self.task == 'discriminate':
+            return self.discriminate(input)
 
     def classify(self, x):
-        _, embedding = self.embedding(flat)
+        _, embedding = self.embedding(x)
         logits = self.linear3(embedding)
         return logits
 
     def embedding(self, x):
         outputs = [x]
         for i in range(5):
-            outputs.append(self.blocks[i](outputs[-1]))
+            outputs.append(getattr(self, 'blocks'+str(i))(outputs[-1]))
         outputs = outputs[1:]
         flat = torch.cat([output.mean(-1).mean(-1) for output in outputs], 1)
         embedding = self.linear2(self.linear1(flat))
@@ -1549,58 +1555,51 @@ class StyledEncoder128(nn.Module):
     def discriminate(self, x):
         output = x
         for i in range(5):
-            output = self.blocks[i](output)
+            output = getattr(self, 'blocks'+str(i))(output)
         return output
 
 class StyledEncoderBlock(nn.Module):
     def __init__(self, n_c, norm_layer=nn.BatchNorm2d):
         super(StyledEncoderBlock, self).__init__()
-        self.conv1 = nn.Sequential(nn.LeakyReLU(0.2, True), nn.Conv2d(n_c, n_c, kernel_size=3, stride=1, padding=1), norm_layer(inner_nc))
-        self.conv1 = nn.Sequential(nn.LeakyReLU(0.2, True), nn.Conv2d(n_c, n_c, kernel_size=3, stride=1, padding=1), norm_layer(inner_nc))
-        self.pool = nn.AvgPool2d(kernel_size=stride, stride=stride, padding=0, ceil_mode=False)
+        self.conv1 = nn.Sequential(nn.LeakyReLU(0.2, True), nn.Conv2d(n_c, n_c, kernel_size=3, stride=1, padding=1), norm_layer(n_c))
+        self.conv2 = nn.Sequential(nn.LeakyReLU(0.2, True), nn.Conv2d(n_c, n_c, kernel_size=3, stride=1, padding=1), norm_layer(n_c))
+        self.pool = nn.AvgPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=False)
     
-    def forward(x):
-        feat1 = self.conv1(x)
-        feat2 = self.conv2(x)
+    def forward(self, x):
+        feat1 = self.conv1(x.clone())
+        feat2 = self.conv2(feat1.clone())
         concat = torch.cat((feat1, feat2), 1)
-        return self.pool(concat + x)
+        return self.pool(concat + x.repeat(1, 2, 1, 1))
 
 class StyledDecoder128(nn.Module):
     def __init__(self, ngf):
-        super(StyledEncoder128, self).__init__()
+        super(StyledDecoder128, self).__init__()
         norm_layer = get_norm_layer('adain', style_dim=1024)
-        self.blocks = [StyledDecoderBlock(ngf * 2 ** i, norm_layer, noiseless=True)]
+        setattr(self, 'blocks' + str(4), StyledDecoderBlock(ngf * 2 ** 0, norm_layer, noiseless=True))
         for i in range(1, 5):
-            self.blocks.append(StyledDecoderBlock(ngf * 2 ** i, norm_layer))
-        self.blocks.reverse()
-        
-        if task == 'classify':
-            self.forward = types.MethodType(self.classify, self)
-        elif task == 'embedding':
-            self.forward = types.MethodType(self.embedding, self)
-        elif task == 'discriminate':
-            self.forward = types.MethodType(self.discriminate, self)
+            setattr(self, 'blocks' + str(4 - i), StyledDecoderBlock(ngf * 2 ** i, norm_layer))
 
     def forward(self, x, style, noise):
         outputs = [x]
         for i in range(5):
-            outputs.append(self.blocks[i](outputs[-1], style, noise[i]))
+            outputs.append(getattr(self, 'blocks'+str(i))(outputs[-1], style, noise[i]))
         outputs = outputs[1:]
         return outputs
 
 class StyledDecoderBlock(nn.Module):
     def __init__(self, output_nc, norm_layer, noiseless=False):
-        super(ModifiedUnetBlock, self).__init__()
+        super(StyledDecoderBlock, self).__init__()
         #upsample, conv, noise, activation, adain
+        self.noiseless = noiseless
         self.upconv = nn.Sequential(*(getUpsample(output_nc * 2, output_nc, 3, 2, 1, True, 'upsample', upsample_method='nearest')))
-        if not noiseless:
+        if not self.noiseless:
             self.add_noise = NoiseInjection(output_nc)
         self.uprelu = nn.ReLU(True)
         self.adain = norm_layer(output_nc)
 
     def forward(self, x, style, noise):
         output = self.upconv(x)
-        if not noiselss:
+        if not self.noiseless:
             output = self.add_noise(output, noise)
         output = self.uprelu(output)
         output = self.adain(output, style)

@@ -23,10 +23,10 @@ class CategoricalDataset(BaseDataset):
             opt (Option class) -- stores all the experiment flags; needs to be a subclass of BaseOptions
         """
         BaseDataset.__init__(self, opt)
-        self.dir_image = os.path.join(opt.dataroot, opt.phase)  # create a path '/path/to/data/train'
+        self.dir_image = os.path.join(opt.dataroot, "full_images")  # create a path '/path/to/data/train'
         self.dir_class = os.path.join(opt.dataroot, opt.class_csv)
 
-        self.paths = sorted(make_dataset(self.dir_A, opt.max_dataset_size))
+        self.paths = sorted(make_dataset(self.dir_image, opt.max_dataset_size))
         self.size = len(self.paths)  # get the size of dataset A
         input_nc = self.opt.input_nc
         self.transform = get_transform(self.opt, grayscale=(input_nc == 1))
@@ -63,7 +63,7 @@ class CategoricalDataset(BaseDataset):
 
         _, filename = os.path.split(path)
 
-        label = self.class_dict.get(filename)
+        label = self.class_dict.get(filename.lower())
         image = self.transform(img)
 
         return {'image': image, 'path': path, 'label': label}
