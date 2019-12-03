@@ -973,9 +973,6 @@ class ErosionLayer(nn.Module):
         super(ErosionLayer, self).__init__()
         self.width = width
         self.iterations = iterations
-        coord_grid = np.array([[[[i, j] for i in range(self.width)] for j in range(self.width)]])
-        self.coord_grid = torch.Tensor(coord_grid).double().cuda()
-        self.zeros = torch.Tensor(np.zeros([1, self.width, self.width])).double().cuda()
         #self.blur = nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=1)
         self.relu = nn.ReLU(True)
         self.epsilon = 1e-10
@@ -1017,6 +1014,9 @@ class ErosionLayer(nn.Module):
         self.deposition_rate.requires_grad = False
         
     def forward(self, input_terrain):
+        coord_grid = np.array([[[[i, j] for i in range(self.width)] for j in range(self.width)]])
+        self.coord_grid = torch.cuda.DoubleTensor(coord_grid).cuda()
+        self.zeros = torch.cuda.DoubleTensor(np.zeros([1, self.width, self.width])).cuda()
         batch_size = input_terrain.size()[0]
 
         # These tensors are BatchSize x Height X Width
