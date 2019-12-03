@@ -97,7 +97,7 @@ class Pix2PixModel(BaseModel):
             self.noise_inputs = []
             batch_size = self.real_A.size()[0]
             for length in self.netG.module.noise_length:
-                z = (np.random.rand(batch_size, length).astype(np.float32) - 0.5) / 0.5
+                z = (np.random.rand(batch_size, length, 1, 1).astype(np.float32) - 0.5) / 0.5
                 z = torch.autograd.Variable(torch.from_numpy(z), requires_grad=False).to(self.device)
                 self.noise_inputs.append(z)
         else:
