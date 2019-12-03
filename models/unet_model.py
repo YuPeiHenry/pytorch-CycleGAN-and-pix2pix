@@ -77,7 +77,7 @@ class UnetModel(BaseModel):
         self.fake_B = self.netErosion(self.post_unet).float()  # G(A)
 
     def backward_D(self):
-        self.D = self.criterionL2(self.post_unet, self.real_B) * 1000
+        self.loss_D = self.criterionL2(self.post_unet, self.real_B) * 1000
 
     def backward_G(self):
         self.loss_G_L2 = self.criterionL2(self.fake_B, self.real_B) * 1000
