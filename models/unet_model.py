@@ -15,7 +15,7 @@ class UnetModel(BaseModel):
         parser.add_argument('--width', type=int, default=512)
         parser.add_argument('--iterations', type=int, default=10)
         parser.add_argument('--preload_unet', action='store_true', help='')
-        parser.add_argument('--erosion_lr', type=float, default=0.001, help='')
+        parser.add_argument('--erosion_lr', type=float, default=0.0001, help='')
         return parser
 
     def __init__(self, opt):
