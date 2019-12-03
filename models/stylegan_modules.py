@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 # Taken from https://github.com/rosinality/style-based-gan-pytorch

@@ -618,7 +618,7 @@ class UnetSkipConnectionBlock(nn.Module):
         self.styled = styled
         if self.styled:
             use_bias = True
-            self.adain = norm_layer(inner_nc if self.innermost else inner_nc * 2)
+            self.adain = norm_layer(inner_nc if innermost else inner_nc * 2)
             self.add_noise = NoiseInjection(inner_nc)
             self.up_activation = nn.ReLU(True)
             self.position = 0 if submodule is None else submodule.position + 1
@@ -633,7 +633,7 @@ class UnetSkipConnectionBlock(nn.Module):
             input_nc = outer_nc
         downconv = getDownsample(input_nc, inner_nc, 4, 2, 1, use_bias, downsample_mode=downsample_mode)
         downrelu = nn.LeakyReLU(0.2, True)
-        downnorm = [norm_layer(inner_nc)]
+        downnorm = [norm_layer(inner_nc)] if not self.styled else [nn.BatchNorm2d(inner_nc)]
         uprelu = [nn.ReLU(True)] if not self.styled else []
         upnorm = [norm_layer(outer_nc)] if not self.styled else []
 

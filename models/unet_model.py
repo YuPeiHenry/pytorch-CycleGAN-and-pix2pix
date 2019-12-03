@@ -57,10 +57,19 @@ class UnetModel(BaseModel):
         self.real_A = input['A' if AtoB else 'B'].to(self.device)
         self.real_B = input['B' if AtoB else 'A'].to(self.device)
         self.image_paths = input['A_paths' if AtoB else 'B_paths']
+        if self.opt.normG == 'adain':
+            self.noise_inputs = []
+            batch_size = self.real_A.size()[0]
+            for length in self.netG.module.noise_length:
+                z = (np.random.rand(batch_size, length).astype(np.float32) - 0.5) / 0.5
+                z = torch.autograd.Variable(torch.from_numpy(z), requires_grad=False).to(self.device)
+                self.noise_inputs.append(z)
+        else:
+            self.noise_inputs = None
 
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
-        self.post_unet = self.netG(self.real_A)  # G(A)
+        self.post_unet = self.netG(self.real_A, noise_inputs)  # G(A)
         if self.opt.generate_residue:
             self.post_unet = self.post_unet + self.real_A[:, 1, :, :].view(-1, 1, self.post_unet.size()[2], self.post_unet.size()[3])
         if self.opt.preload_unet:
