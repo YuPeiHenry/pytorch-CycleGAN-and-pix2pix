@@ -678,7 +678,7 @@ class UnetSkipConnectionBlock(nn.Module):
         else:
             intermediate, style = self.submodule(self.down(x), noise)
 
-        result = self.up_forward(intermediate, noise)
+        result = self.up_forward(intermediate, noise, style)
 
         if not self.outermost:
             result = torch.cat([x, result], 1)
