@@ -21,7 +21,7 @@ class UnetModel(BaseModel):
     def __init__(self, opt):
         BaseModel.__init__(self, opt)
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
-        self.loss_names = ['G_L2']
+        self.loss_names = ['D', 'G_L2']
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
         self.visual_names = ['real_A', 'post_unet', 'fake_B', 'real_B']
         # specify the models you want to save to the disk. The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>
@@ -77,7 +77,7 @@ class UnetModel(BaseModel):
         self.fake_B = self.netErosion(self.post_unet).float()  # G(A)
 
     def backward_D(self):
-        self.loss_D = torch.zeros([1]).to(self.device)
+        self.D = self.criterionL2(self.post_unet, self.real_B) * 1000
 
     def backward_G(self):
         self.loss_G_L2 = self.criterionL2(self.fake_B, self.real_B) * 1000
