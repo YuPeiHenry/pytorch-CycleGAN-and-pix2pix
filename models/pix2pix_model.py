@@ -93,7 +93,7 @@ class Pix2PixModel(BaseModel):
         self.real_B = input['B' if AtoB else 'A'].to(self.device)
         self.image_paths = input['A_paths' if AtoB else 'B_paths']
         
-        if self.opt.normG == 'adain':
+        if self.opt.norm_G == 'adain':
             self.noise_inputs = []
             batch_size = self.real_A.size()[0]
             for length in self.netG.module.noise_length:
