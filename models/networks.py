@@ -557,6 +557,8 @@ class UnetGenerator(nn.Module):
     def forward(self, input, noise=None):
         """Standard forward"""
         if not self.progressive or self.complete:
+            if self.model.styled:
+                return self.model(input, noise)[0]
             return self.model(input, noise)
 
         n = self.current_block
@@ -619,7 +621,7 @@ class UnetSkipConnectionBlock(nn.Module):
         if self.styled:
             use_bias = True
             self.adain = norm_layer(inner_nc if innermost else inner_nc * 2)
-            self.add_noise = NoiseInjection(inner_nc)
+            self.add_noise = NoiseInjection(inner_nc if innermost else inner_nc * 2)
             self.up_activation = nn.ReLU(True)
             self.position = 0 if submodule is None else submodule.position + 1
             if innermost:
