@@ -25,13 +25,4 @@ class ErosionModel(Pix2PixModel):
         self.real_B = single['B' if AtoB else 'A'].unsqueeze(0).to(self.device)
         self.image_paths = [single['A_paths' if AtoB else 'B_paths']]
 
-        if self.opt.norm_G == 'adain':
-            self.noise_inputs = []
-            for length in self.netG.module.noise_length:
-                z = (np.random.rand(1, length, 1, 1).astype(np.float32) - 0.5) / 0.5
-                z = torch.autograd.Variable(torch.from_numpy(z), requires_grad=False).to(self.device)
-                self.noise_inputs.append(z)
-        else:
-            self.noise_inputs = None
-
         self.forward()

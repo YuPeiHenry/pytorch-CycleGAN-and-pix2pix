@@ -515,10 +515,14 @@ class UnetGenerator(nn.Module):
         self.n_stage = n_stage
         blocks = []
         
+        self.noise = None
         if styled:
             norm_layer = get_norm_layer('adain', style_dim=8 * ngf)
             self.noise_length = [ngf * 2 * 2 ** min(i, 3) for i in range(num_downs - 1)] + [ngf * 8]
             self.noise_length.reverse()
+            self.noise = torch.nn.Parameter([torch.cuda.DoubleTensor(np.random.rand(1, length, 1, 1)) for length in self.noise_length])
+            self.noise.requires_grad = False
+
         # construct unet structure
         unet_block = UnetSkipConnectionBlock(ngf * 8, ngf * 8, input_nc=None, submodule=None, norm_layer=norm_layer, styled=styled, innermost=True, downsample_mode=downsample_mode, upsample_mode=upsample_mode)  # add the innermost layer
         for i in range(num_downs - 5):          # add intermediate layers with ngf * 8 filters
@@ -554,8 +558,9 @@ class UnetGenerator(nn.Module):
             setattr(self, 'layers' + str(n), layer)
             n += 1
 
-    def forward(self, input, noise=None):
+    def forward(self, input):
         """Standard forward"""
+        noise = self.noise
         if not self.progressive or self.complete:
             if self.model.styled:
                 return self.model(input, noise)[0]
@@ -689,7 +694,8 @@ class UnetSkipConnectionBlock(nn.Module):
 
     def up_forward(self, intermediate, noise=None, style=None):
         if self.styled and not self.outermost:
-            intermediate = self.up_activation(self.add_noise(intermediate, noise[self.position]))
+            batch_size = intermediate.size()[0]
+            intermediate = self.up_activation(self.add_noise(intermediate, noise[self.position].repeat(batch_size, 1, 1, 1)))
             intermediate = self.adain(intermediate, style)
 
         return self.up(intermediate)

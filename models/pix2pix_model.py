@@ -92,21 +92,11 @@ class Pix2PixModel(BaseModel):
         self.real_A = input['A' if AtoB else 'B'].to(self.device)
         self.real_B = input['B' if AtoB else 'A'].to(self.device)
         self.image_paths = input['A_paths' if AtoB else 'B_paths']
-        
-        if self.opt.norm_G == 'adain':
-            self.noise_inputs = []
-            batch_size = self.real_A.size()[0]
-            for length in self.netG.module.noise_length:
-                z = (np.random.rand(batch_size, length, 1, 1).astype(np.float32) - 0.5) / 0.5
-                z = torch.autograd.Variable(torch.from_numpy(z), requires_grad=False).to(self.device)
-                self.noise_inputs.append(z)
-        else:
-            self.noise_inputs = None
 
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
         if 'unet' in self.opt.netG:
-            self.fake_B = self.netG(self.real_A, self.noise_inputs)
+            self.fake_B = self.netG(self.real_A)
         else:
             self.fake_B = self.netG(self.real_A)
 
