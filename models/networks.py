@@ -523,7 +523,7 @@ class UnetGenerator(nn.Module):
             self.noise_length.reverse()
             self.num_noise = num_downs
             for i in range(num_downs):
-                setattr(self, 'noise' + str(i), torch.nn.Parameter(torch.cuda.DoubleTensor(np.random.rand(1, length, 1, 1))))
+                setattr(self, 'noise' + str(i), torch.nn.Parameter(torch.cuda.DoubleTensor(np.random.rand(1, self.noise_length[i], 1, 1))))
                 getattr(self, 'noise' + str(i)).requires_grad = False
 
         # construct unet structure
