@@ -689,7 +689,7 @@ class UnetSkipConnectionBlock(nn.Module):
     def up_forward(self, intermediate, style=None):
         if self.styled and not self.submodule is None:
             dims = intermediate.shape
-            noise = torch.randn(dims[0], 1, dims[2], dims[3])
+            noise = torch.randn(dims[0], 1, dims[2], dims[3]).cuda()
             intermediate = self.up_activation(self.add_noise(intermediate, noise))
             intermediate = self.adain(intermediate, style)
 
