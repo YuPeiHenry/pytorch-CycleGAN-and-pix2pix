@@ -515,16 +515,8 @@ class UnetGenerator(nn.Module):
         self.n_stage = n_stage
         blocks = []
         
-        self.noise = None
-        self.num_noise = 0
         if styled:
             norm_layer = get_norm_layer('adain', style_dim=8 * ngf)
-            self.noise_length = [ngf * 2 * 2 ** min(i, 3) for i in range(num_downs - 1)] + [ngf * 8]
-            self.noise_length.reverse()
-            self.num_noise = num_downs
-            for i in range(num_downs):
-                setattr(self, 'noise' + str(i), torch.nn.Parameter(torch.cuda.FloatTensor(np.random.rand(1, self.noise_length[i], 1, 1))))
-                getattr(self, 'noise' + str(i)).requires_grad = False
 
         # construct unet structure
         unet_block = UnetSkipConnectionBlock(ngf * 8, ngf * 8, input_nc=None, submodule=None, norm_layer=norm_layer, styled=styled, innermost=True, downsample_mode=downsample_mode, upsample_mode=upsample_mode)  # add the innermost layer
@@ -563,11 +555,10 @@ class UnetGenerator(nn.Module):
 
     def forward(self, input):
         """Standard forward"""
-        noise = [getattr(self, 'noise' + str(i)) for i in range(self.num_noise)]
         if not self.progressive or self.complete:
             if self.model.styled:
-                return self.model(input, noise)[0]
-            return self.model(input, noise)
+                return self.model(input)[0]
+            return self.model(input)
 
         n = self.current_block
         factor = (self.n_stage - 1 - n)
@@ -575,7 +566,7 @@ class UnetGenerator(nn.Module):
         for i in range(factor):
             decimated_input = self.decimation(decimated_input)
         if n == 0 or self.alpha >= 1:
-            combined_output = self.to_rgb[n](self.blocks[n](self.from_rgb[n](decimated_input), noise)[0])
+            combined_output = self.to_rgb[n](self.blocks[n](self.from_rgb[n](decimated_input))[0])
             for i in range(factor):
                 combined_output = self.upsample(combined_output)
             return combined_output        
@@ -586,11 +577,11 @@ class UnetGenerator(nn.Module):
         further_decimated_rgb = self.from_rgb[n - 1](further_decimated)
         next_input = further_decimated_rgb * (1 - a) + self.blocks[n].down(decimated_input_rgb) * a
         
-        output, style = self.blocks[n - 1](next_input, noise)
+        output, style = self.blocks[n - 1](next_input)
         if n < self.n_stage - 1:
-            upper_output = torch.cat([decimated_input_rgb, self.blocks[n].up_forward(output, noise, style)], 1)
+            upper_output = torch.cat([decimated_input_rgb, self.blocks[n].up_forward(output, style)], 1)
         else:
-            upper_output = self.blocks[n].up_forward(output, noise, style)
+            upper_output = self.blocks[n].up_forward(output, style)
         combined_output = self.upsample(self.to_rgb[n - 1](output.clone()) * (1 - a)) + self.to_rgb[n](upper_output)* a
         
         for i in range(factor):
@@ -628,13 +619,13 @@ class UnetSkipConnectionBlock(nn.Module):
         self.styled = styled
         if self.styled:
             use_bias = True
-            self.adain = norm_layer(inner_nc if innermost else inner_nc * 2)
-            self.add_noise = NoiseInjection(inner_nc if innermost else inner_nc * 2)
+            noise_length = inner_nc if innermost else inner_nc * 2
+            self.adain = norm_layer(noise_length)
+            self.add_noise = NoiseInjection(noise_length)
             self.up_activation = nn.ReLU(True)
-            self.position = 0 if submodule is None else submodule.position + 1
+            self.noise_transform = nn.Sequential(*[nn.ReLU(True), nn.Linear(noise_length, noise_length) for _ in range(8)])
             if innermost:
-                self.linear1 = nn.Sequential(nn.ReLU(True), nn.Linear(inner_nc, inner_nc))
-                self.linear2 = nn.Sequential(nn.ReLU(True), nn.Linear(inner_nc, inner_nc))
+                self.linear = nn.Sequential(*[nn.ReLU(True), nn.Linear(noise_length, noise_length) for _ in range(8)])
         elif type(norm_layer) == functools.partial:
             use_bias = norm_layer.func == nn.InstanceNorm2d
         else:
@@ -674,31 +665,34 @@ class UnetSkipConnectionBlock(nn.Module):
         self.up = nn.Sequential(*up)
         self.submodule = submodule
 
-    def forward(self, x, noise=None):
+    def forward(self, x):
         if not self.progressive and not self.styled:
             if self.outermost:
                 return self.model(x)
             return torch.cat([x, self.model(x)], 1)
 
         style = None
+        latent = None
         if self.submodule is None:
             intermediate = self.down(x)
             if self.styled:
-                style = self.linear2(self.linear1(intermediate.mean(-1).mean(-1)))
+                latent = intermediate.mean(-1).mean(-1)
+                style = self.linear(latent)
         else:
-            intermediate, style = self.submodule(self.down(x), noise)
+            intermediate, style, latent = self.submodule(self.down(x))
 
-        result = self.up_forward(intermediate, noise, style)
+        result = self.up_forward(intermediate, style, latent)
 
         if not self.outermost:
             result = torch.cat([x, result], 1)
 
-        return result, style
+        return result, style, latent
 
-    def up_forward(self, intermediate, noise=None, style=None):
+    def up_forward(self, intermediate, style=None, latent=None):
         if self.styled and not self.outermost:
             batch_size = intermediate.size()[0]
-            intermediate = self.up_activation(self.add_noise(intermediate, noise[self.position].repeat(batch_size, 1, 1, 1)))
+            noise = self.noise_transform(latent)
+            intermediate = self.up_activation(self.add_noise(intermediate, noise.repeat(batch_size, 1, 1, 1)))
             intermediate = self.adain(intermediate, style)
 
         return self.up(intermediate)
