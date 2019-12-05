@@ -626,7 +626,7 @@ class UnetSkipConnectionBlock(nn.Module):
                 self.add_noise = NoiseInjection(inner_nc)
                 self.up_activation = nn.ReLU(True)
 
-                self.noise_transform = nn.Sequential(*[nn.ReLU(True) if i % 2 == 0 else nn.Conv2d(inner_nc, inner_nc, kernel_size=1, stride=1, padding=0) for i in range(8)])
+                self.noise_transform = nn.Sequential(*([nn.ReLU(True) if i % 2 == 0 else nn.Conv2d(inner_nc, inner_nc, kernel_size=1, stride=1, padding=0) for i in range(7)] + [nn.Conv2d(inner_nc, 1, kernel_size=1, stride=1, padding=0)]))
 
         elif type(norm_layer) == functools.partial:
             use_bias = norm_layer.func == nn.InstanceNorm2d
