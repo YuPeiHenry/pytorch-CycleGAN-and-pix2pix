@@ -625,7 +625,6 @@ class UnetSkipConnectionBlock(nn.Module):
             self.up_activation = nn.ReLU(True)
             if innermost:
                 self.linear = nn.Sequential(*[nn.ReLU(True) if i % 2 == 0 else nn.Linear(inner_nc, inner_nc) for i in range(16)])
-            else:
         elif type(norm_layer) == functools.partial:
             use_bias = norm_layer.func == nn.InstanceNorm2d
         else:
