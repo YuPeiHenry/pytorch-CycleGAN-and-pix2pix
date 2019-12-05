@@ -637,7 +637,7 @@ class UnetSkipConnectionBlock(nn.Module):
             input_nc = outer_nc
         downconv = getDownsample(input_nc, inner_nc, 4, 2, 1, use_bias, downsample_mode=downsample_mode)
         downrelu = nn.LeakyReLU(0.2, True)
-        downnorm = [norm_layer(inner_nc)] if not self.styled else [nn.BatchNorm2d(inner_nc)]
+        downnorm = [norm_layer(inner_nc)] if not self.styled else [nn.InstanceNorm2d(inner_nc)]
         uprelu = [nn.ReLU(True)] if not self.styled else []
         upnorm = [norm_layer(outer_nc)] if not self.styled else []
 
@@ -675,26 +675,24 @@ class UnetSkipConnectionBlock(nn.Module):
             return torch.cat([x, self.model(x)], 1)
 
         style = None
-        latent = None
         if self.submodule is None:
             intermediate = self.down(x)
             if self.styled:
                 latent = intermediate.mean(-1).mean(-1).detach()
                 style = self.linear(latent)
         else:
-            intermediate, style, latent = self.submodule(self.down(x))
+            intermediate, style = self.submodule(self.down(x))
 
-        result = self.up_forward(intermediate, style, latent)
+        result = self.up_forward(intermediate, style)
 
         if not self.outermost:
             result = torch.cat([x, result], 1)
 
-        return result, style, latent
+        return result, style
 
-    def up_forward(self, intermediate, style=None, latent=None):
-        if self.styled and not self.outermost:
-            batch_size = intermediate.size()[0]
-            noise = self.noise_transform(latent.clone()).unsqueeze(2).unsqueeze(3)
+    def up_forward(self, intermediate, style=None):
+        if self.styled and not self.submodule is None:
+            noise = torch.randn(*(intermediate.size()))
             intermediate = self.up_activation(self.add_noise(intermediate, noise))
             intermediate = self.adain(intermediate, style)
 
