@@ -679,7 +679,7 @@ class UnetSkipConnectionBlock(nn.Module):
         if self.submodule is None:
             intermediate = self.down(x)
             if self.styled:
-                latent = intermediate.mean(-1).mean(-1)
+                latent = intermediate.mean(-1).mean(-1).clone()
                 style = self.linear(latent)
         else:
             intermediate, style, latent = self.submodule(self.down(x))
@@ -695,7 +695,7 @@ class UnetSkipConnectionBlock(nn.Module):
         if self.styled and not self.outermost:
             batch_size = intermediate.size()[0]
             noise = self.noise_transform(latent).unsqueeze(2).unsqueeze(3)
-            intermediate = self.up_activation(self.add_noise(intermediate, noise.clone()))
+            intermediate = self.up_activation(self.add_noise(intermediate, noise))
             intermediate = self.adain(intermediate, style)
 
         return self.up(intermediate)
