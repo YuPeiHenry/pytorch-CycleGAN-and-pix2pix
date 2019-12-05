@@ -619,12 +619,15 @@ class UnetSkipConnectionBlock(nn.Module):
         self.styled = styled
         if self.styled:
             use_bias = True
-            noise_length = inner_nc if innermost else inner_nc * 2
-            self.adain = norm_layer(noise_length)
-            self.add_noise = NoiseInjection(noise_length)
-            self.up_activation = nn.ReLU(True)
             if innermost:
-                self.linear = nn.Sequential(*[nn.ReLU(True) if i % 2 == 0 else nn.Linear(inner_nc, inner_nc) for i in range(16)])
+                self.linear = nn.Sequential(*[nn.ReLU(True) if i % 2 == 0 else nn.Linear(inner_nc, inner_nc) for i in range(8)])
+            else:
+                self.adain = norm_layer(inner_nc)
+                self.add_noise = NoiseInjection(inner_nc)
+                self.up_activation = nn.ReLU(True)
+
+                self.noise_transform = nn.Sequential(*[nn.ReLU(True) if i % 2 == 0 else nn.Conv2d(inner_nc, inner_nc, kernel_size=1, stride=1, padding=0) for i in range(8)])
+
         elif type(norm_layer) == functools.partial:
             use_bias = norm_layer.func == nn.InstanceNorm2d
         else:
@@ -688,10 +691,10 @@ class UnetSkipConnectionBlock(nn.Module):
 
     def up_forward(self, intermediate, style=None):
         if self.styled and not self.submodule is None:
-            dims = intermediate.shape
-            noise = torch.randn(dims[0], 1, dims[2], dims[3]).cuda()
-            intermediate = self.up_activation(self.add_noise(intermediate, noise))
-            intermediate = self.adain(intermediate, style)
+            noise, output = intermediate.chunk(2, 1)
+            output = self.up_activation(self.add_noise(output, self.noise_transform(noise)))
+            output = self.adain(output, style)
+            intermediate = torch.cat([noise, output], 1)
 
         return self.up(intermediate)
 
