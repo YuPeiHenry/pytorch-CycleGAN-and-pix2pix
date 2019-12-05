@@ -679,7 +679,7 @@ class UnetSkipConnectionBlock(nn.Module):
         if self.submodule is None:
             intermediate = self.down(x)
             if self.styled:
-                latent = intermediate.mean(-1).mean(-1)
+                latent = intermediate.mean(-1).mean(-1).detach()
                 style = self.linear(latent)
         else:
             intermediate, style, latent = self.submodule(self.down(x))
