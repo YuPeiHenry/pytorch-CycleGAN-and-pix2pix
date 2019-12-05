@@ -623,9 +623,12 @@ class UnetSkipConnectionBlock(nn.Module):
             self.adain = norm_layer(noise_length)
             self.add_noise = NoiseInjection(noise_length)
             self.up_activation = nn.ReLU(True)
-            self.noise_transform = nn.Sequential(*[nn.ReLU(True) if i % 2 == 0 else nn.Linear(noise_length, noise_length) for i in range(16)])
             if innermost:
-                self.linear = nn.Sequential(*[nn.ReLU(True) if i % 2 == 0 else nn.Linear(noise_length, noise_length) for i in range(16)])
+                self.style_length = inner_nc
+                self.linear = nn.Sequential(*[nn.ReLU(True) if i % 2 == 0 else nn.Linear(inner_nc, inner_nc) for i in range(16)])
+            else:
+                self.style_length = submodule.style_length
+            self.noise_transform = nn.Sequential(*([nn.ReLU(True) if i % 2 == 0 else nn.Linear(self.style_length, self.style_length) for i in range(15)] + [nn.Linear(self.style_length, noise_length)]))
         elif type(norm_layer) == functools.partial:
             use_bias = norm_layer.func == nn.InstanceNorm2d
         else:
