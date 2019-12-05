@@ -695,7 +695,7 @@ class UnetSkipConnectionBlock(nn.Module):
         if self.styled and not self.outermost:
             batch_size = intermediate.size()[0]
             noise = self.noise_transform(latent).unsqueeze(2).unsqueeze(3)
-            intermediate = self.up_activation(self.add_noise(intermediate, noise))
+            intermediate = self.up_activation(self.add_noise(intermediate, noise.clone()))
             intermediate = self.adain(intermediate, style)
 
         return self.up(intermediate)
