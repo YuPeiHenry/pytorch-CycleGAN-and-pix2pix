@@ -81,7 +81,7 @@ class Pix2PixHDModel(BaseModel):
             self.old_lr = opt.lr
 
             # define loss functions
-            self.criterionGAN = networks.GANLoss(opt.gan_mode).to(self.device)
+            self.criterionGAN = networks.GANLoss(opt.gan_mode, relativistic=opt.relativistic).to(self.device)
             self.criterionFeat = torch.nn.L1Loss()
             if self.use_vgg_loss:             
                 self.criterionVGG = networks.VGGLoss(self.gpu_ids)
