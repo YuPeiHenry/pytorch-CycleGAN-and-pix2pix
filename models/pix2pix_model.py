@@ -114,7 +114,7 @@ class Pix2PixModel(BaseModel):
         pred_real = self.netD(real_AB)
 
         if self.opt.relativistic:
-            loss_D_real, loss_D_fake = self.criterionGAN(pred_real_elem, None, pred_fake_elem, discriminator=True)
+            loss_D_real, loss_D_fake = self.criterionGAN(pred_real, None, pred_fake, discriminator=True)
             self.loss_D_fake = loss_D_fake
             self.loss_D_real = loss_D_real
         else:
@@ -134,7 +134,7 @@ class Pix2PixModel(BaseModel):
             # Real
             real_AB = torch.cat((self.real_A, self.real_B), 1)
             pred_real = self.netD(real_AB).detach()
-            self.loss_G_GAN = self.criterionGAN(pred_real_elem, None, pred_fake_elem, discriminator=False)
+            self.loss_G_GAN = self.criterionGAN(pred_real, None, pred_fake, discriminator=False)
         else:
             self.loss_G_GAN = self.criterionGAN(pred_fake, True)
         # Second, G(A) = B
