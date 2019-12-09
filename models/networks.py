@@ -556,7 +556,7 @@ class UnetGenerator(nn.Module):
     def forward(self, input):
         """Standard forward"""
         if not self.progressive or self.complete:
-            if self.model.styled:
+            if self.progressive or self.model.styled:
                 return self.model(input)[0]
             return self.model(input)
 
