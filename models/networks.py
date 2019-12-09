@@ -297,9 +297,9 @@ class GANLoss(nn.Module):
         self.relativistic = relativistic
         if relativistic:
             if gan_mode == 'lsgan':
-                pass
+                return
             elif gan_mode == 'hinge':
-                pass
+                return
             else:
                 raise NotImplementedError('relativistic gan mode %s not implemented' % gan_mode)
 
