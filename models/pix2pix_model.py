@@ -36,7 +36,6 @@ class Pix2PixModel(BaseModel):
         if is_train:
             parser.set_defaults(pool_size=0, gan_mode='vanilla')
             parser.add_argument('--lambda_L1', type=float, default=100.0, help='weight for L1 loss')
-            parser.add_argument('--relativistic', type=int, default=0, help='relativistic loss')
             parser.add_argument('--add_noise', action='store_true', help='adds noise in discriminator training')
             parser.add_argument('--first_change_epoch', type=int, default=25, help='')
             parser.add_argument('--alpha_increase_interval', type=int, default=50, help='')
@@ -114,9 +113,10 @@ class Pix2PixModel(BaseModel):
         real_AB = torch.cat((self.real_A, real_B), 1)
         pred_real = self.netD(real_AB)
 
-        if self.opt.relativistic != 0:
-            self.loss_D_fake = self.criterionGAN(pred_fake - torch.mean(pred_real) + 1, False)
-            self.loss_D_real = self.criterionGAN(pred_real - torch.mean(pred_fake) - 1, True)
+        if self.opt.relativistic:
+            loss_D_real, loss_D_fake = self.criterionGAN(pred_real_elem, None, pred_fake_elem, discriminator=True)
+            self.loss_D_fake = loss_D_fake
+            self.loss_D_real = loss_D_real
         else:
             self.loss_D_fake = self.criterionGAN(pred_fake, False)
             self.loss_D_real = self.criterionGAN(pred_real, True)
@@ -130,11 +130,11 @@ class Pix2PixModel(BaseModel):
         fake_AB = torch.cat((self.real_A, self.fake_B), 1)
         pred_fake = self.netD(fake_AB)
 
-        if self.opt.relativistic != 0:
+        if self.opt.relativistic:
             # Real
             real_AB = torch.cat((self.real_A, self.real_B), 1)
             pred_real = self.netD(real_AB).detach()
-            self.loss_G_GAN = self.criterionGAN(pred_fake - torch.mean(pred_real) - 1, True) + self.criterionGAN(pred_real - torch.mean(pred_fake) + 1, False)
+            self.loss_G_GAN = self.criterionGAN(pred_real_elem, None, pred_fake_elem, discriminator=False)
         else:
             self.loss_G_GAN = self.criterionGAN(pred_fake, True)
         # Second, G(A) = B

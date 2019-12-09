@@ -10,7 +10,6 @@ class Pix2PixHDModel(BaseModel):
     def modify_commandline_options(parser, is_train=True):
         parser.set_defaults(norm='batch', netG='unet_256', netD='multiscale', dataset_mode='instance')
 
-        parser.add_argument('--relativistic', type=int, default=0, help='relativistic loss')
         parser.add_argument('--lambda_feat', type=float, default=10.0, help='feature matching loss')
         parser.add_argument('--use_instance', action='store_true')
         parser.add_argument('--use_gan_feat_loss', action='store_true', help='feature matching loss')
@@ -148,7 +147,7 @@ class Pix2PixHDModel(BaseModel):
     def backward_D(self):
         # Real Detection and Loss        
         pred_real = self.discriminate(self.input, self.real_B, use_pool=False)
-        pred_fake = self.discriminate(self.input, self.fake_B.detach(), use_pool=self.opt.relativistic == 0)
+        pred_fake = self.discriminate(self.input, self.fake_B.detach(), use_pool=not self.opt.relativistic)
         if not self.opt.netD=='multiscale':
             pred_real = [pred_real]
             pred_fake = [pred_fake]
@@ -158,13 +157,14 @@ class Pix2PixHDModel(BaseModel):
         
         self.loss_D_fake = 0
         self.loss_D_real = 0
-        if self.opt.relativistic != 0:
+        if self.opt.relativistic:
             for pred_real_elem, pred_fake_elem in zip(pred_real, pred_fake):
-                self.loss_D_fake += self.criterionGAN(pred_fake_elem - torch.mean(pred_real_elem) + 1, False)
-                self.loss_D_real += self.criterionGAN(pred_real_elem - torch.mean(pred_fake_elem) - 1, True)
+                loss_D_real, loss_D_fake = self.criterionGAN(pred_real_elem, None, pred_fake_elem, discriminator=True)
+                self.loss_D_fake += loss_D_fake
+                self.loss_D_real += loss_D_real
         else:
             for pred_real_elem, pred_fake_elem in zip(pred_real, pred_fake):
-                self.loss_D_fake += self.criterionGAN(pred_fake_elem, False)        
+                self.loss_D_fake += self.criterionGAN(pred_fake_elem, False)
                 self.loss_D_real += self.criterionGAN(pred_real_elem, True)
         
         self.loss_D = (self.loss_D_fake + self.loss_D_real) * 0.5
@@ -184,9 +184,9 @@ class Pix2PixHDModel(BaseModel):
             pred_fake = [output[-1] for output in pred_fake]
 
         self.loss_G_GAN = 0
-        if self.opt.relativistic != 0:
+        if self.opt.relativistic:
             for pred_real_elem, pred_fake_elem in zip(pred_real, pred_fake):
-                self.loss_G_GAN += self.criterionGAN(pred_fake_elem - torch.mean(pred_real_elem) - 1, True)
+                self.loss_G_GAN += self.criterionGAN(pred_real_elem, None, pred_fake_elem, discriminator=False)
         else:
             for pred_real_elem, pred_fake_elem in zip(pred_real, pred_fake):
                 self.loss_G_GAN += self.criterionGAN(pred_fake_elem, True)
