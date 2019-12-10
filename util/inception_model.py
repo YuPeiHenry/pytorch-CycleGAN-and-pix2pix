@@ -88,7 +88,7 @@ def _init_inception():
     softmax = tf.nn.softmax(logits)
 
 
-def _handle_path(path, sess):
+def _handle_path(path):
     if path.endswith('.npz'):
         f = np.load(path)
         m, s = f['mu'][:], f['sigma'][:]
