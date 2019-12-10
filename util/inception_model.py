@@ -9,6 +9,7 @@ import tarfile
 
 import numpy as np
 from six.moves import urllib
+import pathlib
 import tensorflow as tf
 import glob
 import scipy.misc
