@@ -10,7 +10,7 @@ import tarfile
 import numpy as np
 from six.moves import urllib
 import pathlib
-from scipy.misc import imread
+from imageio import imread
 import tensorflow as tf
 import glob
 import scipy.misc
