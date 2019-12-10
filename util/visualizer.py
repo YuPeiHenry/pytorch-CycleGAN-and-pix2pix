@@ -13,7 +13,7 @@ else:
     VisdomExceptionBase = ConnectionError
 
 
-def save_images(webpage, visuals, image_path, aspect_ratio=1.0, width=256, image_type='uint8', image_value_bound=255):
+def save_images(webpage, visuals, image_path, aspect_ratio=1.0, width=256, dataset):
     """Save images to the disk.
 
     Parameters:
@@ -33,10 +33,10 @@ def save_images(webpage, visuals, image_path, aspect_ratio=1.0, width=256, image
     ims, txts, links = [], [], []
 
     for label, im_data in visuals.items():
-        im = util.tensor2im(im_data, imtype=image_type, bound=image_value_bound)
+        im = util.tensor2im(im_data)
         image_name = '%s_%s.png' % (name, label)
         save_path = os.path.join(image_dir, image_name)
-        util.save_image(im, save_path, aspect_ratio=aspect_ratio)
+        util.save_image(im, save_path, dataset, aspect_ratio=aspect_ratio)
         ims.append(image_name)
         txts.append(label)
         links.append(image_name)
@@ -95,7 +95,7 @@ class Visualizer():
         print('Command: %s' % cmd)
         Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
 
-    def display_current_results(self, visuals, epoch, save_result):
+    def display_current_results(self, visuals, epoch, save_result, dataset):
         """Display current results on visdom; save current results to an HTML file.
 
         Parameters:
@@ -119,7 +119,7 @@ class Visualizer():
                 images = []
                 idx = 0
                 for label, image in visuals.items():
-                    image_numpy = util.tensor2im(image, imtype=self.opt.image_type, bound=self.opt.image_value_bound)
+                    image_numpy = util.tensor2im(image)
                     label_html_row += '<td>%s</td>' % label
                     images.append(image_numpy.transpose([2, 0, 1]))
                     idx += 1
@@ -146,7 +146,7 @@ class Visualizer():
                 idx = 1
                 try:
                     for label, image in visuals.items():
-                        image_numpy = util.tensor2im(image, imtype=self.opt.image_type, bound=self.opt.image_value_bound)
+                        image_numpy = util.tensor2im(image)
                         self.vis.image(image_numpy.transpose([2, 0, 1]), opts=dict(title=label),
                                        win=self.display_id + idx)
                         idx += 1
@@ -157,9 +157,9 @@ class Visualizer():
             self.saved = True
             # save images to the disk
             for label, image in visuals.items():
-                image_numpy = util.tensor2im(image, imtype=self.opt.image_type, bound=self.opt.image_value_bound)
+                image_numpy = util.tensor2im(image)
                 img_path = os.path.join(self.img_dir, 'epoch%.3d_%s.png' % (epoch, label))
-                util.save_image(image_numpy, img_path)
+                util.save_image(image_numpy, img_path, dataset)
 
             # update website
             webpage = html.HTML(self.web_dir, 'Experiment name = %s' % self.name)
@@ -168,7 +168,7 @@ class Visualizer():
                 ims, txts, links = [], [], []
 
                 for label, image_numpy in visuals.items():
-                    image_numpy = util.tensor2im(image, imtype=self.opt.image_type, bound=self.opt.image_value_bound)
+                    image_numpy = util.tensor2im(image)
                     img_path = 'epoch%.3d_%s.png' % (n, label)
                     ims.append(img_path)
                     txts.append(label)

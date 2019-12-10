@@ -4,7 +4,6 @@ from data.image_folder import make_dataset
 import cv2
 import numpy as np
 import torch
-import random
 
 
 class ErosionDataset(BaseDataset):

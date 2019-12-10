@@ -53,7 +53,7 @@ class BaseOptions():
         parser.add_argument('--upsample_mode', type=str, default='transConv', help='transConv | upsample | subpixel')
         parser.add_argument('--upsample_method', type=str, default='nearest', help='bilinear | nearest')
         parser.add_argument('--display_winsize', type=int, default=256, help='display window size for both visdom and HTML')
-        parser.add_argument('--image_type', type=str, default='uint8', help='Specify datatype of image.')
+        parser.add_argument('--image_type', type=str, default='uint8', help='Specify datatype of image. uint8|uint16|exr')
         parser.add_argument('--image_value_bound', type=int, default=255, help='max value in image.')
         # additional parameters
         parser.add_argument('--epoch', type=str, default='latest', help='which epoch to load? set to latest to use latest cached model')

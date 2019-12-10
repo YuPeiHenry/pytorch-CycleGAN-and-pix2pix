@@ -59,6 +59,9 @@ class BaseDataset(data.Dataset, ABC):
         """
         pass
 
+    def convert_output_to_image(self, output_arr):
+        return ((output_arr + 1) / 2.0 * self.opt.image_value_bound).astype(np.dtype(self.opt.image_type))
+
 
 def get_params(opt, size):
     w, h = size
@@ -110,7 +113,6 @@ def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, conve
         else:
             transform_list += [transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
     return transforms.Compose(transform_list)
-
 
 def __make_power_2(img, base, method=Image.BICUBIC):
     ow, oh = img.size
