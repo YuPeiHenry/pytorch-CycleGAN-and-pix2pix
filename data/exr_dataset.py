@@ -34,7 +34,7 @@ class ExrDataset(BaseDataset):
         channels_max = [0 for _ in self.input_channels]
         for A1_path in self.A1_paths:
             A1_img = exrlib.read_exr(A1_path)
-            for index in len(self.input_channels):
+            for index in range(len(self.input_channels)):
                 channel = self.input_channels[index]
                 channels_min[index] = min(channels_min[index], np.min(A1_img[:, :, channel]))
                 channels_max[index] = max(channels_max[index], np.max(A1_img[:, :, channel]))
@@ -48,7 +48,7 @@ class ExrDataset(BaseDataset):
         channels_max = [0 for _ in self.output_channels]
         for B_path in self.B_paths:
             B_img = exrlib.read_exr(B_path)
-            for index in len(self.output_channels):
+            for index in range(len(self.output_channels)):
                 channel = self.output_channels[index]
                 channels_min[index] = min(channels_min[index], np.min(B_img[:, :, channel]))
                 channels_max[index] = max(channels_max[index], np.max(B_img[:, :, channel]))
