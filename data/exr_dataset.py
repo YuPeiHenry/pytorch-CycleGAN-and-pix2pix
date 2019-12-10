@@ -29,13 +29,13 @@ class ExrDataset(BaseDataset):
         input_nc = self.opt.output_nc if btoA else self.opt.input_nc       # get the number of channels of input image
         output_nc = self.opt.input_nc if btoA else self.opt.output_nc      # get the number of channels of output image
 
-        chosen_channels = [0]
-        channels_min = [2**16]
-        channels_max = [0]
+        self.input_channels = [3, 4, 6, 7]
+        channels_min = [2**16 for _ in self.input_channels]
+        channels_max = [0 for _ in self.input_channels]
         for A1_path in self.A1_paths:
             A1_img = exrlib.read_exr(A1_path)
-            for index in len(chosen_channels):
-                channel = chosen_channels[index]
+            for index in len(self.input_channels):
+                channel = self.input_channels[index]
                 channels_min[index] = min(channels_min[index], np.min(A1_img[:, :, channel]))
                 channels_max[index] = max(channels_max[index], np.max(A1_img[:, :, channel]))
         print(channels_min)
@@ -43,13 +43,13 @@ class ExrDataset(BaseDataset):
         print(channels_max)
         self.i_channels_max = np.expand_dims(np.expand_dims(np.array(channels_max), 1), 2)
 
-        chosen_channels = [0]
-        channels_min = [2**16]
-        channels_max = [0]
+        self.output_channels = [5, 6, 7, 9]
+        channels_min = [2**16 for _ in self.output_channels]
+        channels_max = [0 for _ in self.output_channels]
         for B_path in self.B_paths:
             B_img = exrlib.read_exr(B_path)
-            for index in len(chosen_channels):
-                channel = chosen_channels[index]
+            for index in len(self.output_channels):
+                channel = self.output_channels[index]
                 channels_min[index] = min(channels_min[index], np.min(B_img[:, :, channel]))
                 channels_max[index] = max(channels_max[index], np.max(B_img[:, :, channel]))
         print(channels_min)
@@ -73,8 +73,8 @@ class ExrDataset(BaseDataset):
         A1_path = self.A1_paths[index % self.A1_size]
         B_path = self.B_paths[index % self.B_size]
         #A_img = cv2.imread(A_path, -1)
-        A1_img = exrlib.read_exr(A1_path)
-        B_img = exrlib.read_exr(B_path)
+        A1_img = exrlib.read_exr(A1_path)[0][:, :, self.input_channels]
+        B_img = exrlib.read_exr(B_path)[0][:, :, self.output_channels]
         #A = torch.Tensor(A_img)
         A1 = self.convert_input(A1_img)
         B = self.convert_output(B_img)
@@ -102,6 +102,14 @@ class ExrDataset(BaseDataset):
         return torch.Tensor(image)
 
     def convert_output_to_image(self, output_arr):
-        output_arr = output_arr * (self.o_channels_max - self.o_channels_min) / 2
-        output_arr = output_arr + (self.o_channels_max + self.o_channels_min) / 2
-        return output_arr.astype(np.uint16)
+        if output_arr.shape[2] == self.output_channels:
+			output_arr = output_arr * (self.o_channels_max - self.o_channels_min) / 2
+			output_arr = output_arr + (self.o_channels_max + self.o_channels_min) / 2
+			return output_arr.astype(np.float32)
+		else:
+			output_arr = output_arr * (self.i_channels_max - self.i_channels_min) / 2
+			output_arr = output_arr + (self.i_channels_max + self.i_channels_min) / 2
+			return output_arr.astype(np.float32)
+
+    def write(self):
+        write_exr(image_path, image, [str(i) for i in range(image.shape[2])])
