@@ -3,7 +3,7 @@ from data.base_dataset import BaseDataset
 from data.image_folder import make_dataset
 import numpy as np
 import torch
-import exrlib
+import data.exrlib
 
 class ExrDataset(BaseDataset):
     def __init__(self, opt):
