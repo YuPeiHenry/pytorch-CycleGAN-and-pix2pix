@@ -103,13 +103,13 @@ class ExrDataset(BaseDataset):
 
     def convert_output_to_image(self, output_arr):
         if output_arr.shape[2] == self.output_channels:
-			output_arr = output_arr * (self.o_channels_max - self.o_channels_min) / 2
-			output_arr = output_arr + (self.o_channels_max + self.o_channels_min) / 2
-			return output_arr.astype(np.float32)
-		else:
-			output_arr = output_arr * (self.i_channels_max - self.i_channels_min) / 2
-			output_arr = output_arr + (self.i_channels_max + self.i_channels_min) / 2
-			return output_arr.astype(np.float32)
+            output_arr = output_arr * (self.o_channels_max - self.o_channels_min) / 2
+            output_arr = output_arr + (self.o_channels_max + self.o_channels_min) / 2
+            return output_arr.astype(np.float32)
+        else:
+            output_arr = output_arr * (self.i_channels_max - self.i_channels_min) / 2
+            output_arr = output_arr + (self.i_channels_max + self.i_channels_min) / 2
+            return output_arr.astype(np.float32)
 
     def write(self):
         write_exr(image_path, image, [str(i) for i in range(image.shape[2])])
