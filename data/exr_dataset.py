@@ -125,5 +125,5 @@ class ExrDataset(BaseDataset):
             output_arr = output_arr + (self.i_channels_max + self.i_channels_min) / 2
             return output_arr.astype(np.float32)
 
-    def write(self):
+    def write(self, image_path, image):
         write_exr(image_path, image, [str(i) for i in range(image.shape[2])])
