@@ -104,15 +104,15 @@ class ExrDataset(BaseDataset):
         return max(self.A1_size, self.B_size)
 
     def convert_input(self, image):
-        image = np.transpose(image, (2, 0, 1))
         image = image - (self.i_channels_max + self.i_channels_min) / 2
         image = image / (self.i_channels_max - self.i_channels_min) * 2
+        image = np.transpose(image, (2, 0, 1))
         return torch.Tensor(image)
 
     def convert_output(self, image):
-        image = np.transpose(image, (2, 0, 1))
         image = image - (self.o_channels_max + self.o_channels_min) / 2
         image = image / (self.o_channels_max - self.o_channels_min) * 2
+        image = np.transpose(image, (2, 0, 1))
         return torch.Tensor(image)
 
     def convert_output_to_image(self, output_arr):
