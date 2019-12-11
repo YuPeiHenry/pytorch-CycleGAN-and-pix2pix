@@ -51,7 +51,7 @@ class ExrDataset(BaseDataset):
         channels_max = np.array([0 for _ in self.input_channels])
         examples = 0
         for A1_path in self.A1_paths:
-            A1_img = exrlib.read_exr(A1_path, list(self.input_names[self.input_channels]))[0].transpose(2, 0, 1).reshape(len(self.input_channels), -1)
+            A1_img = exrlib.read_exr_float32(A1_path, list(self.input_names[self.input_channels]), 512, 512).transpose(2, 0, 1).reshape(len(self.input_channels), -1)
             channels_min = np.min(np.concatenate((np.expand_dims(channels_min, 1), np.expand_dims(np.min(A1_img, 1), 1)), 1), 1)
             channels_max = np.max(np.concatenate((np.expand_dims(channels_min, 1), np.expand_dims(np.max(A1_img, 1), 1)), 1), 1)
             examples += 1
@@ -67,7 +67,7 @@ class ExrDataset(BaseDataset):
         channels_max = np.array([0 for _ in self.output_channels])
         examples = 0
         for B_path in self.B_paths:
-            B_img = exrlib.read_exr(B_path, list(self.output_names[self.output_channels]))[0].transpose(2, 0, 1).reshape(len(self.output_channels), -1)
+            B_img = exrlib.read_exr_float32(B_path, list(self.output_names[self.output_channels]), 512, 512).transpose(2, 0, 1).reshape(len(self.output_channels), -1)
             channels_min = np.min(np.concatenate((np.expand_dims(channels_min, 1), np.expand_dims(np.min(B_img, 1), 1)), 1), 1)
             channels_max = np.max(np.concatenate((np.expand_dims(channels_min, 1), np.expand_dims(np.max(B_img, 1), 1)), 1), 1)
             examples += 1
@@ -95,8 +95,8 @@ class ExrDataset(BaseDataset):
         A1_path = self.A1_paths[index % self.A1_size]
         B_path = self.B_paths[index % self.B_size]
         #A_img = cv2.imread(A_path, -1)
-        A1_img = exrlib.read_exr(A1_path, list(self.input_names[self.input_channels]))[0]
-        B_img = exrlib.read_exr(B_path, list(self.output_names[self.output_channels]))[0]
+        A1_img = exrlib.read_exr_float32(A1_path, list(self.input_names[self.input_channels]), 512, 512)
+        B_img = exrlib.read_exr_float32(B_path, list(self.output_names[self.output_channels]), 512, 512)
         #A = torch.Tensor(A_img)
         A1 = self.convert_input(A1_img)
         B = self.convert_output(B_img)
