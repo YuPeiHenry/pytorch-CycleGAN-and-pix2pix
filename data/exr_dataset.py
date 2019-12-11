@@ -30,32 +30,47 @@ class ExrDataset(BaseDataset):
         output_nc = self.opt.input_nc if btoA else self.opt.output_nc      # get the number of channels of output image
 
         self.input_channels = [3, 4, 6, 7]
-        channels_min = [2**16 for _ in self.input_channels]
-        channels_max = [0 for _ in self.input_channels]
+        self.output_channels = [5, 6, 7, 9, 10]
+
+        if not self.opt.compute_bounds:
+            self.i_channels_min = np.array([[[0, 0, 0, 0]]])
+            self.i_channels_max = np.array([[[0, 0, 0, 0]]])
+            self.o_channels_min = np.array([[[0, 0, 0, 0, 0]]])
+            self.o_channels_max = np.array([[[0, 0, 0, 0, 0]]])
+            return
+
+        channels_min = np.array([2**16 for _ in self.input_channels])
+        channels_max = np.array([0 for _ in self.input_channels])
+        examples = 0
         for A1_path in self.A1_paths:
-            A1_img = exrlib.read_exr(A1_path)
-            for index in range(len(self.input_channels)):
-                channel = self.input_channels[index]
-                channels_min[index] = min(channels_min[index], np.min(A1_img[:, :, channel]))
-                channels_max[index] = max(channels_max[index], np.max(A1_img[:, :, channel]))
+            A1_img = exrlib.read_exr(A1_path)[0][:, :, self.input_channels].transpose(2, 0, 1).reshape(8, -1)
+            channel = self.input_channels[index]
+            channels_min = np.min(np.concatenate((np.expand_dims(channels_min, 1), np.expand_dims(np.min(A1_img, 1), 1)), 1), 1)
+            channels_max = np.max(np.concatenate((np.expand_dims(channels_min, 1), np.expand_dims(np.max(A1_img, 1), 1)), 1), 1)
+            examples += 1
+            if examples >= 1000:
+                break
+
         print(channels_min)
         self.i_channels_min = np.expand_dims(np.expand_dims(np.array(channels_min), 1), 2)
         print(channels_max)
         self.i_channels_max = np.expand_dims(np.expand_dims(np.array(channels_max), 1), 2)
 
-        self.output_channels = [5, 6, 7, 9]
-        channels_min = [2**16 for _ in self.output_channels]
-        channels_max = [0 for _ in self.output_channels]
+        channels_min = np.array([2**16 for _ in self.output_channels])
+        channels_max = np.array([0 for _ in self.output_channels])
+        examples = 0
         for B_path in self.B_paths:
-            B_img = exrlib.read_exr(B_path)
-            for index in range(len(self.output_channels)):
-                channel = self.output_channels[index]
-                channels_min[index] = min(channels_min[index], np.min(B_img[:, :, channel]))
-                channels_max[index] = max(channels_max[index], np.max(B_img[:, :, channel]))
+            B_img = exrlib.read_exr(B_path)[0][:, :, self.input_channels].transpose(2, 0, 1).reshape(8, -1)
+            channels_min = np.min(np.concatenate((np.expand_dims(channels_min, 1), np.expand_dims(np.min(B_img, 1), 1)), 1), 1)
+            channels_max = np.max(np.concatenate((np.expand_dims(channels_min, 1), np.expand_dims(np.max(B_img, 1), 1)), 1), 1)
+            examples += 1
+            if examples >= 1000:
+                break
+
         print(channels_min)
-        self.o_channels_min = np.expand_dims(np.expand_dims(np.array(channels_min), 1), 2)
+        self.o_channels_min = np.expand_dims(np.expand_dims(channels_min, 1), 2)
         print(channels_max)
-        self.o_channels_max = np.expand_dims(np.expand_dims(np.array(channels_max), 1), 2)
+        self.o_channels_max = np.expand_dims(np.expand_dims(channels_max, 1), 2)
 
     def __getitem__(self, index):
         """Return a data point and its metadata information.
