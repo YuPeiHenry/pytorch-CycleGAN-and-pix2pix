@@ -132,4 +132,4 @@ def write_exr(filename, values, channel_names):
 def read_exr_float32(filename, channel_names, height, width):
     exr_file = OpenEXR.InputFile(filename)
     data_list = exr_file.channels(channel_names)
-    return np.array([np.frombuffer(data, np.float32).reshape(height, width) for data in data_list])
+    return np.array([np.frombuffer(data, np.float32)for data in data_list]).reshape(height, width, -1)
