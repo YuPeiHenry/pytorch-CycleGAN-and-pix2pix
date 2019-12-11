@@ -44,7 +44,6 @@ class ExrDataset(BaseDataset):
         examples = 0
         for A1_path in self.A1_paths:
             A1_img = exrlib.read_exr(A1_path)[0][:, :, self.input_channels].transpose(2, 0, 1).reshape(8, -1)
-            channel = self.input_channels[index]
             channels_min = np.min(np.concatenate((np.expand_dims(channels_min, 1), np.expand_dims(np.min(A1_img, 1), 1)), 1), 1)
             channels_max = np.max(np.concatenate((np.expand_dims(channels_min, 1), np.expand_dims(np.max(A1_img, 1), 1)), 1), 1)
             examples += 1
