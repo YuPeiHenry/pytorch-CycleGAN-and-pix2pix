@@ -85,10 +85,10 @@ class UnetModel(BaseModel):
         self.backward_D()
         # update G
         if not self.opt.preload_unet: self.optimizer_G.zero_grad()
-        if opt.use_erosion: self.optimizer_Erosion.zero_grad()
+        if self.opt.use_erosion: self.optimizer_Erosion.zero_grad()
         self.backward_G()
         if not self.opt.preload_unet: self.optimizer_G.step()
-        if opt.use_erosion: self.optimizer_Erosion.step()
+        if self.opt.use_erosion: self.optimizer_Erosion.step()
 
     def compute_visuals(self, dataset=None):
         if not self.opt.fixed_example or dataset is None:
