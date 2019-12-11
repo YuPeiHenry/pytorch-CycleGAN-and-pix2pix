@@ -128,3 +128,8 @@ def write_exr(filename, values, channel_names):
   exr.writePixels(
       dict((n, d.tobytes()) for n, d in zip(channel_names, channel_data)))
   exr.close()
+
+def read_exr_float32(filename, channel_names):
+    exr_file = OpenEXR.InputFile(filename)
+    data_list = exr_file.channels(channel_names)
+    return np.array([np.frombuffer(data, np.float32) for data in data_list])
