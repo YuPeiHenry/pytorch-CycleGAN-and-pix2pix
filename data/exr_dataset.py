@@ -116,7 +116,7 @@ class ExrDataset(BaseDataset):
         return torch.Tensor(image)
 
     def convert_output_to_image(self, output_arr):
-        if output_arr.shape[2] == self.output_channels:
+        if output_arr.shape[2] == len(self.output_channels):
             output_arr = output_arr * (self.o_channels_max - self.o_channels_min) / 2
             output_arr = output_arr + (self.o_channels_max + self.o_channels_min) / 2
             return output_arr.astype(np.float32)
