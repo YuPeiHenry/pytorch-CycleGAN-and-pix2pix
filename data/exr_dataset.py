@@ -126,4 +126,4 @@ class ExrDataset(BaseDataset):
             return output_arr.astype(np.float32)
 
     def write(self, image_path, image):
-        write_exr(image_path, image, [str(i) for i in range(image.shape[2])])
+        exrlib.write_exr(image_path, image, [str(i) for i in range(image.shape[2])])
