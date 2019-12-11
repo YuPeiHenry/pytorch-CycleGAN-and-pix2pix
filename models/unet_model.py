@@ -8,7 +8,7 @@ import os
 class UnetModel(BaseModel):
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
-        parser.set_defaults(norm='instance', norm_G='instance', netG='unet_256', dataset_mode='exr', input_nc=4, output_nc=5, preprocess='N.A.', image_type='exr', image_value_bound=26350, no_flip=True)
+        parser.set_defaults(norm='instance', norm_G='instance', netG='unet_256', dataset_mode='exr', input_nc=3, output_nc=2, preprocess='N.A.', image_type='exr', image_value_bound=26350, no_flip=True)
         parser.add_argument('--generate_residue', action='store_true', help='')
         parser.add_argument('--fixed_example', action='store_true', help='')
         parser.add_argument('--fixed_index', type=int, default=0, help='')
