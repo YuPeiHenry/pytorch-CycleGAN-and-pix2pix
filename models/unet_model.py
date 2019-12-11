@@ -8,13 +8,14 @@ import os
 class UnetModel(BaseModel):
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
-        parser.set_defaults(norm='batch', norm_G='batch', netG='unet_256', dataset_mode='erosion', input_nc=3, output_nc=1, preprocess='N.A.', image_type='uint16', image_value_bound=26350, no_flip=True)
+        parser.set_defaults(norm='instance', norm_G='instance', netG='unet_256', dataset_mode='exr', input_nc=4, output_nc=5, preprocess='N.A.', image_type='exr', image_value_bound=26350, no_flip=True)
         parser.add_argument('--generate_residue', action='store_true', help='')
         parser.add_argument('--fixed_example', action='store_true', help='')
         parser.add_argument('--fixed_index', type=int, default=0, help='')
         parser.add_argument('--width', type=int, default=512)
         parser.add_argument('--iterations', type=int, default=10)
         parser.add_argument('--preload_unet', action='store_true', help='')
+        parser.add_argument('--use_erosion', action='store_true', help='')
         parser.add_argument('--erosion_lr', type=float, default=0.0001, help='')
         return parser
 
@@ -23,14 +24,15 @@ class UnetModel(BaseModel):
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
         self.loss_names = ['D', 'G_L2']
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
-        self.visual_names = ['real_A', 'post_unet', 'fake_B', 'real_B']
+        self.visual_names = ['real_A', 'post_unet', 'fake_B', 'real_B'] if opt.use_erosion else ['real_A', 'post_unet', 'real_B']
         # specify the models you want to save to the disk. The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>
-        self.model_names = ['G', 'Erosion']
+        self.model_names = ['G', 'Erosion'] if opt.use_erosion else ['G']
         self.preload_names = []
         # define networks
         self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm_G,
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method)
-        self.netErosion = networks.init_net(networks.ErosionLayer(opt.width, opt.iterations), gpu_ids=self.gpu_ids)
+        if opt.use_erosion:
+            self.netErosion = networks.init_net(networks.ErosionLayer(opt.width, opt.iterations), gpu_ids=self.gpu_ids)
         if opt.preload_unet:
             self.preload_names += ['G']
             self.set_requires_grad(self.netG, False)
@@ -62,16 +64,18 @@ class UnetModel(BaseModel):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
         self.post_unet = self.netG(self.real_A)  # G(A)
         if self.opt.generate_residue:
-            self.post_unet = self.post_unet + self.real_A[:, 1, :, :].view(-1, 1, self.post_unet.size()[2], self.post_unet.size()[3])
+            self.post_unet[:, 2, :, :] = (self.post_unet[:, 2, :, :] + self.real_A[:, 0, :, :]).view(-1, 1, self.post_unet.size()[2], self.post_unet.size()[3])
         if self.opt.preload_unet:
             self.post_unet = self.post_unet.detach()
-        self.fake_B = self.netErosion(self.post_unet).float()  # G(A)
+        if self.opt.use_erosion:
+            self.fake_B = self.netErosion(self.post_unet).float()  # G(A)
 
     def backward_D(self):
-        self.loss_D = self.criterionL2(self.post_unet, self.real_B) * 1000
+        self.loss_D = torch.zeros([1]).to(self.device)
+        #self.loss_D = self.criterionL2(self.post_unet, self.real_B) * 1000
 
     def backward_G(self):
-        self.loss_G_L2 = self.criterionL2(self.fake_B, self.real_B) * 1000
+        self.loss_G_L2 = self.criterionL2(self.post_unet, self.real_B) * 1000
         self.loss_G = self.loss_G_L2 / 1000
         self.loss_G.backward()
 
@@ -95,6 +99,8 @@ class UnetModel(BaseModel):
         self.image_paths = [single['A_paths' if AtoB else 'B_paths']]
 
         self.forward()
+        if self.opt.generate_residue:
+            self.post_unet[:, 2, :, :] = 1 - torch.nn.ReLU()(2 - torch.nn.ReLU()(self.post_unet[:, 2, :, :] + 1))
 
     def __patch_instance_norm_state_dict(self, state_dict, module, keys, i=0):
         """Fix InstanceNorm checkpoints incompatibility (prior to 0.4)"""

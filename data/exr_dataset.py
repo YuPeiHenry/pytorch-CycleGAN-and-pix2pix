@@ -29,21 +29,21 @@ class ExrDataset(BaseDataset):
         input_nc = self.opt.output_nc if btoA else self.opt.input_nc       # get the number of channels of input image
         output_nc = self.opt.input_nc if btoA else self.opt.output_nc      # get the number of channels of output image
 
-        self.input_channels = [3, 4, 6, 7]
-        self.output_channels = [5, 6, 7, 9, 10]
+        self.input_channels = [3, 4, 6, 7] #height, mesa, slopex, slopez
+        self.output_channels = [5, 6, 7, 9, 10] #flowx, flowz, height, sediment, water
 
         if not self.opt.compute_bounds:
-            self.i_channels_min = np.array([[[0, 0, 0, 0]]])
-            self.i_channels_max = np.array([[[0, 0, 0, 0]]])
-            self.o_channels_min = np.array([[[0, 0, 0, 0, 0]]])
-            self.o_channels_max = np.array([[[0, 0, 0, 0, 0]]])
+            self.i_channels_min = np.array([[[0, 0, -274.83758545, -317.95968628]]])
+            self.i_channels_max = np.array([[[417.75454712, 0.99980736, 10.71749306, 10.45528221]]])
+            self.o_channels_min = np.array([[[-10.80896282, -12.17011833, -3.95739818, 0, -0.87560517]]])
+            self.o_channels_max = np.array([[[2.76426649, 2.35645199, 418.50262451, 4.86357594, 2.89976954]]])
             return
 
         channels_min = np.array([2**16 for _ in self.input_channels])
         channels_max = np.array([0 for _ in self.input_channels])
         examples = 0
         for A1_path in self.A1_paths:
-            A1_img = exrlib.read_exr(A1_path)[0][:, :, self.input_channels].transpose(2, 0, 1).reshape(8, -1)
+            A1_img = exrlib.read_exr(A1_path)[0][:, :, self.input_channels].transpose(2, 0, 1).reshape(len(self.input_channels), -1)
             channels_min = np.min(np.concatenate((np.expand_dims(channels_min, 1), np.expand_dims(np.min(A1_img, 1), 1)), 1), 1)
             channels_max = np.max(np.concatenate((np.expand_dims(channels_min, 1), np.expand_dims(np.max(A1_img, 1), 1)), 1), 1)
             examples += 1
@@ -59,7 +59,7 @@ class ExrDataset(BaseDataset):
         channels_max = np.array([0 for _ in self.output_channels])
         examples = 0
         for B_path in self.B_paths:
-            B_img = exrlib.read_exr(B_path)[0][:, :, self.input_channels].transpose(2, 0, 1).reshape(8, -1)
+            B_img = exrlib.read_exr(B_path)[0][:, :, self.output_channels].transpose(2, 0, 1).reshape(len(self.output_channels), -1)
             channels_min = np.min(np.concatenate((np.expand_dims(channels_min, 1), np.expand_dims(np.min(B_img, 1), 1)), 1), 1)
             channels_max = np.max(np.concatenate((np.expand_dims(channels_min, 1), np.expand_dims(np.max(B_img, 1), 1)), 1), 1)
             examples += 1
