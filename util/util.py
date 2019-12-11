@@ -57,7 +57,7 @@ def save_image(image_numpy, image_path, dataset, aspect_ratio=1.0):
     h, w, _ = image_numpy.shape
     image_numpy = dataset.convert_output_to_image(image_numpy)
     if dataset.opt.image_type == 'exr':
-        dataset.write(image_path, image)
+        dataset.write(image_path, image_numpy)
     elif dataset.opt.image_type == 'uint16':
         image = image_numpy
         if aspect_ratio > 1.0:
