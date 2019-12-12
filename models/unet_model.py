@@ -133,7 +133,7 @@ class UnetModel(BaseModel):
         self.forward()
         if self.opt.generate_residue:
             self.post_unet[:, 1, :, :] = 1 - torch.nn.ReLU()(2 - torch.nn.ReLU()(self.post_unet[:, 1, :, :] + 1))
-        if self.break4:
+        if self.opt.break4:
             self.real_A = self.combine_from_4(self.real_A)
             self.real_B = self.combine_from_4(self.real_B)
             self.post_unet = self.combine_from_4(self.post_unet)
