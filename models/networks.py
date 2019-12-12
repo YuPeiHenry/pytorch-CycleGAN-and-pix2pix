@@ -1275,7 +1275,7 @@ class FCDenseNet(nn.Module):
         cur_channels_count += growth_rate*up_blocks[-1]
 
         ## Output - used to be softmax ##
-
+        self.tanh = nn.Tanh()
         self.finalConv = nn.Conv2d(in_channels=cur_channels_count,
                out_channels=out_channels, kernel_size=1, stride=1,
                    padding=0, bias=True)
@@ -1295,7 +1295,7 @@ class FCDenseNet(nn.Module):
             out = self.transUpBlocks[i](out, skip)
             out = self.denseBlocksUp[i](out)
 
-        out = self.finalConv(out)
+        out = self.tanh(self.finalConv(out))
         return out
 
 class MultiUnetGenerator(nn.Module):
