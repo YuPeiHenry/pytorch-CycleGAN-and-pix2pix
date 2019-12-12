@@ -74,7 +74,7 @@ class UnetModel(BaseModel):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
         self.post_unet = self.netG(self.real_A)  # G(A)
         if self.opt.generate_residue:
-            self.post_unet[:, 2, :, :] = self.post_unet[:, 2, :, :] + self.real_A[:, 0, :, :]
+            self.post_unet[:, 1, :, :] = self.post_unet[:, 1, :, :] + self.real_A[:, 0, :, :]
         if self.opt.preload_unet:
             self.post_unet = self.post_unet.detach()
         if self.opt.use_erosion:
@@ -128,7 +128,7 @@ class UnetModel(BaseModel):
 
         self.forward()
         if self.opt.generate_residue:
-            self.post_unet[:, 2, :, :] = 1 - torch.nn.ReLU()(2 - torch.nn.ReLU()(self.post_unet[:, 2, :, :] + 1))
+            self.post_unet[:, 1, :, :] = 1 - torch.nn.ReLU()(2 - torch.nn.ReLU()(self.post_unet[:, 1, :, :] + 1))
 
     def __patch_instance_norm_state_dict(self, state_dict, module, keys, i=0):
         """Fix InstanceNorm checkpoints incompatibility (prior to 0.4)"""
