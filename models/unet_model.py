@@ -24,7 +24,7 @@ class UnetModel(BaseModel):
     def __init__(self, opt):
         BaseModel.__init__(self, opt)
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
-        self.loss_names = ['D', 'G_L2']
+        self.loss_names = ['D_L2', 'G_L2']
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
         self.visual_names = ['real_A', 'post_unet', 'fake_B', 'real_B'] if opt.use_erosion else ['real_A', 'post_unet', 'real_B']
         # specify the models you want to save to the disk. The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>
@@ -91,7 +91,8 @@ class UnetModel(BaseModel):
         else:
             post_unet_features = self.netFeature(self.post_unet.detach())
             real_features = self.netFeature(self.real_B)
-            self.loss_D = -self.criterionL2(post_unet_features, real_features)
+            self.loss_D_L2 = -self.criterionL2(post_unet_features, real_features) * 1000
+            self.loss_D = self.loss_D_L2 / 1000 / 10
             self.loss_D.backward
 
     def backward_G(self):
