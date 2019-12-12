@@ -41,7 +41,7 @@ class UnetModel(BaseModel):
             self.preload_names += ['G']
             self.set_requires_grad(self.netG, False)
         if opt.use_feature_extractor:
-            self.netFeature = networks.init_net(networks.FeatureExtractor(opt.output_nc))
+            self.netFeature = networks.init_net(networks.FeatureExtractor(opt.output_nc), gpu_ids=self.gpu_ids)
         self.load_base_networks()
 
         if self.isTrain:
