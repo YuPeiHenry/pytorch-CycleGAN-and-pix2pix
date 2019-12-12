@@ -17,6 +17,7 @@ class UnetModel(BaseModel):
         parser.add_argument('--preload_unet', action='store_true', help='')
         parser.add_argument('--use_erosion', action='store_true', help='')
         parser.add_argument('--erosion_lr', type=float, default=0.0001, help='')
+        parser.add_argument('--use_feature_extractor', action='store_true', help='')
         return parser
 
     def __init__(self, opt):
@@ -26,7 +27,9 @@ class UnetModel(BaseModel):
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
         self.visual_names = ['real_A', 'post_unet', 'fake_B', 'real_B'] if opt.use_erosion else ['real_A', 'post_unet', 'real_B']
         # specify the models you want to save to the disk. The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>
-        self.model_names = ['G', 'Erosion'] if opt.use_erosion else ['G']
+        self.model_names = ['G']
+        if opt.use_erosion: self.model_names += ['Erosion']
+        if opt.use_feature_extractor: self.model_names += ['Feature']
         self.preload_names = []
         # define networks
         self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm_G,
@@ -36,6 +39,8 @@ class UnetModel(BaseModel):
         if opt.preload_unet:
             self.preload_names += ['G']
             self.set_requires_grad(self.netG, False)
+        if opt.use_feature_extractor:
+            self.netFeature = networks.init_net(networks.FeatureExtractor(opt.output_nc))
         self.load_base_networks()
 
         if self.isTrain:
@@ -47,6 +52,9 @@ class UnetModel(BaseModel):
             if opt.use_erosion:
                 self.optimizer_Erosion = torch.optim.Adam(self.netErosion.parameters(), lr=opt.erosion_lr, betas=(opt.beta1, 0.999))
                 self.optimizers.append(self.optimizer_Erosion)
+            if opt.use_feature_extractor:
+                self.optimizer_Feature = torch.optim.Adam(self.netFeature.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+                self.optimizers.append(self.optimizer_Feature)
 
     def set_input(self, input):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
@@ -73,17 +81,35 @@ class UnetModel(BaseModel):
             self.fake_B = self.netErosion(self.post_unet).float()  # G(A)
 
     def backward_D(self):
-        self.loss_D = torch.zeros([1]).to(self.device)
-        #self.loss_D = self.criterionL2(self.post_unet, self.real_B) * 1000
+        if not self.opt.use_feature_extractor:
+            self.loss_D = torch.zeros([1]).to(self.device)
+            #self.loss_D = self.criterionL2(self.post_unet, self.real_B) * 1000
+        else:
+            post_unet_features = self.netFeature(self.post_unet.detach())
+            real_features = self.netFeature(self.real_B)
+            self.loss_D = -self.criterionL2(post_unet_features, real_features)
+            self.loss_D.backward
 
     def backward_G(self):
-        self.loss_G_L2 = self.criterionL2(self.post_unet, self.real_B) * 1000
+        if not self.opt.use_feature_extractor:
+            post_unet_output = self.post_unet
+            real_B_output = self.real_B
+        else:
+            post_unet_output = self.netFeature(self.post_unet)
+            real_B_output = self.netFeature(self.real_B)
+        self.loss_G_L2 = self.criterionL2(self.post_unet_output, self.real_B_output) * 1000
         self.loss_G = self.loss_G_L2 / 1000
         self.loss_G.backward()
 
     def optimize_parameters(self):
         self.forward()
+        if self.opt.use_feature_extractor:
+            self.set_requires_grad(self.netFeature, True)
+            self.optimizer_Feature.zero_grad()
         self.backward_D()
+        if self.opt.use_feature_extractor:
+            self.optimizer_Feature.step()
+            self.set_requires_grad(self.netFeature, False)
         # update G
         if not self.opt.preload_unet: self.optimizer_G.zero_grad()
         if self.opt.use_erosion: self.optimizer_Erosion.zero_grad()

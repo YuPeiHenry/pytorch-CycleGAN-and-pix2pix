@@ -1637,6 +1637,23 @@ class StyledDecoderBlock(nn.Module):
         output = self.adain(output, style)
         return output
 
+class FeatureExtractor(nn.Module):
+    def __init__(self, input_nc):
+        super(FeatureExtractor, self).__init__()
+
+        self.input_nc = input_nc
+        self.conv2 = nn.Sequential(nn.ReplicationPad2d(0, 1, 0, 1), nn.Conv2d(1, 32, kernel_size=2, stride=1, padding=0, bias=False))
+        self.conv3 = nn.Conv2d(1, 32, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv5 = nn.Conv2d(1, 32, kernel_size=3, stride=1, padding=1, bias=False)
+        self.feat_transform = nn.Conv2d(32 * 3, 1, kernel_size=1, stride=1, padding=0, bias=False)
+
+    def forward(self, input):
+        return torch.cat([forward_single_channel(input[:, i]) for i in range(self.input_nc)], 1)
+
+    def forward_single_channel(self, input):
+        features = torch.cat((self.conv2(input), self.conv3(input), self.conv5(input)), 1)
+        return self.feat_transform(features)
+
 from torchvision import models
 class Vgg19(torch.nn.Module):
     def __init__(self, requires_grad=False):
