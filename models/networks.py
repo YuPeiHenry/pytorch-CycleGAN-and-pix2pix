@@ -1648,7 +1648,7 @@ class FeatureExtractor(nn.Module):
         self.feat_transform = nn.Conv2d(32 * 3, 1, kernel_size=1, stride=1, padding=0, bias=False)
 
     def forward(self, input):
-        return torch.cat([self.forward_single_channel(input[:, i]) for i in range(self.input_nc)], 1)
+        return torch.cat([self.forward_single_channel(input[:, i].unsqueeze(1)) for i in range(self.input_nc)], 1)
 
     def forward_single_channel(self, input):
         features = torch.cat((self.conv2(input), self.conv3(input), self.conv5(input)), 1)
