@@ -101,7 +101,7 @@ class UnetModel(BaseModel):
         else:
             post_unet_output = self.netFeature(self.post_unet)
             real_B_output = self.netFeature(self.real_B)
-        self.loss_G_L2 = self.criterionL2(post_unet_output, self.real_B_output) * 1000
+        self.loss_G_L2 = self.criterionL2(post_unet_output, real_B_output) * 1000
         self.loss_G = self.loss_G_L2 / 1000
         self.loss_G.backward()
 
