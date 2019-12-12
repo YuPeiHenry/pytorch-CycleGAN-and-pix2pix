@@ -102,7 +102,8 @@ class UnetModel(BaseModel):
         else:
             post_unet_output = self.netFeature(self.post_unet)
             real_B_output = self.netFeature(self.real_B)
-            self.loss_G = self.loss_G_L2 / 1000 + self.criterionL2(post_unet_output, real_B_output)
+            feat_loss = self.criterionL2(post_unet_output, real_B_output)
+            self.loss_G = self.loss_G_L2 / self.loss_G_L2.item() * feat_loss.item() + feat_loss
         self.loss_G.backward()
 
     def optimize_parameters(self):
