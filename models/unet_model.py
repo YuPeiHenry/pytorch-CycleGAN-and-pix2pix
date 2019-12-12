@@ -18,6 +18,7 @@ class UnetModel(BaseModel):
         parser.add_argument('--use_erosion', action='store_true', help='')
         parser.add_argument('--erosion_lr', type=float, default=0.0001, help='')
         parser.add_argument('--use_feature_extractor', action='store_true', help='')
+        parser.add_argument('--break4', action='store_true', help='')
         return parser
 
     def __init__(self, opt):
@@ -33,7 +34,7 @@ class UnetModel(BaseModel):
         self.preload_names = []
         # define networks
         self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm_G,
-                                      not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method)
+                                      not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method, linear=opt.linear)
         if opt.use_erosion:
             self.netErosion = networks.init_net(networks.ErosionLayer(opt.width, opt.iterations), gpu_ids=self.gpu_ids)
         if opt.preload_unet:
@@ -72,6 +73,9 @@ class UnetModel(BaseModel):
 
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
+        if self.opt.break4:
+            self.real_A = self.break_into_4(self.real_A)
+            self.real_B = self.break_into_4(self.real_B)
         self.post_unet = self.netG(self.real_A)  # G(A)
         if self.opt.generate_residue:
             self.post_unet[:, 1, :, :] = self.post_unet[:, 1, :, :] + self.real_A[:, 0, :, :]
@@ -129,6 +133,10 @@ class UnetModel(BaseModel):
         self.forward()
         if self.opt.generate_residue:
             self.post_unet[:, 1, :, :] = 1 - torch.nn.ReLU()(2 - torch.nn.ReLU()(self.post_unet[:, 1, :, :] + 1))
+        if self.break4:
+            self.real_A = self.combine_from_4(self.real_A)
+            self.real_B = self.combine_from_4(self.real_B)
+            self.post_unet = self.combine_from_4(self.post_unet)
 
     def __patch_instance_norm_state_dict(self, state_dict, module, keys, i=0):
         """Fix InstanceNorm checkpoints incompatibility (prior to 0.4)"""
@@ -163,3 +171,9 @@ class UnetModel(BaseModel):
                 for key in list(state_dict.keys()):  # need to copy keys here because we mutate in loop
                     self.__patch_instance_norm_state_dict(state_dict, net, key.split('.'))
                 net.load_state_dict(state_dict)
+
+    def break_into_4(self, image):
+        return torch.cat(torch.chunk(torch.cat(torch.chunk(image, 2, dim=2), 0), 2, dim=3), 0)
+
+    def combine_from_4(self, image):
+        return torch.cat(torch.chunk(torch.cat(torch.chunk(image, 2, dim=0), 3), 2, dim=0), 2)

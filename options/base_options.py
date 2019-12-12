@@ -56,6 +56,7 @@ class BaseOptions():
         parser.add_argument('--image_type', type=str, default='uint8', help='Specify datatype of image. uint8|uint16|exr')
         parser.add_argument('--image_value_bound', type=int, default=255, help='max value in image.')
         parser.add_argument('--compute_bounds', action='store_true', help='compute max and min values of dataset. only for exr')
+        parser.add_argument('--linear', action='store_true', help='Last linear does not use non-Linearity')
         # additional parameters
         parser.add_argument('--epoch', type=str, default='latest', help='which epoch to load? set to latest to use latest cached model')
         parser.add_argument('--load_iter', type=int, default='0', help='which iteration to load? if load_iter > 0, the code will load models by iter_[load_iter]; otherwise, the code will load models by [epoch]')
