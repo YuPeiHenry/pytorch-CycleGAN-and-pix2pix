@@ -131,8 +131,8 @@ class UnetModel(BaseModel):
         self.image_paths = [single['A_paths' if AtoB else 'B_paths']]
 
         self.forward()
-        if self.opt.generate_residue:
-            self.post_unet[:, 1, :, :] = 1 - torch.nn.ReLU()(2 - torch.nn.ReLU()(self.post_unet[:, 1, :, :] + 1))
+        #if self.opt.generate_residue:
+        #    self.post_unet[:, 1, :, :] = 1 - torch.nn.ReLU()(2 - torch.nn.ReLU()(self.post_unet[:, 1, :, :] + 1))
         if self.opt.break4:
             self.real_A = self.combine_from_4(self.real_A)
             self.real_B = self.combine_from_4(self.real_B)
