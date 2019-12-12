@@ -29,6 +29,11 @@ class ExrDataset(BaseDataset):
         input_nc = self.opt.output_nc if btoA else self.opt.input_nc       # get the number of channels of input image
         output_nc = self.opt.input_nc if btoA else self.opt.output_nc      # get the number of channels of output image
 
+        self.A1_test_paths = sorted(make_dataset(os.path.join(opt.dataroot, 'test_input_terraform')))
+        self.B_test_paths = sorted(make_dataset(os.path.join(opt.dataroot, 'test_output')))
+        self.A1_test_size = len(self.A1_test_paths)
+        self.B_test_size = len(self.B_test_paths)
+
         self.input_names = np.array(["RockDetailMask.RockDetailMask", "SoftDetailMask.SoftDetailMask", "cliffs.cliffs", "height.height", "mesa.mesa", "slope.slope", "slopex.slopex", "slopez.slopez"])
         self.output_names = np.array(["RockDetailMask.RockDetailMask", "SoftDetailMask.SoftDetailMask", "bedrock.bedrock", "cliffs.cliffs", "flow.flow", "flowx.flowx", "flowz.flowz", "height.height", "mesa.mesa", "sediment.sediment", "water.water"])
         #self.input_channels = [3, 4, 6, 7] #height, mesa, slopex, slopez
@@ -135,3 +140,13 @@ class ExrDataset(BaseDataset):
 
     def write(self, image_path, image):
         exrlib.write_exr(image_path[:-3] + 'exr', image, [str(i) for i in range(image.shape[2])])
+
+    def get_val_item(self, index):
+        A1_path = self.A1_test_paths[index % self.A1_test_size]
+        B_path = self.B_test_paths[index % self.B_test_size]
+        A1_img = exrlib.read_exr_float32(A1_path, list(self.input_names[self.input_channels]), 512, 512)
+        B_img = exrlib.read_exr_float32(B_path, list(self.output_names[self.output_channels]), 512, 512)
+        A1 = self.convert_input(A1_img)
+        B = self.convert_output(B_img)
+
+        return {'A': A1, 'B': B, 'A_paths': A1_path, 'B_paths': B_path}
