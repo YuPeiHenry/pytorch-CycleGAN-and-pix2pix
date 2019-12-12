@@ -45,7 +45,9 @@ def getUpsample(in_c, out_c, k_size, stride, padding, use_bias, upsample_mode, u
         return [nn.Conv2d(in_c, out_c * (stride ** 2),
                     kernel_size=3, stride=1,
                     padding=1, bias=use_bias),
-                    nn.PixelShuffle(stride)
+                    nn.PixelShuffle(stride),
+					nn.ReplicationPad2d(1),
+					nn.AvgPool2d(2, stride=1)
                 ]
     else:
         return [nn.ConvTranspose2d(in_c, out_c,
