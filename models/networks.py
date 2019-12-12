@@ -1642,10 +1642,10 @@ class FeatureExtractor(nn.Module):
         super(FeatureExtractor, self).__init__()
 
         self.input_nc = input_nc
-        self.conv2 = nn.Sequential(nn.ReplicationPad2d((0, 1, 0, 1)), nn.Conv2d(1, 32, kernel_size=2, stride=1, padding=0, bias=False))
-        self.conv3 = nn.Conv2d(1, 32, kernel_size=3, stride=1, padding=1, bias=False)
-        self.conv5 = nn.Conv2d(1, 32, kernel_size=3, stride=1, padding=1, bias=False)
-        self.feat_transform = nn.Conv2d(32 * 3, 1, kernel_size=1, stride=1, padding=0, bias=False)
+        self.conv2 = nn.Sequential(nn.ReplicationPad2d((0, 1, 0, 1)), nn.Conv2d(1, 6, kernel_size=2, stride=1, padding=0, bias=False))
+        self.conv3 = nn.Conv2d(1, 4, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv5 = nn.Conv2d(1, 2, kernel_size=3, stride=1, padding=1, bias=False)
+        self.feat_transform = nn.Conv2d(12, 1, kernel_size=1, stride=1, padding=0, bias=False)
 
     def forward(self, input):
         return torch.cat([self.forward_single_channel(input[:, i].unsqueeze(1)) for i in range(self.input_nc)], 1)
