@@ -92,7 +92,7 @@ class UnetModel(BaseModel):
             post_unet_features = self.netFeature(self.post_unet.detach())
             real_features = self.netFeature(self.real_B)
             self.loss_D_L2 = -self.criterionL2(post_unet_features, real_features) * 1000
-            self.loss_D = self.loss_D_L2 / 1000 / 10
+            self.loss_D = self.loss_D_L2 / 1000 * 10
             self.loss_D.backward
 
     def backward_G(self):
