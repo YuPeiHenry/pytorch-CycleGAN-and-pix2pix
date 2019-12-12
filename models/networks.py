@@ -669,7 +669,7 @@ class UnetSkipConnectionBlock(nn.Module):
         if outermost:
             upconv = getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, True, upsample_mode, upsample_method=upsample_method)
             down = downconv
-            up = uprelu + upconv + [nn.Tanh()] if not linear else []
+            up = uprelu + upconv + ([nn.Tanh()] if not linear else [])
             model = down + [submodule] + up
         elif innermost:
             upconv = getUpsample(inner_nc, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method)
