@@ -86,7 +86,8 @@ class UnetModel(BaseModel):
 
     def backward_D(self):
         if not self.opt.use_feature_extractor:
-            self.loss_D = torch.zeros([1]).to(self.device)
+            self.loss_D_L2 = torch.zeros([1]).to(self.device)
+            self.loss_D = self.loss_D_L2
             #self.loss_D = self.criterionL2(self.post_unet, self.real_B) * 1000
         else:
             post_unet_features = self.netFeature(self.post_unet.detach())
