@@ -74,7 +74,7 @@ class UnetResnetModel(BaseModel):
         if self.opt.unet_residue:
             self.post_unet[:, 1, :, :] = self.post_unet[:, 1, :, :] + self.real_A[:, 0, :, :]
         self.fake_B = self.netG(torch.cat((self.real_A, self.post_unet), 1))
-        self.fake_B[:, 1, :, :] = self.fake_B[:, 1, :, :] + self.real_A[:, 0, :, :]
+        self.fake_B = self.fake_B + self.post_unet
 
     def backward_D(self):
         """Calculate GAN loss for the discriminator"""
