@@ -17,6 +17,9 @@ class UnetResnetModel(BaseModel):
         parser.add_argument('--width', type=int, default=512)
         parser.add_argument('--iterations', type=int, default=10)
         parser.add_argument('--break4', action='store_true', help='')
+        if is_train:
+            parser.set_defaults(pool_size=0, gan_mode='hinge', relativistic=True)
+            parser.add_argument('--lambda_L1', type=float, default=100.0, help='weight for L1 loss')
         return parser
 
     def __init__(self, opt):
