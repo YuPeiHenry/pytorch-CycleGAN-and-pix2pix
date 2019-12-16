@@ -16,6 +16,7 @@ class UnetModel(BaseModel):
         parser.add_argument('--iterations', type=int, default=10)
         parser.add_argument('--preload_unet', action='store_true', help='')
         parser.add_argument('--use_erosion', action='store_true', help='')
+        parser.add_argument('--lambda_L1', type=float, default=0.0, help='')
         parser.add_argument('--erosion_lr', type=float, default=0.0001, help='')
         parser.add_argument('--use_feature_extractor', action='store_true', help='')
         parser.add_argument('--break4', action='store_true', help='')
@@ -47,6 +48,7 @@ class UnetModel(BaseModel):
         if self.isTrain:
             # define loss functions
             self.criterionL2 = torch.nn.MSELoss()
+            self.criterionL1 = torch.nn.L1Loss()
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
             self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             if not opt.preload_unet: self.optimizers.append(self.optimizer_G)
@@ -92,18 +94,18 @@ class UnetModel(BaseModel):
         else:
             post_unet_features = self.netFeature(self.post_unet.detach())
             real_features = self.netFeature(self.real_B)
-            self.loss_D_L2 = -self.criterionL2(post_unet_features, real_features) * 1000
+            self.loss_D_L2 = -(self.criterionL2(post_unet_features, real_features) + self.opt.lambda_L1 * self.criterionL1(post_unet_features, real_features)) * 1000
             self.loss_D = -self.loss_D_L2 / self.loss_D_L2.item() * 2 / 1000
             self.loss_D.backward()
 
     def backward_G(self):
-        self.loss_G_L2 = self.criterionL2(self.post_unet, self.real_B) * 1000
+        self.loss_G_L2 = (self.criterionL2(self.post_unet, self.real_B) + self.opt.lambda_L1 * self.criterionL1(self.post_unet, self.real_B)) * 1000
         if not self.opt.use_feature_extractor:
             self.loss_G = self.loss_G_L2 / 1000
         else:
             post_unet_output = self.netFeature(self.post_unet)
             real_B_output = self.netFeature(self.real_B)
-            feat_loss = self.criterionL2(post_unet_output, real_B_output)
+            feat_loss = self.criterionL2(post_unet_output, real_B_output) + self.opt.lambda_L1 * self.criterionL1(post_unet_output, real_B_output)
             self.loss_G = self.loss_G_L2 / 1000 + feat_loss / feat_loss.item() * self.loss_G_L2.item() / 1000
         self.loss_G.backward()
 
