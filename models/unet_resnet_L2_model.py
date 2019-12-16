@@ -96,7 +96,13 @@ class UnetResnetL2Model(BaseModel):
 
     def optimize_parameters(self):
         self.forward()
+        if self.opt.use_feature_extractor:
+            self.set_requires_grad(self.netFeature, True)
+            self.optimizer_Feature.zero_grad()
         self.backward_D()
+        if self.opt.use_feature_extractor:
+            self.optimizer_Feature.step()
+            self.set_requires_grad(self.netFeature, False)
         # update G
         self.optimizer_G.zero_grad()
         self.backward_G()
