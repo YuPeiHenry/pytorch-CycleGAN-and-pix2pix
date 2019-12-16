@@ -35,7 +35,7 @@ class UnetResnetModel(BaseModel):
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method, linear=opt.linear)
         if self.isTrain:  # define a discriminator; conditional GANs need to take both input and output images; Therefore, #channels for D is input_nc + output_nc
             self.netD = networks.define_D(opt.input_nc + opt.output_nc, opt.ndf, opt.netD,
-                                          opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids, progressive=opt.progressive, progressive_stages=opt.progressive_stages, upsample_method=opt.upsample_method)
+                                          opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids, upsample_method=opt.upsample_method)
         self.load_base_networks()
 
         if self.isTrain:
