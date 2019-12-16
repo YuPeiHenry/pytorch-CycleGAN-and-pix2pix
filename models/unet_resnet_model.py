@@ -70,7 +70,7 @@ class UnetResnetModel(BaseModel):
         self.post_unet = self.netU(self.real_A).detach()
         if self.opt.unet_residue:
             self.post_unet[:, 1, :, :] = self.post_unet[:, 1, :, :] + self.real_A[:, 0, :, :]
-        self.fake_B = self.netG(torch.cat((self.real_A, self.post_unet), 1)
+        self.fake_B = self.netG(torch.cat((self.real_A, self.post_unet), 1))
         self.fake_B[:, 1, :, :] = self.fake_B[:, 1, :, :] + self.real_A[:, 0, :, :]
 
     def backward_D(self):
