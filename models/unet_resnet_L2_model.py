@@ -14,6 +14,7 @@ class UnetResnetL2Model(BaseModel):
         parser.add_argument('--fixed_index', type=int, default=0, help='')
         parser.add_argument('--netU', type=str, default='unet_256')
         parser.add_argument('--unet_input_nc', type=int, default=3)
+        parser.add_argument('--use_feature_extractor', action='store_true', help='')
         parser.add_argument('--break4', action='store_true', help='')
         return parser
 
@@ -25,13 +26,15 @@ class UnetResnetL2Model(BaseModel):
         self.visual_names = ['real_A', 'post_unet', 'fake_B', 'real_B']
         # specify the models you want to save to the disk. The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>
         self.model_names = ['G']
+        if opt.use_feature_extractor: self.model_names += ['Feature']
         self.preload_names = ['U']
         # define networks
         self.netU = networks.define_G(opt.unet_input_nc, opt.output_nc, opt.ngf, opt.netU, opt.norm_G,
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method, linear=opt.linear)
         self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm_G,
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method, linear=opt.linear)
-
+        if opt.use_feature_extractor:
+            self.netFeature = networks.init_net(networks.FeatureExtractor(opt.output_nc), gpu_ids=self.gpu_ids)
         self.load_base_networks()
 
         if self.isTrain:
@@ -40,6 +43,9 @@ class UnetResnetL2Model(BaseModel):
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
             self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
+            if opt.use_feature_extractor:
+                self.optimizer_Feature = torch.optim.Adam(self.netFeature.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+                self.optimizers.append(self.optimizer_Feature)
 
     def set_input(self, input):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
@@ -67,12 +73,25 @@ class UnetResnetL2Model(BaseModel):
         self.fake_B = self.fake_B + self.post_unet
 
     def backward_D(self):
-        self.loss_D_L2 = torch.zeros([1]).to(self.device)
-        self.loss_D = self.loss_D_L2
+        if not self.opt.use_feature_extractor:
+            self.loss_D_L2 = torch.zeros([1]).to(self.device)
+            self.loss_D = self.loss_D_L2
+        else:
+            fake_B_features = self.netFeature(self.fake_B.detach())
+            real_features = self.netFeature(self.real_B)
+            self.loss_D_L2 = -self.criterionL2(fake_B_features, real_features) * 1000
+            self.loss_D = -self.loss_D_L2 / self.loss_D_L2.item() * 2 / 1000
+            self.loss_D.backward()
 
     def backward_G(self):
         self.loss_G_L2 = self.criterionL2(self.fake_B, self.real_B) * 1000
-        self.loss_G = self.loss_G_L2 / 1000
+        if not self.opt.use_feature_extractor:
+            self.loss_G = self.loss_G_L2 / 1000
+        else:
+            fake_B_output = self.netFeature(self.fake_B)
+            real_B_output = self.netFeature(self.real_B)
+            feat_loss = self.criterionL2(fake_B_output, real_B_output)
+            self.loss_G = self.loss_G_L2 / 1000 + feat_loss / feat_loss.item() * self.loss_G_L2.item() / 1000
         self.loss_G.backward()
 
     def optimize_parameters(self):
