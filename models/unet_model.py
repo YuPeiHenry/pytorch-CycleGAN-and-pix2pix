@@ -114,7 +114,7 @@ class UnetModel(BaseModel):
         if not self.opt.use_feature_extractor:
             self.loss_G = self.loss_G_L2 / 1000
         else:
-            fake_B_output = self.netFeature(self.fake_B)
+            fake_B_output = self.netFeature(fake_B)
             real_B_output = self.netFeature(self.real_B)
             feat_loss = self.criterionL2(fake_B_output, real_B_output) + self.opt.lambda_L1 * self.criterionL1(fake_B_output, real_B_output)
             self.loss_G = self.loss_G_L2 / 1000 + feat_loss / feat_loss.item() * self.loss_G_L2.item() / 1000
