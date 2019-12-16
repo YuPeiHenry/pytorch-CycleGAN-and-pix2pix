@@ -39,9 +39,7 @@ class UnetResnetModel(BaseModel):
             self.criterionL2 = torch.nn.MSELoss()
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
             self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
-            self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
-            self.optimizers.append(self.optimizer_D)
 
     def set_input(self, input):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
@@ -69,12 +67,12 @@ class UnetResnetModel(BaseModel):
         self.fake_B = self.fake_B + self.post_unet
 
     def backward_D(self):
-		self.loss_D_L2 = torch.zeros([1]).to(self.device)
-		self.loss_D = self.loss_D_L2
+        self.loss_D_L2 = torch.zeros([1]).to(self.device)
+        self.loss_D = self.loss_D_L2
 
     def backward_G(self):
         self.loss_G_L2 = self.criterionL2(self.post_unet, self.real_B) * 1000
-		self.loss_G = self.loss_G_L2 / 1000
+        self.loss_G = self.loss_G_L2 / 1000
         self.loss_G.backward()
 
     def optimize_parameters(self):
