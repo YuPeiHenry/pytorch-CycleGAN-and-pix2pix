@@ -71,7 +71,7 @@ class UnetResnetL2Model(BaseModel):
         self.loss_D = self.loss_D_L2
 
     def backward_G(self):
-        self.loss_G_L2 = self.criterionL2(self.post_unet, self.real_B) * 1000
+        self.loss_G_L2 = self.criterionL2(self.fake_B, self.real_B) * 1000
         self.loss_G = self.loss_G_L2 / 1000
         self.loss_G.backward()
 
