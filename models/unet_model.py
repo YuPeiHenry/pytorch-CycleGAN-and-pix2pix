@@ -80,7 +80,7 @@ class UnetModel(BaseModel):
             self.real_B = self.break_into_4(self.real_B)
         self.post_unet = self.netG(self.real_A)  # G(A)
         if self.opt.generate_residue:
-            self.post_unet[:, 1, :, :] = self.post_unet[:, 1, :, :] + self.real_A[:, 0, :, :]
+            self.post_unet[:, 1, :, :] = self.post_unet[:, 1, :, :].clone() + self.real_A[:, 0, :, :]
         if self.opt.preload_unet:
             self.post_unet = self.post_unet.detach()
         if self.opt.use_erosion:
