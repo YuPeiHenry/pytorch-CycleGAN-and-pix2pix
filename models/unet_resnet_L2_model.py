@@ -5,7 +5,7 @@ import numpy as np
 import os
 
 
-class UnetResnetModel(BaseModel):
+class UnetResnetL2Model(BaseModel):
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
         parser.set_defaults(norm='instance', norm_G='instance', netG='resnet_9blocks', dataset_mode='exr', input_nc=5, output_nc=2, preprocess='N.A.', image_type='exr', image_value_bound=26350, no_flip=True)
