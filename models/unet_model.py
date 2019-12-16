@@ -80,7 +80,7 @@ class UnetModel(BaseModel):
             self.real_B = self.break_into_4(self.real_B)
         self.post_unet = self.netG(self.real_A)  # G(A)
         if self.opt.generate_residue:
-            self.post_unet = self.post_unet + torch.cat((torch.zeros(self.real_A.shape).to(self.device), self.real_A), 1)
+            self.post_unet = self.post_unet + torch.cat((torch.zeros((self.real_A.shape[0], 1, self.real_A.shape[2], self.real_A.shape[3]).to(self.device), self.real_A[:, 0, :, :].unsqueeze(1)), 1)
         if self.opt.preload_unet:
             self.post_unet = self.post_unet.detach()
         if self.opt.use_erosion:
