@@ -85,7 +85,7 @@ class UnetModel(BaseModel):
             self.post_unet = self.post_unet.detach()
         if self.opt.use_erosion:
             self.fake_B = self.post_unet.clone()
-            self.fake_B[:, 1, :, :] = self.netErosion(self.post_unet[:, 1, :, :]).float().squeeze(1)  # G(A)
+            self.fake_B[:, 1, :, :] = self.netErosion(self.post_unet[:, 1, :, :], self.real_A[:, 0, :, :]).float().squeeze(1)  # G(A)
 
     def backward_D(self):
         if self.opt.use_erosion:

@@ -1051,6 +1051,8 @@ class ErosionLayer(nn.Module):
         # Learnable variables
         # Water-related constants
         
+        self.alpha = torch.nn.Parameter(torch.cuda.DoubleTensor([1.0]))
+        self.alpha.requires_grad = True
         #inf
         self.rain_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.1 * self.cell_area]))
         self.rain_rate.requires_grad = True
@@ -1077,14 +1079,14 @@ class ErosionLayer(nn.Module):
         self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.0025]))
         self.deposition_rate.requires_grad = True
         
-    def forward(self, input_terrain):
+    def forward(self, input_terrain, original_terrain):
         coord_grid = np.array([[[[i, j] for i in range(self.width)] for j in range(self.width)]])
         self.coord_grid = torch.cuda.DoubleTensor(coord_grid).cuda()
         self.zeros = torch.cuda.DoubleTensor(np.zeros([1, self.width, self.width])).cuda()
         batch_size = input_terrain.size()[0]
 
         # These tensors are BatchSize x Height X Width
-        terrain = ((1 - input_terrain) / 2).view(-1, self.width, self.width).double()
+        terrain = ((1 - (self.alpha * input_terrain + (1 - self.alpha) * original_terrain)) / 2).view(-1, self.width, self.width).double()
         # `sediment` is the amount of suspended "dirt" in the water. Terrain will be
         # transfered to/from sediment depending on a number of different factors.
         sediment = self.zeros.clone().repeat(batch_size, 1, 1)
