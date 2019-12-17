@@ -1055,18 +1055,18 @@ class ErosionLayer(nn.Module):
         self.rain_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.1 * self.cell_area]))
         self.rain_rate.requires_grad = True
         #inf
-        self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.02]))
+        self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.002]))
         self.evaporation_rate.requires_grad = True
         # Slope constants
         #inf
         self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([0.05]))
         self.min_height_delta.requires_grad = True
         self.height_epsilon = torch.nn.Parameter(torch.cuda.DoubleTensor([0.001]))
-        self.height_epsilon.requires_grad = True
+        self.height_epsilon.requires_grad = False
         #self.repose_slope = torch.nn.Parameter(torch.cuda.DoubleTensor([0.015]))
         #self.repose_slope.requires_grad = True
         #inf
-        self.gravity = torch.nn.Parameter(torch.cuda.DoubleTensor([50.0]))
+        self.gravity = torch.nn.Parameter(torch.cuda.DoubleTensor([30.0]))
         self.gravity.requires_grad = True
         # Sediment constants
         #inf
