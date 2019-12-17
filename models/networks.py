@@ -1061,8 +1061,6 @@ class ErosionLayer(nn.Module):
         #inf
         self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([0.05]))
         self.min_height_delta.requires_grad = True
-        self.height_epsilon = torch.nn.Parameter(torch.cuda.DoubleTensor([0.001]))
-        self.height_epsilon.requires_grad = False
         #self.repose_slope = torch.nn.Parameter(torch.cuda.DoubleTensor([0.015]))
         #self.repose_slope.requires_grad = True
         #inf
@@ -1110,9 +1108,7 @@ class ErosionLayer(nn.Module):
             height_delta = terrain - neighbor_height
 
             # If the sediment exceeds the quantity, then it is deposited, otherwise terrain is eroded.
-            height_delta_sign = torch.sign(self.relu(height_delta.clone() - self.height_epsilon.clone()))
-            new_height_delta = height_delta_sign * torch.max(height_delta.clone(), self.min_height_delta.expand_as(height_delta.clone()))
-            sediment_capacity = (new_height_delta / self.cell_width) * velocity * water * self.relu(self.sediment_capacity_constant.clone())
+            sediment_capacity = (torch.max(height_delta, self.min_height_delta) / self.cell_width) * velocity * water * self.relu(self.sediment_capacity_constant.clone())
 
             # Sediment is deposited as height is higher
             first_term_boolean = self.relu(torch.sign(-height_delta))
