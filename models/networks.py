@@ -1061,6 +1061,8 @@ class ErosionLayer(nn.Module):
         #inf
         self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([0.05]))
         self.min_height_delta.requires_grad = True
+        self.height_epsilon = torch.nn.Parameter(torch.cuda.DoubleTensor([0.001]))
+        self.height_epsilon.requires_grad = True
         #self.repose_slope = torch.nn.Parameter(torch.cuda.DoubleTensor([0.015]))
         #self.repose_slope.requires_grad = True
         #inf
@@ -1108,21 +1110,20 @@ class ErosionLayer(nn.Module):
             height_delta = terrain - neighbor_height
 
             # If the sediment exceeds the quantity, then it is deposited, otherwise terrain is eroded.
-            sediment_capacity = (torch.max(height_delta, self.relu(self.min_height_delta.clone())) / self.cell_width) * velocity * water * self.relu(self.sediment_capacity_constant.clone())
+            new_height_delta = torch.max(self.relu(height_delta - self.height_epsilon) + self.height_epsilon - self.min_height_delta, self.min_height_delta.expand_as(height_delta))
+            sediment_capacity = (new_height_delta / self.cell_width) * velocity * water * self.relu(self.sediment_capacity_constant.clone())
 
             # Sediment is deposited as height is higher
             first_term_boolean = self.relu(torch.sign(-height_delta))
-            first_term = first_term_boolean * torch.min(-height_delta, sediment)
+            first_term = torch.min(self.relu(-height_delta), sediment)
             # Sediment is deposited as it exceeded capacity
-            sediment_diff = sediment - sediment_capacity
-            second_term_boolean = self.relu(torch.sign(sediment_diff))
-            second_term = (1 - first_term_boolean) * second_term_boolean * sediment_diff * self.relu(self.deposition_rate.clone())
             # Sediment is eroded otherwise
-            third_term = (1 - first_term_boolean) * (1 - second_term_boolean) * sediment_diff * self.relu(self.dissolving_rate.clone())
-            deposited_sediment = first_term + second_term + third_term
+            sediment_diff = sediment - sediment_capacity
+            third_term = (1 - first_term_boolean) * (self.relu(sediment_diff * self.deposition_rate) - self.relu(-sediment_diff * self.dissolving_rate))
+            deposited_sediment = first_term + third_term
 
             # Don't erode more sediment than the current terrain height.
-            deposited_sediment = torch.max(-height_delta, deposited_sediment)
+            deposited_sediment = torch.max(-self.relu(height_delta), deposited_sediment)
 
             # Update terrain and sediment quantities.
             sediment = sediment - deposited_sediment
@@ -1143,20 +1144,20 @@ class ErosionLayer(nn.Module):
         return self.relu(1 + (1 - terrain * 2)) - 1
 
     def simple_gradient(self, input, noise):
-        dx = 0.5 * torch.cat(((input[:, 0, :] * 0.9 - input[:, 0, :]).view(-1, 1, self.width),
+        dx = 0.5 * torch.cat(((input[:, 0, :] * 1.1 - input[:, 0, :]).view(-1, 1, self.width),
             input[:, 2:, :] - input[:, :-2, :],
             (input[:, -1, :] * 0.9 - input[:,-1, :]).view(-1, 1, self.width)), 1)
-        dy = 0.5 * torch.cat(((input[:, :, 0] * 0.9 - input[:, :, 0]).view(-1, self.width, 1),
+        dy = 0.5 * torch.cat(((input[:, :, 0] * 1.1 - input[:, :, 0]).view(-1, self.width, 1),
             input[:, :, 2:] - input[:, :, :-2],
             (input[:, :, -1] * 0.9 - input[:, :, -1]).view(-1, self.width, 1)), 2)
         magnitude = torch.sqrt(dx * dx + dy * dy + self.epsilon / 10)
 
         randomX = noise
-        randomY = 1 - torch.sqrt(randomX * randomX)
+        randomY = torch.sqrt(1 - randomX * randomX)
         factor = self.relu(self.epsilon - magnitude)
         
-        final_dx = (dx + factor * randomX) / (magnitude + self.epsilon)
-        final_dy = (dy + factor * randomY) / (magnitude + self.epsilon)
+        final_dx = (dx + factor * randomX) / (magnitude + factor)
+        final_dy = (dy + factor * randomY) / (magnitude + factor)
         
         # 4D Tensor
         return torch.cat((final_dx.unsqueeze(3), final_dy.unsqueeze(3)), 3)
@@ -1167,7 +1168,7 @@ class ErosionLayer(nn.Module):
         normalized = (coords / (self.width - 1) * 2) - 1
         # For example, values: x: -1, y: -1 is the left-top pixel of the input
         # values: x: 1, y: 1 is the right-bottom pixel of the input
-        return nn.functional.grid_sample(input.unsqueeze(1), normalized, mode='bilinear', padding_mode='zeros', align_corners=True).view(-1, self.width, self.width)
+        return nn.functional.grid_sample((input - 1).unsqueeze(1), normalized, mode='bilinear', padding_mode='zeros', align_corners=True).view(-1, self.width, self.width) + 1
  
     def displace(self, a, delta):
         """
