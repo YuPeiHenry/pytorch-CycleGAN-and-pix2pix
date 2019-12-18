@@ -47,9 +47,9 @@ class ExrDataset(BaseDataset):
             #self.o_channels_min = np.array([[[-10.80896282, -12.17011833, -3.95739818, 0, -0.87560517]]])
             #self.o_channels_max = np.array([[[2.76426649, 2.35645199, 418.50262451, 4.86357594, 2.89976954]]])
             self.i_channels_min = np.array([[[0, 0, -0.05163945]]])
-            self.i_channels_max = np.array([[[417.75454712, 0.99980736, 1.]]])
+            self.i_channels_max = np.array([[[417.75454712 * 2, 0.99980736, 1.]]])
             self.o_channels_min = np.array([[[5.08151024e-05, -3.95739818]]])
-            self.o_channels_max = np.array([[[1., 418.50262451]]])
+            self.o_channels_max = np.array([[[1., 418.50262451 * 2]]])
             return
 
         channels_min = np.array([2**16 for _ in self.input_channels])
