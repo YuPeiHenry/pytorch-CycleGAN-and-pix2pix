@@ -1160,7 +1160,7 @@ class ErosionLayer(nn.Module):
             neighbor_height = sample(terrain, -gradient, self.coord_grid, self.width)
             # NOTE: height_delta has approximately no gradient
             height_delta = terrain - neighbor_height
-            new_height_delta_sign = self.relu(height_delta - height_epsilon)
+            new_height_delta_sign = self.relu(height_delta - self.height_epsilon)
             new_height_delta = new_height_delta_sign * torch.maximum(height_delta, self.min_height_delta)
 
             # If the sediment exceeds the quantity, then it is deposited, otherwise terrain is eroded.
