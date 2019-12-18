@@ -730,7 +730,7 @@ class UnetSkipConnectionBlock(nn.Module):
         return self.up(intermediate)
 
 class UnetResBlock(nn.Module):
-    def __init__(self, in_c = 3, out_ch=2, start_ch=64, depth=4, inc_rate=2., activation=nn.ReLU(), 
+    def __init__(self, in_c = 3, out_ch=2, start_ch=64, depth=4, inc_rate=2., activation=nn.ReLU(True), 
          dropout=0.5, batchnorm=False, maxpool=True, upconv=True, residual=False):
         super(UnetResBlock, self).__init__()
         self.model = LevelBlock(in_c, start_ch, depth, inc_rate, activation, dropout, batchnorm, maxpool, upconv, residual)
