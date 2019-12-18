@@ -749,7 +749,7 @@ class LevelBlock(nn.Module):
         self.conv2 = ConvBlock(dim * 2, dim, acti, bn, res)
 
         down = nn.MaxPool2d(2, 2) if mp else nn.Sequential(nn.Conv2d(dim, dim, kernel_size=3, stride=2, padding=1), acti)
-        submodule = LevelBlock(int(inc * dim), depth - 1, acti, bn, mp, up, res) if depth > 0 else None
+        submodule = LevelBlock(int(inc * dim), depth - 1, inc, acti, do, bn, mp, up, res) if depth > 0 else None
         up = nn.Sequential(nn.Upsample(scale_factor=2, mode='nearest'), nn.ReplicationPad2d((0, 1, 0, 1)), nn.Conv2d(dim , dim, kernel_size=2, stride=1, padding=0), acti) if up else nn.Sequential(nn.ConvTranspose2d(dim, dim, kernel_size=3, stride=2, padding=1), acti)
         self.model = nn.Sequential(down, submodule, up)
 
