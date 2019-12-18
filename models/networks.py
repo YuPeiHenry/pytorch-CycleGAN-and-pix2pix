@@ -733,24 +733,22 @@ class UnetResBlock(nn.Module):
     def __init__(self, in_c = 3, out_ch=2, start_ch=64, depth=4, inc_rate=2., activation=nn.ReLU(), 
          dropout=0.5, batchnorm=False, maxpool=True, upconv=True, residual=False):
         super(UnetResBlock, self).__init__()
-        self.model = LevelBlock(start_ch, depth, inc_rate, activation, dropout, batchnorm, maxpool, upconv, residual)
-        self.in_conv = nn.Conv2d(in_c, start_ch, kernel_size=1, stride=1, padding=0)
+        self.model = LevelBlock(in_c, start_ch, depth, inc_rate, activation, dropout, batchnorm, maxpool, upconv, residual)
         self.out_conv = nn.Conv2d(start_ch, out_ch, kernel_size=1, stride=1, padding=0)
     def forward(self, x):
-        x = self.in_conv(x)
         x = self.model(x)
         return self.out_conv(x)
     
 class LevelBlock(nn.Module):
-    def __init__(self, dim, depth, inc, acti, do, bn, mp, up, res):
+    def __init__(self, in_dim, dim, depth, inc, acti, do, bn, mp, up, res):
         super(LevelBlock, self).__init__()
         self.depth = depth
-        self.conv1 = ConvBlock(dim, dim, acti, bn, res)
+        self.conv1 = ConvBlock(in_dim, dim, acti, bn, res)
         self.conv2 = ConvBlock(dim * 2, dim, acti, bn, res)
 
         down = nn.MaxPool2d(2, 2) if mp else nn.Sequential(nn.Conv2d(dim, dim, kernel_size=3, stride=2, padding=1), acti)
-        submodule = LevelBlock(int(inc * dim), depth - 1, inc, acti, do, bn, mp, up, res) if depth > 0 else None
-        up = nn.Sequential(nn.Upsample(scale_factor=2, mode='nearest'), nn.ReplicationPad2d((0, 1, 0, 1)), nn.Conv2d(dim , dim, kernel_size=2, stride=1, padding=0), acti) if up else nn.Sequential(nn.ConvTranspose2d(dim, dim, kernel_size=3, stride=2, padding=1), acti)
+        submodule = LevelBlock(dim, int(inc * dim), depth - 1, inc, acti, do, bn, mp, up, res) if depth > 0 else None
+        up = nn.Sequential(nn.Upsample(scale_factor=2, mode='nearest'), nn.ReplicationPad2d((0, 1, 0, 1)), nn.Conv2d(int(inc * dim) , dim, kernel_size=2, stride=1, padding=0), acti) if up else nn.Sequential(nn.ConvTranspose2d(inc * dim, dim, kernel_size=3, stride=2, padding=1), acti)
         self.model = nn.Sequential(down, submodule, up)
 
     def forward(self, x):
