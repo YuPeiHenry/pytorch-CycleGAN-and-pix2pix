@@ -761,7 +761,7 @@ class LevelBlock(nn.Module):
         n = torch.cat((n, m), 1)
         return self.conv2(n)
 
-class ConvBlock(
+class ConvBlock(nn.Module):
     def __init__(self, in_dim, dim, acti, bn, res, do=0):
         super(ConvBlock, self).__init__()
         layers = []
