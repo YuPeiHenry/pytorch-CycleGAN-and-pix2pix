@@ -6,7 +6,7 @@ from torch.optim import lr_scheduler
 from torch.autograd import Variable
 from .layers import *
 from .stylegan_modules import *
-import erosionlib
+from .erosionlib import *
 import numpy as np
 import types
 
@@ -1154,10 +1154,10 @@ class ErosionLayer(nn.Module):
 
             # Compute the normalized gradient of the terrain height to determine direction of water and sediment.
             # Gradient is 4D. BatchSize x Height X Width x 2
-            gradient = erosionlib.simple_gradient(terrain, self.random_gradient[:, i].view(-1, self.width, self.width))
+            gradient = simple_gradient(terrain, self.random_gradient[:, i].view(-1, self.width, self.width), self.epsilon)
 
             # Compute the difference between the current height the height offset by `gradient`.
-            neighbor_height = erosionlib.sample(terrain, -gradient)
+            neighbor_height = sample(terrain, -gradient, self.coord_grid, width)
             # NOTE: height_delta has approximately no gradient
             height_delta = terrain - neighbor_height
             new_height_delta_sign = self.relu(height_delta - height_epsilon)
@@ -1181,8 +1181,8 @@ class ErosionLayer(nn.Module):
             # Update terrain and sediment quantities.
             sediment = sediment - deposited_sediment
             terrain = terrain + deposited_sediment
-            sediment = erosionlib.displace(sediment, gradient)
-            water = erosionlib.displace(water, gradient)
+            sediment = displace(sediment, gradient)
+            water = displace(water, gradient)
 
             # Smooth out steep slopes.
             #terrain = self.apply_slippage(terrain, self.repose_slope, self.random_gradient[:, i].view(-1, self.width, self.width))
