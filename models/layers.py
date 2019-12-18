@@ -36,18 +36,21 @@ def getDownsample(in_c, out_c, k_size, stride, padding, use_bias, downsample_mod
                     padding=padding, bias=use_bias)]
 
 def getUpsample(in_c, out_c, k_size, stride, padding, use_bias, upsample_mode, upsample_method='nearest', output_padding=0):
+    half = (stride - 1) // 2
+    parity = (stride - 1) % 2
     if upsample_mode == 'upsample':
         return [nn.Upsample(scale_factor=stride, mode=upsample_method),
+                nn.ReplicationPad2d((half, half + parity, half, half + parity)),
                 nn.Conv2d(in_c, out_c,
-                    kernel_size=3, stride=1,
-                    padding=1, bias=use_bias)]
+                    kernel_size=stride, stride=1,
+                    padding=0, bias=use_bias)]
     elif upsample_mode == 'subpixel':
         return [nn.Conv2d(in_c, out_c * (stride ** 2),
                     kernel_size=3, stride=1,
                     padding=1, bias=use_bias),
                     nn.PixelShuffle(stride),
-					nn.ReplicationPad2d(1),
-					nn.AvgPool2d(2, stride=1)
+                    nn.ReplicationPad2d((half, half + parity, half, half + parity),
+                    nn.AvgPool2d(stride, stride=1)
                 ]
     else:
         return [nn.ConvTranspose2d(in_c, out_c,
