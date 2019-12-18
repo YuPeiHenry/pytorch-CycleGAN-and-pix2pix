@@ -43,7 +43,10 @@ def getUpsample(in_c, out_c, k_size, stride, padding, use_bias, upsample_mode, u
                 nn.ReplicationPad2d((half, half + parity, half, half + parity)),
                 nn.Conv2d(in_c, out_c,
                     kernel_size=stride, stride=1,
-                    padding=0, bias=use_bias)]
+                    padding=0, bias=use_bias),
+                nn.Conv2d(out_c, out_c,
+                    kernel_size=3, stride=1,
+                    padding=1, bias=use_bias)]
     elif upsample_mode == 'subpixel':
         return [nn.Conv2d(in_c, out_c * (stride ** 2),
                     kernel_size=3, stride=1,
