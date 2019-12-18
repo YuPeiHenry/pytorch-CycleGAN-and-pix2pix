@@ -6,6 +6,7 @@ from torch.optim import lr_scheduler
 from torch.autograd import Variable
 from .layers import *
 from .stylegan_modules import *
+import erosionlib
 import numpy as np
 import types
 
@@ -1091,7 +1092,7 @@ class ErosionLayer(nn.Module):
         self.epsilon = 1e-10
 
         self.random_rainfall = torch.nn.Parameter(torch.cuda.DoubleTensor(np.random.rand(1, self.iterations, self.width, self.width)))
-        self.random_rainfall.requires_grad = False
+        self.random_rainfall.requires_grad = True
         self.random_gradient = torch.nn.Parameter(torch.cuda.DoubleTensor(np.random.rand(1, self.iterations, self.width, self.width)))
         self.random_gradient.requires_grad = False
 
@@ -1112,6 +1113,8 @@ class ErosionLayer(nn.Module):
         #inf
         self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([0.05]))
         self.min_height_delta.requires_grad = True
+        self.height_epsilon = torch.nn.Parameter(torch.cuda.DoubleTensor([0.05]))
+        self.height_epsilon.requires_grad = True
         #self.repose_slope = torch.nn.Parameter(torch.cuda.DoubleTensor([0.015]))
         #self.repose_slope.requires_grad = True
         #inf
@@ -1151,15 +1154,17 @@ class ErosionLayer(nn.Module):
 
             # Compute the normalized gradient of the terrain height to determine direction of water and sediment.
             # Gradient is 4D. BatchSize x Height X Width x 2
-            gradient = self.simple_gradient(terrain, self.random_gradient[:, i].view(-1, self.width, self.width))
+            gradient = erosionlib.simple_gradient(terrain, self.random_gradient[:, i].view(-1, self.width, self.width))
 
             # Compute the difference between the current height the height offset by `gradient`.
-            neighbor_height = self.sample(terrain, -gradient)
+            neighbor_height = erosionlib.sample(terrain, -gradient)
             # NOTE: height_delta has approximately no gradient
             height_delta = terrain - neighbor_height
+            new_height_delta_sign = self.relu(height_delta - height_epsilon)
+            new_height_delta = new_height_delta_sign * torch.maximum(height_delta, self.min_height_delta)
 
             # If the sediment exceeds the quantity, then it is deposited, otherwise terrain is eroded.
-            sediment_capacity = (torch.max(height_delta.clone(), self.relu(self.min_height_delta.clone())) / self.cell_width) * velocity * water * self.relu(self.sediment_capacity_constant.clone())
+            sediment_capacity = (new_height_delta / self.cell_width) * velocity * water * self.relu(self.sediment_capacity_constant.clone())
 
             # Sediment is deposited as height is higher
             first_term_boolean = self.relu(torch.sign(-height_delta))
@@ -1176,8 +1181,8 @@ class ErosionLayer(nn.Module):
             # Update terrain and sediment quantities.
             sediment = sediment - deposited_sediment
             terrain = terrain + deposited_sediment
-            sediment = self.displace(sediment, gradient)
-            water = self.displace(water, gradient)
+            sediment = erosionlib.displace(sediment, gradient)
+            water = erosionlib.displace(water, gradient)
 
             # Smooth out steep slopes.
             #terrain = self.apply_slippage(terrain, self.repose_slope, self.random_gradient[:, i].view(-1, self.width, self.width))
@@ -1190,70 +1195,6 @@ class ErosionLayer(nn.Module):
 
         terrain = terrain.unsqueeze(1)
         return self.relu(1 + (1 - terrain * 2)) - 1
-
-    def simple_gradient(self, input, noise):
-        dx = 0.5 * torch.cat(((input[:, 0, :] * 1.1 - input[:, 0, :]).view(-1, 1, self.width),
-            input[:, 2:, :] - input[:, :-2, :],
-            (input[:, -1, :] * 0.9 - input[:,-1, :]).view(-1, 1, self.width)), 1)
-        dy = 0.5 * torch.cat(((input[:, :, 0] * 1.1 - input[:, :, 0]).view(-1, self.width, 1),
-            input[:, :, 2:] - input[:, :, :-2],
-            (input[:, :, -1] * 0.9 - input[:, :, -1]).view(-1, self.width, 1)), 2)
-        magnitude = torch.sqrt(dx * dx + dy * dy + self.epsilon / 10)
-
-        randomX = noise
-        randomY = torch.sqrt(1 - randomX * randomX)
-        factor = self.relu(self.epsilon - magnitude)
-        
-        final_dx = (dx + factor * randomX) / (magnitude + factor)
-        final_dy = (dy + factor * randomY) / (magnitude + factor)
-        
-        # 4D Tensor
-        return torch.cat((final_dx.unsqueeze(3), final_dy.unsqueeze(3)), 3)
-
-    def sample(self, input, offset):
-        # coords are between [0, self.width - 1]. Normalize to [-1, 1]
-        coords = self.coord_grid.repeat(input.size()[0], 1, 1, 1) + offset
-        normalized = (coords / (self.width - 1) * 2) - 1
-        # For example, values: x: -1, y: -1 is the left-top pixel of the input
-        # values: x: 1, y: 1 is the right-bottom pixel of the input
-        return nn.functional.grid_sample((input - 1).unsqueeze(1), normalized, mode='bilinear', padding_mode='zeros', align_corners=True).view(-1, self.width, self.width) + 1
- 
-    def displace(self, a, delta):
-        """
-        fns = {
-            -1: lambda x: -x,
-            0: lambda x: 1 - np.abs(x),
-            1: lambda x: x,
-        }"""
-        delta_x, delta_y = delta[:, :, :, 0], delta[:, :, :, 1]
-        delta_x = delta_x.unsqueeze(3)
-        delta_y = delta_y.unsqueeze(3)
-        # BatchSize x Height X Width x 3
-        x_multipliers = self.relu(torch.cat((-delta_x, 1 - torch.abs(delta_x), delta_x), 3))
-        y_multipliers = self.relu(torch.cat((-delta_y, 1 - torch.abs(delta_y), delta_y), 3))
-        
-        post_x = self.sum_3tensors_with_offsets(x_multipliers * a.unsqueeze(3).repeat(1, 1, 1, 3), 1)
-        post_y = self.sum_3tensors_with_offsets(y_multipliers * a.unsqueeze(3).repeat(1, 1, 1, 3), 2)
-        
-        return post_y
-
-    def sum_3tensors_with_offsets(self, tensors, offset_axis):
-        tensor1, tensor2, tensor3 = tensors[:, :, :, 0], tensors[:, :, :, 1], tensors[:, :, :, 2]
-        if offset_axis == 1:
-            tensor1 = torch.cat((tensor1[:, :-1, :], (tensor1[:, 0, :] - tensor1[:, 0, :]).view(-1, 1, self.width)), 1)
-            tensor3 = torch.cat(((tensor3[:, 0, :] - tensor3[:, 0, :]).view(-1, 1, self.width), tensor3[:, 1:, :]), 1)
-        elif offset_axis == 2:
-            tensor1 = torch.cat((tensor1[:, :, :-1], (tensor1[:, :, 0] - tensor1[:, :, 0]).view(-1, self.width, 1)), 2)
-            tensor3 = torch.cat(((tensor3[:, :, 0] - tensor3[:, :, 0]).view(-1, self.width, 1), tensor3[:, :, 1:]), 2)
-        return torch.sum(torch.cat((tensor1.unsqueeze(3), tensor2.unsqueeze(3), tensor3.unsqueeze(3)), 3), 3)
-
-    def apply_slippage(self, terrain, repose_slope, noise):
-        delta = self.simple_gradient(terrain, noise) / self.width
-        smoothed = self.blur(terrain.unsqueeze(1).float()).view(-1, self.width, self.width).double()
-        diff = torch.sqrt(delta[:, :, :, 0] ** 2 + delta[:, :, :, 1] ** 2) - self.repose_slope
-        sign = self.relu(diff) / (torch.abs(diff) + self.epsilon)
-        result = terrain * (1 - sign) + sign * smoothed
-        return result
 
 #Taken from https://github.com/bfortuner/pytorch_tiramisu
 
