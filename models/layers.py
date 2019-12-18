@@ -49,7 +49,7 @@ def getUpsample(in_c, out_c, k_size, stride, padding, use_bias, upsample_mode, u
                     kernel_size=3, stride=1,
                     padding=1, bias=use_bias),
                     nn.PixelShuffle(stride),
-                    nn.ReplicationPad2d((half, half + parity, half, half + parity),
+                    nn.ReplicationPad2d((half, half + parity, half, half + parity)),
                     nn.AvgPool2d(stride, stride=1)
                 ]
     else:
