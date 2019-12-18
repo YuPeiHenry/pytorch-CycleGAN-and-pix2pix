@@ -172,6 +172,9 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
         net = UnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout, styled=norm=='adain', progressive=progressive, n_stage=progressive_stages, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method, linear=linear)
     elif netG == 'unet_512':
         net = UnetGenerator(input_nc, output_nc, 9, ngf, norm_layer=norm_layer, use_dropout=use_dropout, styled=norm=='adain', progressive=progressive, n_stage=progressive_stages, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method, linear=linear)
+    elif netG == 'unet_resblock':
+        net = UnetResBlock(self, input_nc, output_nc, ngf, depth=4, inc_rate=2., activation=nn.ReLU(), 
+         dropout=0.5, batchnorm=False, maxpool=True, upconv=True, residual=False)
     elif netG == 'global':
         net = GlobalGenerator(input_nc, output_nc, ngf, n_downsample_global, n_blocks_global, norm_layer)
     elif netG == 'local':        
@@ -725,6 +728,54 @@ class UnetSkipConnectionBlock(nn.Module):
             intermediate = torch.cat([noise, output], 1)
 
         return self.up(intermediate)
+
+class UnetResBlock(nn.Module):
+    def __init__(self, in_c = 3, out_ch=2, start_ch=64, depth=4, inc_rate=2., activation=nn.ReLU(), 
+         dropout=0.5, batchnorm=False, maxpool=True, upconv=True, residual=False):
+        super(UnetResBlock, self).__init__()
+        self.model = LevelBlock(start_ch, depth, inc_rate, activation, dropout, batchnorm, maxpool, upconv, residual)
+        self.in_conv = nn.Conv2d(in_c, start_ch, kernel_size=1, stride=1, padding=0)
+        self.out_conv = nn.Conv2d(start_ch, out_ch, kernel_size=1, stride=1, padding=0)
+    def forward(self, x):
+        x = self.in_conv(x)
+        x = self.model(x)
+        return self.out_conv(x)
+    
+class LevelBlock(nn.Module):
+    def __init__(self, dim, depth, inc, acti, do, bn, mp, up, res):
+        super(LevelBlock, self).__init__()
+        self.depth = depth
+        self.conv1 = ConvBlock(dim, dim, acti, bn, res)
+        self.conv2 = ConvBlock(dim * 2, dim, acti, bn, res)
+
+        down = nn.MaxPool2d(2, 2) if mp else nn.Sequential(nn.Conv2d(dim, dim, kernel_size=3, stride=2, padding=1), acti)
+        submodule = LevelBlock(int(inc * dim), depth - 1, acti, bn, mp, up, res) if depth > 0 else None
+        up = nn.Sequential(nn.Upsample(scale_factor=2, mode='nearest'), nn.ReplicationPad2d((0, 1, 0, 1)), nn.Conv2d(dim , dim, kernel_size=2, stride=1, padding=0), acti) if up else nn.Sequential(nn.ConvTranspose2d(dim, dim, kernel_size=3, stride=2, padding=1), acti)
+        self.model = nn.Sequential(down, submodule, up)
+
+    def forward(self, x):
+        if depth <= 0: return self.conv1(x)
+
+        n = self.conv1(x)
+        m = self.model(n)
+        n = torch.cat((n, m), 1)
+        return self.conv2(n)
+
+class ConvBlock(
+    def __init__(self, in_dim, dim, acti, bn, res, do=0):
+        super(ConvBlock, self).__init__()
+        layers = []
+        layers += [nn.Conv2d(in_dim, dim, kernel_size=3, stride=1, padding=1), acti]
+        if bn: layers += [nn.BatchNorm2d(dim)]
+        if do: layers += [nn.Dropout(do)]
+        layers += [nn.Conv2d(dim, dim, kernel_size=3, stride=1, padding=1), acti]
+        if bn: layers += [nn.BatchNorm2d(dim)]
+        self.model = nn.Sequential(*layers)
+        self.res = res
+    def forward(self, x):
+        output = self.model(x)
+        if self.res: output = torch.cat((x, output), 1)
+        return output
 
 # Defines the PatchGAN discriminator with the specified arguments.
 class NLayerDiscriminator(nn.Module):
