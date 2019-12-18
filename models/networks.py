@@ -1157,7 +1157,7 @@ class ErosionLayer(nn.Module):
             gradient = simple_gradient(terrain, self.random_gradient[:, i].view(-1, self.width, self.width), self.epsilon)
 
             # Compute the difference between the current height the height offset by `gradient`.
-            neighbor_height = sample(terrain, -gradient, self.coord_grid, self.width)
+            neighbor_height = sample(terrain, gradient, self.coord_grid, self.width)
             # NOTE: height_delta has approximately no gradient
             height_delta = terrain - neighbor_height
             new_height_delta_sign = self.relu(height_delta.clone() - self.height_epsilon.clone())
