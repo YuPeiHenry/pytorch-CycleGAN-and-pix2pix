@@ -754,7 +754,7 @@ class LevelBlock(nn.Module):
         self.model = nn.Sequential(down, submodule, up)
 
     def forward(self, x):
-        if depth <= 0: return self.conv1(x)
+        if self.depth <= 0: return self.conv1(x)
 
         n = self.conv1(x)
         m = self.model(n)
