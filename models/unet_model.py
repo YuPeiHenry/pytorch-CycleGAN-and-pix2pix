@@ -10,6 +10,8 @@ class UnetModel(BaseModel):
     def modify_commandline_options(parser, is_train=True):
         parser.set_defaults(norm='instance', norm_G='instance', netG='unet_256', dataset_mode='exr', input_nc=3, output_nc=2, preprocess='N.A.', image_type='exr', image_value_bound=26350, no_flip=True)
         parser.add_argument('--generate_residue', action='store_true', help='')
+        parser.add_argument('--input_height_channel', type=int, default=0)
+        parser.add_argument('--output_height_channel', type=int, default=1)
         parser.add_argument('--fixed_example', action='store_true', help='')
         parser.add_argument('--fixed_index', type=int, default=0, help='')
         parser.add_argument('--width', type=int, default=512)
@@ -79,13 +81,17 @@ class UnetModel(BaseModel):
             self.real_A = self.break_into_4(self.real_A)
             self.real_B = self.break_into_4(self.real_B)
         self.post_unet = self.netG(self.real_A)  # G(A)
+        in_h = self.opt.input_height_channel
+        out_h = self.opt.output_height_channel
         if self.opt.generate_residue:
-            self.post_unet = self.post_unet + torch.cat((torch.zeros(self.real_A.shape[0], 1, self.real_A.shape[2], self.real_A.shape[3]).to(self.device), self.real_A[:, 0, :, :].unsqueeze(1)), 1)
+            residue = torch.zeros(self.post_unet.shape)
+            residue[:, out_h, :, :] = self.real_A[:, in_h, :, :]
+            self.post_unet = self.post_unet + residue
         if self.opt.preload_unet:
             self.post_unet = self.post_unet.detach()
         if self.opt.use_erosion:
             self.fake_B = self.post_unet.clone()
-            self.fake_B[:, 1, :, :] = self.netErosion(self.post_unet[:, 1, :, :], self.real_A[:, 0, :, :]).float().squeeze(1)  # G(A)
+            self.fake_B[:, out_h, :, :] = self.netErosion(self.post_unet[:, out_h, :, :], self.real_A[:, in_h, :, :]).float().squeeze(1)  # G(A)
 
     def backward_D(self):
         if self.opt.use_erosion:
