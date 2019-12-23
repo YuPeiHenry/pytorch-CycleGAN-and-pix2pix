@@ -1105,7 +1105,7 @@ class ErosionLayer(nn.Module):
         self.alpha.requires_grad = False
         #inf
         self.rain_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.1 * self.cell_area]))
-        self.rain_rate.requires_grad = True
+        self.rain_rate.requires_grad = False
         #inf
         self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.002]))
         self.evaporation_rate.requires_grad = True
