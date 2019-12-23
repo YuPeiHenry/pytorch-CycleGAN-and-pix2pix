@@ -36,6 +36,7 @@ if __name__ == '__main__':
     model.setup(opt)               # regular setup: load and print networks; create schedulers
     visualizer = Visualizer(opt)   # create a visualizer that display/save images and plots
     total_iters = 0                # the total number of training iterations
+    log_count = 1
 
     tlogger = Logger(model.save_dir)
 
@@ -85,6 +86,12 @@ if __name__ == '__main__':
                 loss_G = loss_G * items / (items + batch_items) + model.loss_G.item() * batch_items / (items + batch_items)
                 loss_D = loss_D * items / (items + batch_items) + model.loss_D.item() * batch_items / (items + batch_items)
                 items = items + batch_items
+
+        if hasattr(model, var_names):
+            for name, var, grad in zip(model.var_names, model.var_values, model.var_grads):
+                tlogger.scalar_summary(name + "_value", var, log_count)
+                tlogger.scalar_summary(name + "_grad", grad, log_count)
+            log_count += 1
 
         tlogger.scalar_summary("loss_G", loss_G, epoch)
         tlogger.scalar_summary("loss_D", loss_D, epoch)
