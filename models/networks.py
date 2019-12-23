@@ -1092,7 +1092,7 @@ class ErosionLayer(nn.Module):
         self.epsilon = 1e-10
 
         self.random_rainfall = torch.nn.Parameter(torch.cuda.DoubleTensor(np.random.rand(1, self.iterations, self.width, self.width)))
-        self.random_rainfall.requires_grad = True
+        self.random_rainfall.requires_grad = False
         self.random_gradient = torch.nn.Parameter(torch.cuda.DoubleTensor(np.random.rand(1, self.iterations, self.width, self.width)))
         self.random_gradient.requires_grad = False
 
@@ -1101,8 +1101,8 @@ class ErosionLayer(nn.Module):
         # Learnable variables
         # Water-related constants
         
-        self.alpha = torch.nn.Parameter(torch.cuda.DoubleTensor([0.99]))
-        self.alpha.requires_grad = True
+        self.alpha = torch.nn.Parameter(torch.cuda.DoubleTensor([1.0]))
+        self.alpha.requires_grad = False
         #inf
         self.rain_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.1 * self.cell_area]))
         self.rain_rate.requires_grad = True
@@ -1113,8 +1113,6 @@ class ErosionLayer(nn.Module):
         #inf
         self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([0.05]))
         self.min_height_delta.requires_grad = True
-        self.height_epsilon = torch.nn.Parameter(torch.cuda.DoubleTensor([0.05]))
-        self.height_epsilon.requires_grad = True
         #self.repose_slope = torch.nn.Parameter(torch.cuda.DoubleTensor([0.015]))
         #self.repose_slope.requires_grad = True
         #inf
@@ -1155,16 +1153,15 @@ class ErosionLayer(nn.Module):
             # Compute the normalized gradient of the terrain height to determine direction of water and sediment.
             # Gradient is 4D. BatchSize x Height X Width x 2
             gradient = simple_gradient(terrain, self.random_gradient[:, i].view(-1, self.width, self.width), self.epsilon)
+            gradient = torch.cat((gradient[:, :, :, 1].unsqueeze(3), gradient[:, :, :, 0].unsqueeze(3)), 3)
 
             # Compute the difference between the current height the height offset by `gradient`.
             neighbor_height = sample(terrain, gradient, self.coord_grid, self.width)
             # NOTE: height_delta has approximately no gradient
             height_delta = terrain - neighbor_height
-            new_height_delta_sign = self.relu(height_delta.clone() - self.height_epsilon.clone())
-            new_height_delta = new_height_delta_sign * torch.max(height_delta.clone(), self.min_height_delta.expand_as(height_delta))
 
             # If the sediment exceeds the quantity, then it is deposited, otherwise terrain is eroded.
-            sediment_capacity = (new_height_delta / self.cell_width) * velocity * water * self.relu(self.sediment_capacity_constant.clone())
+            sediment_capacity = torch.max(height_delta.clone(), self.min_height_delta.clone() / self.cell_width) * velocity * water * self.relu(self.sediment_capacity_constant.clone())
 
             # Sediment is deposited as height is higher
             first_term_boolean = self.relu(torch.sign(-height_delta))
@@ -1194,7 +1191,7 @@ class ErosionLayer(nn.Module):
             water = water * (1 - self.relu(self.evaporation_rate.clone()))
 
         terrain = terrain.unsqueeze(1)
-        return self.relu(1 + (1 - terrain * 2)) - 1
+        return 1 - terrain * 2
 
 #Taken from https://github.com/bfortuner/pytorch_tiramisu
 
