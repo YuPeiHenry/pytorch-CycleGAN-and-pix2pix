@@ -1101,7 +1101,7 @@ class ErosionLayer(nn.Module):
         # Learnable variables
         # Water-related constants
         
-        self.alpha = torch.nn.Parameter(torch.cuda.DoubleTensor([1.0]))
+        self.alpha = torch.nn.Parameter(torch.cuda.DoubleTensor([0.0]))
         self.alpha.requires_grad = False
         #inf
         self.rain_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.1 * self.cell_area]))
