@@ -84,7 +84,7 @@ class UnetModel(BaseModel):
         in_h = self.opt.input_height_channel
         out_h = self.opt.output_height_channel
         if self.opt.generate_residue:
-            residue = torch.zeros(self.post_unet.shape)
+            residue = torch.zeros(self.post_unet.shape).to(self.device)
             residue[:, out_h, :, :] = self.real_A[:, in_h, :, :]
             self.post_unet = self.post_unet + residue
         if self.opt.preload_unet:
