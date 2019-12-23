@@ -87,7 +87,7 @@ if __name__ == '__main__':
                 loss_D = loss_D * items / (items + batch_items) + model.loss_D.item() * batch_items / (items + batch_items)
                 items = items + batch_items
 
-        if hasattr(model, var_names):
+        if hasattr(model, "var_names"):
             for name, var, grad in zip(model.var_names, model.var_values, model.var_grads):
                 tlogger.scalar_summary(name + "_value", var, log_count)
                 tlogger.scalar_summary(name + "_grad", grad, log_count)
