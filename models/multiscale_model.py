@@ -21,9 +21,9 @@ class MultiscaleModel(BaseModel):
         """
         BaseModel.__init__(self, opt)
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
-        self.loss_names = [str(i) + "_o0p" for i in range(3)] + [str(i) + "_o1p" for i in range(3)] + [str(i) + "_o0m" for i in range(3)] + [str(i) + "_o1m" for i in range(3)]
+        self.loss_names = ['loss_G_L2']
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
-        self.visual_names = []
+        self.visual_names = ['real_A', 'real_B', 'fake_B']
         # specify the models you want to save to the disk. The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>
         self.model_names = ['G']
         # define networks (both generator and discriminator)
@@ -32,19 +32,21 @@ class MultiscaleModel(BaseModel):
 
 
         if self.isTrain:
-            self.criterionL1 = torch.nn.L1Loss()
+            self.criterionL2 = torch.nn.MSELoss()
             self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
 
         self.decimation = nn.AvgPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=False)
         self.upsample = nn.Upsample(scale_factor=2, mode='nearest')
-
-
-        for i in range(3):
-            setattr(self, "loss_" + str(i) + "_o0p", -1)
-            setattr(self, "loss_" + str(i) + "_o0m", 1)
-            setattr(self, "loss_" + str(i) + "_o1p", -1)
-            setattr(self, "loss_" + str(i) + "_o1m", 1)
+        o1_min = torch.Tensor([[-1., -1.]]).to(self.device)
+        o1_max = torch.Tensor([[1., 1.]]).to(self.device)
+        o2_min = torch.Tensor([[-1.1, -0.06]]).to(self.device)
+        o2_max = torch.Tensor([[1., 0.05]]).to(self.device)
+        o3_min = torch.Tensor([[-1.1, -0.07]]).to(self.device)
+        o3_max = torch.Tensor([[1.1, 0.06]]).to(self.device)
+        
+        self.o_channels_min = [o1_min, o2_min, o3_min]
+        self.o_channels_max = [o1_max, o2_max, o3_max]
 
     def set_input(self, input):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
@@ -65,13 +67,16 @@ class MultiscaleModel(BaseModel):
         real_Bs.reverse()
         self.real_Bs = [real_Bs[0]]
         for i in range(1, 3):
-            self.real_Bs.append(real_Bs[i] - self.upsample(real_Bs[i - 1]))
+            value = real_Bs[i] - self.upsample(real_Bs[i - 1])
+            value = value - (self.o_channels_max[i] + self.o_channels_min[i]) / 2
+            value = value / (self.o_channels_max[i] - self.o_channels_min[i]) * 2
+            self.real_Bs.append(value)
 
 
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
-        #self.fake_Bs = self.netG(self.real_A)  # G(A)
-        #self.fake_B = self.create_fakeB(self.fake_Bs)
+        self.fake_Bs = self.netG(self.real_A)  # G(A)
+        self.fake_B = self.create_fakeB(self.fake_Bs)
         pass
 
     def backward_D(self):
@@ -79,19 +84,18 @@ class MultiscaleModel(BaseModel):
 
     def backward_G(self):
         self.loss_G = torch.zeros([1]).to(self.device)
-        for i in range(3):
-            setattr(self, "loss_" + str(i) + "_o0p", max(torch.max(self.real_Bs[i][:, 0, :, :]), getattr(self, "loss_" + str(i) + "_o0p")))
-            setattr(self, "loss_" + str(i) + "_o0m", min(torch.min(self.real_Bs[i][:, 0, :, :]), getattr(self, "loss_" + str(i) + "_o0m")))
-            setattr(self, "loss_" + str(i) + "_o1p", max(torch.max(self.real_Bs[i][:, 1, :, :]), getattr(self, "loss_" + str(i) + "_o1p")))
-            setattr(self, "loss_" + str(i) + "_o1m", min(torch.min(self.real_Bs[i][:, 1, :, :]), getattr(self, "loss_" + str(i) + "_o1m")))
-        #self.loss_G.backward()
+        self.loss_G_L2 = 0
+        for real_B, fake_B in zip(self.real_Bs, self.fake_Bs):
+            self.loss_G_L2 = self.loss_G_L2 + self.criterionL2(fake_B, real_B) * 1000
+        self.loss_G = self.loss_G_L2 / 1000
+        self.loss_G.backward()
 
     def optimize_parameters(self):
         self.forward()
         self.backward_D()
-        #self.optimizer_G.zero_grad()
+        self.optimizer_G.zero_grad()
         self.backward_G()
-        #self.optimizer_G.step()
+        self.optimizer_G.step()
 
     def compute_visuals(self, dataset=None):
         if not self.opt.fixed_example or dataset is None:
@@ -107,5 +111,8 @@ class MultiscaleModel(BaseModel):
         lvls = len(fake_Bs)
         fakeB = fake_Bs[0]
         for i in range(1, lvls):
-            fakeB = self.upsample(fakeB) + fake_Bs[i]
+            value = fake_Bs[i]
+            value = value * (self.o_channels_max[i] - self.o_channels_min[i]) / 2
+            value = value + (self.o_channels_max[i] + self.o_channels_min[i]) / 2
+            fakeB = self.upsample(fakeB) + value
         return fakeB
