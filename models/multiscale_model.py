@@ -62,7 +62,7 @@ class MultiscaleModel(BaseModel):
         real_Bs = [self.real_B]
         for _ in range(2):
             real_Bs.append(self.decimation(real_Bs[-1]))
-        real_Bs = real_Bs.reverse()
+        real_Bs.reverse()
         self.real_Bs = [real_Bs[0]]
         for i in range(1, 3):
             self.real_Bs.append(real_Bs[i] - self.upsample(real_Bs[i - 1]))
