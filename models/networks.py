@@ -1117,14 +1117,14 @@ class ErosionLayer(nn.Module):
         #self.repose_slope.requires_grad = True
         #inf
         self.gravity = torch.nn.Parameter(torch.cuda.DoubleTensor([30.0]))
-        self.gravity.requires_grad = True
+        self.gravity.requires_grad = False
         # Sediment constants
         #inf
         self.sediment_capacity_constant = torch.nn.Parameter(torch.cuda.DoubleTensor([15.0]))
         self.sediment_capacity_constant.requires_grad = True
         #inf
         self.dissolving_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.1]))
-        self.dissolving_rate.requires_grad = True
+        self.dissolving_rate.requires_grad = False
         #0
         self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.0025]))
         self.deposition_rate.requires_grad = True
