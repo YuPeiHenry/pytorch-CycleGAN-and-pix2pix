@@ -1112,7 +1112,7 @@ class ErosionLayer(nn.Module):
         # Slope constants
         #inf
         self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([0.05]))
-        self.min_height_delta.requires_grad = True
+        self.min_height_delta.requires_grad = False
         #self.repose_slope = torch.nn.Parameter(torch.cuda.DoubleTensor([0.015]))
         #self.repose_slope.requires_grad = True
         #inf
@@ -1121,13 +1121,13 @@ class ErosionLayer(nn.Module):
         # Sediment constants
         #inf
         self.sediment_capacity_constant = torch.nn.Parameter(torch.cuda.DoubleTensor([15.0]))
-        self.sediment_capacity_constant.requires_grad = True
+        self.sediment_capacity_constant.requires_grad = False
         #inf
         self.dissolving_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.1]))
         self.dissolving_rate.requires_grad = False
         #0
         self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.0025]))
-        self.deposition_rate.requires_grad = True
+        self.deposition_rate.requires_grad = False
         
     def forward(self, input_terrain, original_terrain):
         coord_grid = np.array([[[[i, j] for i in range(self.width)] for j in range(self.width)]])
@@ -1194,7 +1194,7 @@ class ErosionLayer(nn.Module):
         return 1 - terrain * 2
 
     def get_var_and_grad(self):
-        names = ['evaporation_rate', 'min_height_delta', 'sediment_capacity_constant', 'deposition_rate']
+        names = ['evaporation_rate']
         vars = [getattr(self, name).item() for name in names]
         grads = [getattr(self, name).grad.item() for name in names]
         return names, vars, grads
