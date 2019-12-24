@@ -1328,7 +1328,7 @@ class MultiUnetGenerator(nn.Module):
         input1 = self.input_map(input)
         input2 = self.input_map2(input)
         num_downs = self.num_downs
-        submodule_outputs =  self.model(input1, input2)[0]
+        submodule_outputs =  self.model(input1, input2)
         outputs = [getattr(self, 'feature_conv'+str(i))(submodule_outputs[i]) for i in range(num_downs - 3, self.num_downs)]
         # Smallest output at the front
         return [self.tanh(output) for output in outputs]
