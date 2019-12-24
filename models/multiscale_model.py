@@ -40,6 +40,12 @@ class MultiscaleModel(BaseModel):
         self.upsample = nn.Upsample(scale_factor=2, mode='nearest')
 
 
+        for i in range(3):
+            setattr(self, str(i) + "_o0p", -1)
+            setattr(self, str(i) + "_o0m", 1)
+            setattr(self, str(i) + "_o1p", -1)
+            setattr(self, str(i) + "_o1m", 1)
+
     def set_input(self, input):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
 
@@ -74,10 +80,10 @@ class MultiscaleModel(BaseModel):
     def backward_G(self):
         self.loss_G = torch.zeros([1]).to(self.device)
         for i in range(3):
-            setattr(self, str(i) + "_o0p", torch.max(self.real_Bs[i][:, 0, :, :]))
-            setattr(self, str(i) + "_o0m", torch.min(self.real_Bs[i][:, 0, :, :]))
-            setattr(self, str(i) + "_o1p", torch.max(self.real_Bs[i][:, 1, :, :]))
-            setattr(self, str(i) + "_o1m", torch.min(self.real_Bs[i][:, 1, :, :]))
+            setattr(self, str(i) + "_o0p", max(torch.max(self.real_Bs[i][:, 0, :, :]), getattr(self, str(i) + str(i) + "_o0p"))
+            setattr(self, str(i) + "_o0m", min(torch.min(self.real_Bs[i][:, 0, :, :]), getattr(self, str(i) + str(i) + "_o0m"))
+            setattr(self, str(i) + "_o1p", max(torch.max(self.real_Bs[i][:, 1, :, :]), getattr(self, str(i) + str(i) + "_o1p"))
+            setattr(self, str(i) + "_o1m", min(torch.min(self.real_Bs[i][:, 1, :, :]), getattr(self, str(i) + str(i) + "_o1m"))
         #self.loss_G.backward()
 
     def optimize_parameters(self):
