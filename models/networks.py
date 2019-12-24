@@ -1371,7 +1371,7 @@ class ModifiedUnetBlock(nn.Module):
         self.down = nn.Sequential(*down)
         self.up = nn.Sequential(*up)
         self.submodule = submodule
-        inconv = [nn.LeakyReLU(0.2, True), nn.Conv2d(input_nc, outer_nc, kernel_size=3, stride=1, padding=1),
+        inconv = [nn.LeakyReLU(0.2), nn.Conv2d(input_nc, outer_nc, kernel_size=3, stride=1, padding=1),
             nn.Conv2d(outer_nc, outer_nc, kernel_size=3, stride=1, padding=1), norm_layer(outer_nc)]
         self.inconv = nn.Sequential(*inconv)
         self.inconv_scalar = torch.nn.Parameter(torch.cuda.FloatTensor(1))
@@ -1379,7 +1379,7 @@ class ModifiedUnetBlock(nn.Module):
         decimation = [nn.AvgPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=False),
             nn.Conv2d(input_nc, input_nc, kernel_size=3, stride=1, padding=1, bias=False),
             nn.Conv2d(input_nc, input_nc, kernel_size=3, stride=1, padding=1, bias=False),
-            norm_layer(input_nc), nn.LeakyReLU(0.2, True)]
+            norm_layer(input_nc), nn.LeakyReLU(0.2)]
         self.decimation = nn.Sequential(*decimation) if self.submodule is not None else None
 
     def forward(self, x, input):
@@ -1392,7 +1392,7 @@ class ModifiedUnetBlock(nn.Module):
         else:
             decimated_input = self.decimation(input)
             submodule_outputs = self.submodule(submodule_x, decimated_input)
-            feature_output = torch.cat([residual_x, self.up(submodule_outputs[-1])], 1)
+            feature_output = torch.cat([residual_x, self.up(submodule_outputs[-1].clone())], 1)
             submodule_outputs.append(feature_output)
         return submodule_outputs
 
