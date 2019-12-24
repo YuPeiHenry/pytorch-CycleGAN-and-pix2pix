@@ -1292,7 +1292,7 @@ class FCDenseNet(nn.Module):
         return out
 
 class MultiUnetGenerator(nn.Module):
-    def __init__(self, input_nc, output_nc, num_downs, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, styled=False, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest'):
+    def __init__(self, input_nc, output_nc, num_downs=8, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, styled=False, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest'):
         super(MultiUnetGenerator, self).__init__()
         self.num_downs = num_downs
         self.styled = styled
@@ -1316,7 +1316,6 @@ class MultiUnetGenerator(nn.Module):
             norm_layer(ngf), nn.LeakyReLU(0.2, True))
         self.input_map2 = nn.Sequential(nn.Conv2d(input_nc, new_input_size, kernel_size=3, stride=1, padding=1, bias=False),
             norm_layer(new_input_size), nn.LeakyReLU(0.2, True))
-        self.upsample = nn.Upsample(scale_factor=2, mode=upsample_method)
         for i in range(num_downs - 3, num_downs):
             exponent = min(num_downs - i - 1, 3)
             setattr(self, 'feature_conv'+str(i),
@@ -1330,10 +1329,8 @@ class MultiUnetGenerator(nn.Module):
         input2 = self.input_map2(input)
         num_downs = self.num_downs
         submodule_outputs =  self.model(input1, input2)[0]
-        outputs = [getattr(self, 'feature_conv'+str(num_downs - 3))(submodule_outputs[num_downs - 3])]
-        for i in range(num_downs - 3 + 1, self.num_downs):
-            outputs.append(self.upsample(outputs[-1]) + getattr(self, 'feature_conv'+str(i))(submodule_outputs[i]))
-        outputs.reverse() # Biggest output at the front
+        outputs = [getattr(self, 'feature_conv'+str(i))(submodule_outputs[i]) for i in range(num_downs - 3, self.num_downs)]
+        # Smallest output at the front
         return [self.tanh(output) for output in outputs]
         
 class ModifiedUnetBlock(nn.Module):
@@ -1386,8 +1383,6 @@ class ModifiedUnetBlock(nn.Module):
         self.decimation = nn.Sequential(*decimation) if self.submodule is not None else None
 
     def forward(self, x, input):
-        if self.styled:
-            return self.styled_forward(x, input)
         transformed_input = self.inconv(input)
         residual_x = x + self.inconv_scalar * transformed_input
         submodule_x = self.down(residual_x)
@@ -1396,85 +1391,10 @@ class ModifiedUnetBlock(nn.Module):
             submodule_outputs = [torch.cat([residual_x, self.up(submodule_x)], 1)]
         else:
             decimated_input = self.decimation(input)
-            submodule_outputs, _ = self.submodule(submodule_x, decimated_input)
+            submodule_outputs = self.submodule(submodule_x, decimated_input)
             feature_output = torch.cat([residual_x, self.up(submodule_outputs[-1])], 1)
             submodule_outputs.append(feature_output)
-        return submodule_outputs, None
-
-    def styled_forward(self, x, input):
-        transformed_input = self.inconv(input)
-        residual_x = x + self.inconv_scalar * transformed_input
-        submodule_x = self.down(residual_x)
-        if self.submodule is None:
-            style = self.linear2(self.linear1(submodule_x.mean(-1).mean(-1)))
-            intermediate = self.adain(self.up_activation(submodule_x), style)
-            intermediate = self.up(intermediate)
-            submodule_outputs = [torch.cat([residual_x, intermediate], 1)]
-        else:
-            decimated_input = self.decimation(input)
-            submodule_outputs, style = self.submodule(submodule_x, decimated_input)
-            intermediate = submodule_outputs[-1]
-            intermediate = self.adain(self.up_activation(intermediate), style)
-            feature_output = torch.cat([residual_x, self.up(intermediate)], 1)
-            submodule_outputs.append(feature_output)
-
-        return submodule_outputs, style
-
-class MultiNLayerDiscriminator(nn.Module):
-    def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d, use_sigmoid=False, downsample_mode='strided', upsample_method='nearest'):
-        super(MultiNLayerDiscriminator, self).__init__()
-        self.n_layers = n_layers
-
-        kw = 4
-        padw = 1
-
-        num_filters = [ndf * (2 ** min(i, 3)) for i in range(n_layers + 1)]
-        sequence = []
-        for n in range(n_layers):
-            sequence.append(getDownsample(num_filters[n], num_filters[n + 1], kw, 2, padw, True, downsample_mode=downsample_mode) +
-                [norm_layer(num_filters[n + 1]), nn.LeakyReLU(0.2, True)])
-
-        output_map = []
-        output_activation = [nn.Sigmoid()] if use_sigmoid else []
-        for n in range(n_layers):
-            nf = num_filters[n]
-            output_map.append([
-                nn.Conv2d(nf, nf, kernel_size=kw, stride=1, padding=padw, bias=False),
-                norm_layer(nf), nn.LeakyReLU(0.2, True),
-                nn.Conv2d(nf, 1, kernel_size=kw, stride=1, padding=padw)] + output_activation)
-
-        self.input_map = nn.Sequential(nn.Conv2d(input_nc, ndf, kernel_size=3, stride=1, padding=1, bias=False),
-            norm_layer(ndf), nn.LeakyReLU(0.2, True))
-        new_input_maps = [nn.Sequential(nn.Conv2d(input_nc, num_filters[i], kernel_size=1, stride=1, padding=0),
-            norm_layer(num_filters[i]), nn.LeakyReLU(0.2, True)) for i in range(n_layers)]
-        self.input_map_scalars = [torch.nn.Parameter(torch.cuda.FloatTensor(1)) for i in range(n_layers)]
-        for i in range(n_layers):
-            self.input_map_scalars[i].requires_grad = True
-        self.decimation = nn.AvgPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=False)
-        
-        for i in range(n_layers):
-            setattr(self, 'sequence'+str(i), nn.Sequential(*sequence[i]))
-            setattr(self, 'output_map'+str(i), nn.Sequential(*output_map[i]))
-            setattr(self, 'new_input_maps'+str(i), new_input_maps[i])
-
-    def forward(self, input, create_series=False):
-        if create_series:
-            return self.create_series(input)
-        input1 = self.input_map(input[0])
-        intermediate_features = input1
-        outputs = []
-        for i in range(self.n_layers):
-            total = self.input_map_scalars[i] * getattr(self, 'new_input_maps'+str(i))(input[i]) + intermediate_features
-            intermediate_features = getattr(self, 'sequence'+str(i))(total)
-            outputs.append(getattr(self, 'output_map'+str(i))(total))
-
-        return outputs
-
-    def create_series(self, input):
-        output = [input]
-        for i in range(self.n_layers - 1):
-            output.append(self.decimation(output[-1]))
-        return output
+        return submodule_outputs
 
 class StyledGenerator128(nn.Module):
     def __init__(self, input_nc, output_nc, n_class, task, ngf=64, norm_layer=nn.BatchNorm2d):
