@@ -74,10 +74,10 @@ class MultiscaleModel(BaseModel):
     def backward_G(self):
         self.loss_G = torch.zeros([1]).to(self.device)
         for i in range(3):
-            setattr(self, str(i) + "_o0p", torch.max(self.real_Bs[i][:, 0, :, :])
-            setattr(self, str(i) + "_o0m", torch.min(self.real_Bs[i][:, 0, :, :])
-            setattr(self, str(i) + "_o1p", torch.max(self.real_Bs[i][:, 1, :, :])
-            setattr(self, str(i) + "_o1m", torch.min(self.real_Bs[i][:, 1, :, :])
+            setattr(self, str(i) + "_o0p", torch.max(self.real_Bs[i][:, 0, :, :]))
+            setattr(self, str(i) + "_o0m", torch.min(self.real_Bs[i][:, 0, :, :]))
+            setattr(self, str(i) + "_o1p", torch.max(self.real_Bs[i][:, 1, :, :]))
+            setattr(self, str(i) + "_o1m", torch.min(self.real_Bs[i][:, 1, :, :]))
         #self.loss_G.backward()
 
     def optimize_parameters(self):
