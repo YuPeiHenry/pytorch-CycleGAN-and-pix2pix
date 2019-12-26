@@ -38,12 +38,12 @@ class MultiscaleModel(BaseModel):
 
         self.decimation = nn.AvgPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=False)
         self.upsample = nn.Upsample(scale_factor=2, mode='nearest')
-        o1_min = torch.Tensor([-1., -1.]).to(self.device).view(1, 2, 1, 1)
-        o1_max = torch.Tensor([1., 1.]).to(self.device).view(1, 2, 1, 1)
-        o2_min = torch.Tensor([-1.1, -0.06]).to(self.device).view(1, 2, 1, 1)
-        o2_max = torch.Tensor([1., 0.05]).to(self.device).view(1, 2, 1, 1)
-        o3_min = torch.Tensor([-1.1, -0.07]).to(self.device).view(1, 2, 1, 1)
-        o3_max = torch.Tensor([1.1, 0.06]).to(self.device).view(1, 2, 1, 1)
+        o1_min = torch.Tensor([-1.]).to(self.device).view(1, 1, 1, 1)
+        o1_max = torch.Tensor([1.]).to(self.device).view(1, 1, 1, 1)
+        o2_min = torch.Tensor([-0.06]).to(self.device).view(1, 1, 1, 1)
+        o2_max = torch.Tensor([0.05]).to(self.device).view(1, 1, 1, 1)
+        o3_min = torch.Tensor([-0.07]).to(self.device).view(1, 1, 1, 1)
+        o3_max = torch.Tensor([0.06]).to(self.device).view(1, 1, 1, 1)
         
         self.o_channels_min = [o1_min, o2_min, o3_min]
         self.o_channels_max = [o1_max, o2_max, o3_max]
