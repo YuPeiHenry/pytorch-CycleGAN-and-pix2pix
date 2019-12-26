@@ -1123,10 +1123,12 @@ class ErosionLayer(nn.Module):
         self.sediment_capacity_constant = torch.nn.Parameter(torch.cuda.DoubleTensor([15.0]))
         self.sediment_capacity_constant.requires_grad = True
         #inf
-        self.dissolving_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.1]))
+        #self.dissolving_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.1]))
+        self.dissolving_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-3.32]))
         self.dissolving_rate.requires_grad = True
         #0
-        self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.0025]))
+        #self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.0025]))
+        self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-8.64]))
         self.deposition_rate.requires_grad = True
         
     def forward(self, input_terrain, original_terrain):
@@ -1169,7 +1171,7 @@ class ErosionLayer(nn.Module):
             # Sediment is deposited as it exceeded capacity
             # Sediment is eroded otherwise
             sediment_diff = sediment - sediment_capacity
-            third_term = (1 - first_term_boolean) * (self.relu(sediment_diff * self.deposition_rate) - self.relu(-sediment_diff * self.dissolving_rate))
+            third_term = (1 - first_term_boolean) * (self.relu(sediment_diff * 2 ** self.deposition_rate) - self.relu(-sediment_diff * 2 ** self.dissolving_rate))
             deposited_sediment = first_term + third_term
 
             # Don't erode more sediment than the current terrain height.
