@@ -8,7 +8,7 @@ import numpy as np
 class MultiscaleModel(BaseModel):
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
-        parser.set_defaults(norm='instance', norm_G='instance', netG='unet_256', dataset_mode='exr', input_nc=3, output_nc=2, preprocess='N.A.', image_type='exr', image_value_bound=26350, no_flip=True)
+        parser.set_defaults(norm='instance', norm_G='instance', netG='unet_256', dataset_mode='exr_height', input_nc=3, output_nc=1, preprocess='N.A.', image_type='exr', image_value_bound=26350, no_flip=True)
         parser.add_argument('--fixed_example', action='store_true', help='')
         parser.add_argument('--fixed_index', type=int, default=0, help='')
         return parser
