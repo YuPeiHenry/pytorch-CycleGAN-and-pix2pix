@@ -82,10 +82,10 @@ class UnetModel(BaseModel):
         if self.opt.break4:
             self.real_A = self.break_into_4(self.real_A)
             self.real_B = self.break_into_4(self.real_B)
+        in_h = self.opt.input_height_channel
+        out_h = self.opt.output_height_channel
         if not self.opt.erosion_only:
             self.post_unet = self.netG(self.real_A)  # G(A)
-            in_h = self.opt.input_height_channel
-            out_h = self.opt.output_height_channel
             if self.opt.generate_residue:
                 residue = torch.zeros(self.post_unet.shape).to(self.device)
                 residue[:, out_h, :, :] = self.real_A[:, in_h, :, :]
