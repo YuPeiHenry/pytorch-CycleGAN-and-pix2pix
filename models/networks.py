@@ -1108,10 +1108,10 @@ class ErosionLayer(nn.Module):
         self.rain_rate.requires_grad = False
         #inf
         self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.002]))
-        self.evaporation_rate.requires_grad = True
+        self.evaporation_rate.requires_grad = False
         # Slope constants
         #inf
-        self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([0.05]))
+        self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([0.0005]))
         self.min_height_delta.requires_grad = False
         #self.repose_slope = torch.nn.Parameter(torch.cuda.DoubleTensor([0.015]))
         #self.repose_slope.requires_grad = True
@@ -1121,13 +1121,13 @@ class ErosionLayer(nn.Module):
         # Sediment constants
         #inf
         self.sediment_capacity_constant = torch.nn.Parameter(torch.cuda.DoubleTensor([15.0]))
-        self.sediment_capacity_constant.requires_grad = False
+        self.sediment_capacity_constant.requires_grad = True
         #inf
         self.dissolving_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.1]))
-        self.dissolving_rate.requires_grad = False
+        self.dissolving_rate.requires_grad = True
         #0
         self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.0025]))
-        self.deposition_rate.requires_grad = False
+        self.deposition_rate.requires_grad = True
         
     def forward(self, input_terrain, original_terrain):
         coord_grid = np.array([[[[i, j] for i in range(self.width)] for j in range(self.width)]])
