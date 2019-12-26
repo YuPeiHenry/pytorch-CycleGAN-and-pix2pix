@@ -18,6 +18,7 @@ class UnetModel(BaseModel):
         parser.add_argument('--iterations', type=int, default=10)
         parser.add_argument('--preload_unet', action='store_true', help='')
         parser.add_argument('--use_erosion', action='store_true', help='')
+        parser.add_argument('--erosion_only', action='store_true', help='')
         parser.add_argument('--lambda_L1', type=float, default=0.0, help='')
         parser.add_argument('--lambda_L2', type=float, default=1.0, help='')
         parser.add_argument('--erosion_lr', type=float, default=0.0001, help='')
@@ -81,18 +82,21 @@ class UnetModel(BaseModel):
         if self.opt.break4:
             self.real_A = self.break_into_4(self.real_A)
             self.real_B = self.break_into_4(self.real_B)
-        self.post_unet = self.netG(self.real_A)  # G(A)
-        in_h = self.opt.input_height_channel
-        out_h = self.opt.output_height_channel
-        if self.opt.generate_residue:
-            residue = torch.zeros(self.post_unet.shape).to(self.device)
-            residue[:, out_h, :, :] = self.real_A[:, in_h, :, :]
-            self.post_unet = self.post_unet + residue
-        if self.opt.preload_unet:
-            self.post_unet = self.post_unet.detach()
-        if self.opt.use_erosion:
+        if not self.opt.erosion_only:
+            self.post_unet = self.netG(self.real_A)  # G(A)
+            in_h = self.opt.input_height_channel
+            out_h = self.opt.output_height_channel
+            if self.opt.generate_residue:
+                residue = torch.zeros(self.post_unet.shape).to(self.device)
+                residue[:, out_h, :, :] = self.real_A[:, in_h, :, :]
+                self.post_unet = self.post_unet + residue
+            if self.opt.preload_unet:
+                self.post_unet = self.post_unet.detach()
+        if self.opt.use_erosion and not self.opt.erosion_only:
             self.fake_B = self.post_unet.clone()
             self.fake_B[:, out_h, :, :] = self.netErosion(self.post_unet[:, out_h, :, :], self.real_A[:, in_h, :, :]).float().squeeze(1)  # G(A)
+        elif self.opt.use_erosion:
+            self.fake_B = self.netErosion(self.real_A[:, in_h, :, :], self.real_A[:, in_h, :, :]).float()
 
     def backward_D(self):
         if self.opt.use_erosion:
