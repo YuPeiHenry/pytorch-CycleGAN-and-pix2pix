@@ -31,7 +31,9 @@ class UnetModel(BaseModel):
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
         self.loss_names = ['D_L2', 'G_L2']
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
-        self.visual_names = ['real_A', 'post_unet', 'fake_B', 'real_B'] if opt.use_erosion else ['real_A', 'post_unet', 'real_B']
+        self.visual_names = ['real_A', 'real_B']
+        if opt.use_erosion: self.visual_names += ['fake_B']
+        if not opt.erosion_only: self.visual_names += ['post_unet']
         # specify the models you want to save to the disk. The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>
         self.model_names = ['G']
         if opt.use_erosion: self.model_names += ['Erosion']
