@@ -109,12 +109,12 @@ class UnetModel(BaseModel):
         if not self.opt.use_feature_extractor:
             self.loss_D_L2 = torch.zeros([1]).to(self.device)
             self.loss_D = self.loss_D_L2
-            #self.loss_D = self.criterionL2(fake_B, self.real_B) * 1000
+            #self.loss_D = self.criterionL2(fake_B, self.real_B)
         else:
             fake_features = self.netFeature(fake_B.detach())
             real_features = self.netFeature(self.real_B)
-            self.loss_D_L2 = -(self.opt.lambda_L2 * self.criterionL2(fake_features, real_features) + self.opt.lambda_L1 * self.criterionL1(fake_features, real_features)) * 1000
-            self.loss_D = -self.loss_D_L2 / self.loss_D_L2.item() * 2 / 1000
+            self.loss_D_L2 = -(self.opt.lambda_L2 * self.criterionL2(fake_features, real_features) + self.opt.lambda_L1 * self.criterionL1(fake_features, real_features))
+            self.loss_D = -self.loss_D_L2 / self.loss_D_L2.item() * 2
             self.loss_D.backward()
 
     def backward_G(self):
@@ -123,14 +123,14 @@ class UnetModel(BaseModel):
         else:
             fake_B = self.post_unet
 
-        self.loss_G_L2 = (self.opt.lambda_L2 * self.criterionL2(fake_B, self.real_B) + self.opt.lambda_L1 * self.criterionL1(fake_B, self.real_B)) * 1000
+        self.loss_G_L2 = (self.opt.lambda_L2 * self.criterionL2(fake_B, self.real_B) + self.opt.lambda_L1 * self.criterionL1(fake_B, self.real_B))
         if not self.opt.use_feature_extractor:
-            self.loss_G = self.loss_G_L2 / 1000
+            self.loss_G = self.loss_G_L2
         else:
             fake_B_output = self.netFeature(fake_B)
             real_B_output = self.netFeature(self.real_B)
             feat_loss = self.opt.lambda_L2 * self.criterionL2(fake_B_output, real_B_output) + self.opt.lambda_L1 * self.criterionL1(fake_B_output, real_B_output)
-            self.loss_G = self.loss_G_L2 / 1000 + feat_loss / feat_loss.item() * self.loss_G_L2.item() / 1000
+            self.loss_G = self.loss_G_L2 + feat_loss / feat_loss.item() * self.loss_G_L2.item()
         self.loss_G.backward()
         if self.opt.use_erosion: self.var_names, self.var_values, self.var_grads = self.netErosion.module.get_var_and_grad()
 
