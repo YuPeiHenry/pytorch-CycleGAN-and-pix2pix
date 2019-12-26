@@ -77,7 +77,6 @@ class MultiscaleModel(BaseModel):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
         self.fake_Bs = self.netG(self.real_A)  # G(A)
         self.fake_B = self.create_fakeB(self.fake_Bs)
-        pass
 
     def backward_D(self):
         self.loss_D = torch.zeros([1]).to(self.device)
@@ -100,11 +99,12 @@ class MultiscaleModel(BaseModel):
     def compute_visuals(self, dataset=None):
         if not self.opt.fixed_example or dataset is None:
             return
-        single = dataset.__getitem__(self.opt.fixed_index)
+        single = dataset.dataset.get_val_item(self.opt.fixed_index)
         AtoB = self.opt.direction == 'AtoB'
         self.real_A = single['A' if AtoB else 'B'].unsqueeze(0).to(self.device)
         self.real_B = single['B' if AtoB else 'A'].unsqueeze(0).to(self.device)
         self.image_paths = [single['A_paths' if AtoB else 'B_paths']]
+
         self.forward()
 
     def create_fakeB(self, fake_Bs):
