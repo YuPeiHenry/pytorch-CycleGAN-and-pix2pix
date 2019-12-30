@@ -1196,6 +1196,7 @@ class ErosionLayer(nn.Module):
             water = water * (1 - self.relu(self.evaporation_rate.clone()))
             
             if store_water:
+                print(torch.mean(water))
                 water_history.append(water.detach().clone())
 
         terrain = terrain.unsqueeze(1)
