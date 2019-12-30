@@ -1148,9 +1148,12 @@ class ErosionLayer(nn.Module):
         velocity = sediment.clone()
 
         water_history = []
+        if store_water:
+            water[:, 50:100, 200:250] = 10
         for i in range(0, self.iterations):
             # Add precipitation.
-            water = water + self.relu(self.rain_rate.clone()) * self.random_rainfall[:, i]
+            if not store_water:
+                water = water + self.relu(self.rain_rate.clone()) * self.random_rainfall[:, i]
 
             # Compute the normalized gradient of the terrain height to determine direction of water and sediment.
             # Gradient is 4D. BatchSize x Height X Width x 2
