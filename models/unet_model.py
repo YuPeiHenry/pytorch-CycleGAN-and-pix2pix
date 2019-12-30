@@ -104,7 +104,7 @@ class UnetModel(BaseModel):
                 water = self.fake_B[1]
                 self.fake_B = self.fake_B[0]
                 for i in range(len(water)):
-                    exrlib.write_exr('temp' + str(i) + '.exr', water[i][0].detach().cpu().float().numpy(), ['0'])
+                    exrlib.write_exr('temp' + str(i) + '.exr', water[i].detach().cpu().float().numpy().transpose([2, 0, 1]), [str(i) for i in range(water[i].shape[0])])
             self.fake_B = self.fake_B.float()
 
     def backward_D(self):
