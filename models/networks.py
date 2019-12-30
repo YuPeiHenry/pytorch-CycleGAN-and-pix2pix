@@ -1132,9 +1132,9 @@ class ErosionLayer(nn.Module):
         self.deposition_rate.requires_grad = True
         
     def forward(self, input_terrain, original_terrain, iterations=None, store_water=False):
-		if iterations is None:
-			iterations = self.iterations
-		iterations = min(iterations, self.iterations)
+        if iterations is None:
+            iterations = self.iterations
+        iterations = min(iterations, self.iterations)
 
         coord_grid = np.array([[[[i, j] for i in range(self.width)] for j in range(self.width)]])
         self.coord_grid = torch.cuda.DoubleTensor(coord_grid).cuda()
