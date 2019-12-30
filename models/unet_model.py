@@ -20,6 +20,7 @@ class UnetModel(BaseModel):
         parser.add_argument('--use_erosion', action='store_true', help='')
         parser.add_argument('--erosion_only', action='store_true', help='')
         parser.add_argument('--store_water', action='store_true', help='')
+        parser.add_argument('--debug_gradients', action='store_true', help='')
         parser.add_argument('--lambda_L1', type=float, default=0.0, help='')
         parser.add_argument('--lambda_L2', type=float, default=1.0, help='')
         parser.add_argument('--erosion_lr', type=float, default=0.0001, help='')
@@ -99,7 +100,8 @@ class UnetModel(BaseModel):
             self.fake_B = self.post_unet.clone()
             self.fake_B[:, out_h, :, :] = self.netErosion(self.post_unet[:, out_h, :, :], self.real_A[:, in_h, :, :]).float().squeeze(1)  # G(A)
         elif self.opt.use_erosion:
-            self.fake_B = self.netErosion(self.real_A[:, in_h, :, :], self.real_A[:, in_h, :, :], store_water=self.opt.store_water)
+            iterations = None if not self.opt.debug_gradients else self.epoch
+            self.fake_B = self.netErosion(self.real_A[:, in_h, :, :], self.real_A[:, in_h, :, :], iterations=iterations, store_water=self.opt.store_water)
             if self.opt.store_water:
                 water = self.fake_B[1]
                 self.fake_B = self.fake_B[0]
@@ -173,6 +175,9 @@ class UnetModel(BaseModel):
             self.real_A = self.combine_from_4(self.real_A)
             self.real_B = self.combine_from_4(self.real_B)
             self.post_unet = self.combine_from_4(self.post_unet)
+
+    def update_epoch_params(self, epoch):
+        self.epoch = epoch
 
     def __patch_instance_norm_state_dict(self, state_dict, module, keys, i=0):
         """Fix InstanceNorm checkpoints incompatibility (prior to 0.4)"""

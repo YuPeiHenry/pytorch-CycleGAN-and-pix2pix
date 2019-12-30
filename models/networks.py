@@ -1131,7 +1131,11 @@ class ErosionLayer(nn.Module):
         self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-8.64]))
         self.deposition_rate.requires_grad = True
         
-    def forward(self, input_terrain, original_terrain, store_water=False):
+    def forward(self, input_terrain, original_terrain, iterations=None, store_water=False):
+		if iterations is None:
+			iterations = self.iterations
+		iterations = min(iterations, self.iterations)
+
         coord_grid = np.array([[[[i, j] for i in range(self.width)] for j in range(self.width)]])
         self.coord_grid = torch.cuda.DoubleTensor(coord_grid).cuda()
         self.zeros = torch.cuda.DoubleTensor(np.zeros([1, self.width, self.width])).cuda()
@@ -1150,7 +1154,7 @@ class ErosionLayer(nn.Module):
         water_history = []
         if store_water:
             water[:, 50:100, 200:250] = 10
-        for i in range(0, self.iterations):
+        for i in range(0, iterations):
             # Add precipitation.
             if not store_water:
                 water = water + self.relu(self.rain_rate.clone()) * self.random_rainfall[:, i]
