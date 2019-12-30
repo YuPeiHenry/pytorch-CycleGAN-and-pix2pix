@@ -121,7 +121,7 @@ class UnetModel(BaseModel):
             fake_features = self.netFeature(fake_B.detach())
             real_features = self.netFeature(self.real_B)
             self.loss_D_L2 = -(self.opt.lambda_L2 * self.criterionL2(fake_features, real_features) + self.opt.lambda_L1 * self.criterionL1(fake_features, real_features))
-            self.loss_D = -self.loss_D_L2 / self.loss_D_L2.item() * 2
+            self.loss_D = self.loss_D_L2
             self.loss_D.backward()
 
     def backward_G(self):
