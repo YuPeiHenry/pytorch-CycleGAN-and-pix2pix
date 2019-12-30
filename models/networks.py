@@ -1201,7 +1201,7 @@ class ErosionLayer(nn.Module):
 
         terrain = terrain.unsqueeze(1)
         terrain = 1 - terrain * 2
-        return terrain if not store_water else terrain, water_history
+        return terrain if not store_water else (terrain, water_history)
 
     def get_var_and_grad(self):
         names = ['sediment_capacity_constant', 'deposition_rate', 'dissolving_rate']
