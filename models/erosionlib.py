@@ -4,7 +4,7 @@ import torch.nn as nn
 def simple_gradient(input, noise, epsilon):
 	dx = 0.5 * (roll_x_plus1(input) - roll_x_minus1(input))
 	dy = 0.5 * (roll_y_plus1(input) - roll_y_minus1(input))
-	magnitude = torch.sqrt(dx * dx + dy * dy + epsilon / 10)
+	magnitude = torch.sqrt(dx * dx + dy * dy + (epsilon ** 2) / 10)
 
 	randomX = noise
 	randomY = torch.sqrt(1 - randomX * randomX)
