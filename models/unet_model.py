@@ -19,6 +19,7 @@ class UnetModel(BaseModel):
         parser.add_argument('--preload_unet', action='store_true', help='')
         parser.add_argument('--use_erosion', action='store_true', help='')
         parser.add_argument('--erosion_only', action='store_true', help='')
+        parser.add_argument('--store_water', action='store_true', help='')
         parser.add_argument('--lambda_L1', type=float, default=0.0, help='')
         parser.add_argument('--lambda_L2', type=float, default=1.0, help='')
         parser.add_argument('--erosion_lr', type=float, default=0.0001, help='')
@@ -98,7 +99,13 @@ class UnetModel(BaseModel):
             self.fake_B = self.post_unet.clone()
             self.fake_B[:, out_h, :, :] = self.netErosion(self.post_unet[:, out_h, :, :], self.real_A[:, in_h, :, :]).float().squeeze(1)  # G(A)
         elif self.opt.use_erosion:
-            self.fake_B = self.netErosion(self.real_A[:, in_h, :, :], self.real_A[:, in_h, :, :]).float()
+            self.fake_B = self.netErosion(self.real_A[:, in_h, :, :], self.real_A[:, in_h, :, :], store_water=self.opt.store_water)
+            if self.opt.store_water:
+                water = self.fake_B[1]
+                self.fake_B = self.fake_B[0]
+                for i in range(len(water)):
+                    exrlib.write_exr(str(i)'.exr', water[i].detach().cpu().numpy(), [str(i) for i in range(image.shape[2])])
+            self.fake_B = self.fake_B.float()
 
     def backward_D(self):
         if self.opt.use_erosion:

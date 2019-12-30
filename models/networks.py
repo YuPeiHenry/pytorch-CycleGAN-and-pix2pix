@@ -1131,7 +1131,7 @@ class ErosionLayer(nn.Module):
         self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-8.64]))
         self.deposition_rate.requires_grad = True
         
-    def forward(self, input_terrain, original_terrain):
+    def forward(self, input_terrain, original_terrain, store_water=False):
         coord_grid = np.array([[[[i, j] for i in range(self.width)] for j in range(self.width)]])
         self.coord_grid = torch.cuda.DoubleTensor(coord_grid).cuda()
         self.zeros = torch.cuda.DoubleTensor(np.zeros([1, self.width, self.width])).cuda()
@@ -1147,7 +1147,7 @@ class ErosionLayer(nn.Module):
         # The water velocity.
         velocity = sediment.clone()
 
-
+        water_history = []
         for i in range(0, self.iterations):
             # Add precipitation.
             water = water + self.relu(self.rain_rate.clone()) * self.random_rainfall[:, i]
@@ -1191,9 +1191,13 @@ class ErosionLayer(nn.Module):
         
             # Apply evaporation
             water = water * (1 - self.relu(self.evaporation_rate.clone()))
+            
+            if store_water:
+                water_history.append(water.detach().clone())
 
         terrain = terrain.unsqueeze(1)
-        return 1 - terrain * 2
+        terrain = 1 - terrain * 2
+        return terrain if not store_water else terrain, water_history
 
     def get_var_and_grad(self):
         names = ['sediment_capacity_constant', 'deposition_rate', 'dissolving_rate']
