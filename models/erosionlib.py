@@ -38,14 +38,10 @@ def displace(a, delta):
 	x_multipliers = torch.relu(torch.cat((-delta_x, 1 - torch.abs(delta_x), delta_x), 3))
 	y_multipliers = torch.relu(torch.cat((-delta_y, 1 - torch.abs(delta_y), delta_y), 3))
 	
-	total = torch.zeros_like(a)
 	result = torch.zeros_like(a)
 	for dx in range(-1, 2):
 		for dy in range(-1, 2):
-			total = total + x_multipliers[:, :, :, 1 + dx] * y_multipliers[:, :, :, 1 + dy]
-	for dx in range(-1, 2):
-		for dy in range(-1, 2):
-			temp = x_multipliers[:, :, :, 1 + dx] * y_multipliers[:, :, :, 1 + dy] * a / total
+			temp = x_multipliers[:, :, :, 1 + dx] * y_multipliers[:, :, :, 1 + dy] * a
 			result = result + roll_2d(temp, dx, dy)
 
 	return result
