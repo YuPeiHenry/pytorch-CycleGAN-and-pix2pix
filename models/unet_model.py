@@ -140,10 +140,10 @@ class UnetModel(BaseModel):
         else:
             fake_B = self.post_unet
 
-        if self.use_erosion:
+        if self.opt.use_erosion:
             out_h = self.opt.output_height_channel
             out_f = self.opt.output_flow_channel
-            if not self.erosion_flowmap:
+            if not self.opt.erosion_flowmap:
                 self.loss_G_L2 = (self.opt.lambda_L2 * self.criterionL2(fake_B[:, out_h, :, :], self.real_B[:, out_h, :, :]) + self.opt.lambda_L1 * self.criterionL1(fake_B[:, out_h, :, :], self.real_B[:, out_h, :, :]))
             else:
                 self.loss_G_L2 = (self.opt.lambda_L2 * self.criterionL2(fake_B[:, out_f, :, :], self.real_B[:, out_f, :, :]) + self.opt.lambda_L1 * self.criterionL1(fake_B[:, out_f, :, :], self.real_B[:, out_f, :, :]))
