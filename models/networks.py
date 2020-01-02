@@ -1172,15 +1172,16 @@ class ErosionLayer(nn.Module):
             # If the sediment exceeds the quantity, then it is deposited, otherwise terrain is eroded.
             #new_height_delta = torch.max(height_delta.clone(), self.min_height_delta.clone() / self.cell_width)
             e = 2.718281828459045
+            e_6 = torch.cuda.DoubleTensor([e ** (-6)])
             max_term = self.min_height_delta / self.cell_width
-            new_height_delta = self.relu(height_delta.clone() - max_term) + torch.min(e ** (-6), e ** (height_delta - max_term - 6)) + max_term
+            new_height_delta = self.relu(height_delta.clone() - max_term) + torch.min(e_6, e ** (height_delta - max_term - 6)) + max_term
             sediment_capacity = new_height_delta * velocity * water * self.relu(self.sediment_capacity_constant.clone())
 
             # Sediment is deposited as height is higher
             first_term_boolean = self.relu(torch.sign(-height_delta))
             #first_term = torch.min(self.relu(-height_delta), sediment)
             min_term = self.relu(-height_delta.clone())
-            first_term = -self.relu(-sediment.clone() + min_term) + torch.max(-(e ** (-6)), -(e ** (-sediment + min_term - 6))) + min_term
+            first_term = -self.relu(-sediment.clone() + min_term) + torch.max(-(e_6), -(e ** (-sediment + min_term - 6))) + min_term
             # Sediment is deposited as it exceeded capacity
             # Sediment is eroded otherwise
             sediment_diff = sediment - sediment_capacity
@@ -1190,7 +1191,7 @@ class ErosionLayer(nn.Module):
             # Don't erode more sediment than the current terrain height.
             #deposited_sediment = torch.max(-self.relu(height_delta), deposited_sediment)
             max_term = -self.relu(height_delta.clone())
-            deposited_sediment = torch.relu(deposited_sediment - max_term) + torch.min(e ** (-6), e ** (deposited_sediment - max_term - 6)) + max_term
+            deposited_sediment = torch.relu(deposited_sediment - max_term) + torch.min(e_6, e ** (deposited_sediment - max_term - 6)) + max_term
 
             # Update terrain and sediment quantities.
             sediment = sediment - deposited_sediment
