@@ -1137,7 +1137,7 @@ class ErosionLayer(nn.Module):
         self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-8.64]))
         self.deposition_rate.requires_grad = True
         
-    def forward(self, input_terrain, original_terrain, iterations=None, store_water=False):
+    def forward(self, input_terrain, original_terrain, iterations=None, store_water=False, init_water=None):
         if iterations is None:
             iterations = self.iterations
         iterations = min(iterations, self.iterations)
@@ -1153,7 +1153,10 @@ class ErosionLayer(nn.Module):
         # transfered to/from sediment depending on a number of different factors.
         sediment = self.zeros.clone().repeat(batch_size, 1, 1)
         # The amount of water. Responsible for carrying sediment.
-        water = sediment.clone()
+        if init_water is None:
+            water = sediment.clone()
+        else:
+            water = init_water
         # The water velocity.
         velocity = sediment.clone()
 
