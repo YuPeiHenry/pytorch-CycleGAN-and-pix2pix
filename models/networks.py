@@ -1223,7 +1223,7 @@ class ErosionLayer(nn.Module):
         if not store_water and not self.output_water:
             return terrain
         elif store_water:
-            return else (terrain, water_history)
+            return (terrain, water_history)
         elif self.output_water:
             return (terrain, water)
         else:
