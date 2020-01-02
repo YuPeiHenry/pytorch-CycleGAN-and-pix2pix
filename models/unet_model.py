@@ -101,12 +101,12 @@ class UnetModel(BaseModel):
                 self.post_unet = self.post_unet.detach()
         if self.opt.use_erosion and not self.opt.erosion_only and self.opt.erosion_flowmap:
             self.fake_B = self.post_unet.clone()
-            terrain, water = self.netErosion(self.post_unet[:, out_h, :, :], self.real_A[:, in_h, :, :], iterations=iterations, store_water=self.opt.store_water, init_water=self.post_unet[:, out_f, :, :])  # G(A)
+            terrain, water = self.netErosion(self.post_unet[:, out_h, :, :], self.real_A[:, in_h, :, :], init_water=self.post_unet[:, out_f, :, :])  # G(A)
             self.fake_B[:, out_h, :, :] = terrain.float().squeeze(1)
             self.fake_B[:, out_f, :, :] = water.float().squeeze(1)
         elif self.opt.use_erosion and not self.opt.erosion_only:
             self.fake_B = self.post_unet.clone()
-            self.fake_B[:, out_h, :, :] = self.netErosion(self.post_unet[:, out_h, :, :], self.real_A[:, in_h, :, :], iterations=iterations, store_water=self.opt.store_water).float().squeeze(1)  # G(A)
+            self.fake_B[:, out_h, :, :] = self.netErosion(self.post_unet[:, out_h, :, :], self.real_A[:, in_h, :, :]).float().squeeze(1)  # G(A)
         elif self.opt.use_erosion:
             iterations = None if not self.opt.debug_gradients else self.epoch
             self.fake_B = self.netErosion(self.real_A[:, in_h, :, :], self.real_A[:, in_h, :, :], iterations=iterations, store_water=self.opt.store_water)
