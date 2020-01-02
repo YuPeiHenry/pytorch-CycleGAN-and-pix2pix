@@ -1156,7 +1156,7 @@ class ErosionLayer(nn.Module):
         if init_water is None:
             water = sediment.clone()
         else:
-            water = init_water
+            water = (init_water + 1) / 2
         # The water velocity.
         velocity = sediment.clone()
 
@@ -1228,7 +1228,7 @@ class ErosionLayer(nn.Module):
         elif store_water:
             return (terrain, water_history)
         elif self.output_water:
-            return (terrain, water)
+            return (terrain, (water * 2) - 1)
         else:
             return terrain
 
