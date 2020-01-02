@@ -18,6 +18,7 @@ class UnetModel(BaseModel):
         parser.add_argument('--width', type=int, default=512)
         parser.add_argument('--iterations', type=int, default=10)
         parser.add_argument('--preload_unet', action='store_true', help='')
+        parser.add_argument('--temp_unet_fix', action='store_true', help='')
         parser.add_argument('--use_erosion', action='store_true', help='')
         parser.add_argument('--erosion_flowmap', action='store_true', help='')
         parser.add_argument('--erosion_only', action='store_true', help='')
@@ -98,6 +99,7 @@ class UnetModel(BaseModel):
                 residue[:, out_h, :, :] = self.real_A[:, in_h, :, :]
                 self.post_unet = self.post_unet + residue
             if self.opt.preload_unet:
+                if self.opt.temp_unet_fix: self.post_unet[:, out_f, :, :] = self.post_unet[:, out_f, :, :] * 5 - 4
                 self.post_unet = self.post_unet.detach()
         if self.opt.use_erosion and not self.opt.erosion_only and self.opt.erosion_flowmap:
             self.fake_B = self.post_unet.clone()
