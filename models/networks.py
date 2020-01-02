@@ -1083,16 +1083,17 @@ class MultiscaleDiscriminator(nn.Module):
         return result
 
 class ErosionLayer(nn.Module):
-    def __init__(self, width=512, iterations=10):
+    def __init__(self, width=512, iterations=10, output_water=False):
         super(ErosionLayer, self).__init__()
         self.width = width
         self.iterations = iterations
+        self.output_water = output_water
         #self.blur = nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=1)
         self.relu = nn.ReLU(True)
         self.epsilon = 1e-10
 
         self.random_rainfall = torch.nn.Parameter(torch.cuda.DoubleTensor(np.random.rand(1, self.iterations, self.width, self.width)))
-        self.random_rainfall.requires_grad = False
+        self.random_rainfall.requires_grad = True
         self.random_gradient = torch.nn.Parameter(torch.cuda.DoubleTensor(np.random.rand(1, self.iterations, self.width, self.width)))
         self.random_gradient.requires_grad = False
 
@@ -1104,23 +1105,28 @@ class ErosionLayer(nn.Module):
         self.alpha = torch.nn.Parameter(torch.cuda.DoubleTensor([0.0]))
         self.alpha.requires_grad = False
         #inf
-        self.rain_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.1 * self.cell_area]))
-        self.rain_rate.requires_grad = False
+        #self.rain_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.1 * self.cell_area]))
+        self.rain_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-4.67]))
+        self.rain_rate.requires_grad = True
         #inf
-        self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.002]))
-        self.evaporation_rate.requires_grad = False
+        #self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.002]))
+        self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-8.96]))
+        self.evaporation_rate.requires_grad = True
         # Slope constants
         #inf
-        self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([0.0005]))
-        self.min_height_delta.requires_grad = False
+        #self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([0.0005]))
+        self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([-10.965]))
+        self.min_height_delta.requires_grad = True
         #self.repose_slope = torch.nn.Parameter(torch.cuda.DoubleTensor([0.015]))
         #self.repose_slope.requires_grad = True
         #inf
-        self.gravity = torch.nn.Parameter(torch.cuda.DoubleTensor([30.0]))
-        self.gravity.requires_grad = False
+        #self.gravity = torch.nn.Parameter(torch.cuda.DoubleTensor([30.0]))
+        self.gravity = torch.nn.Parameter(torch.cuda.DoubleTensor([4.906]))
+        self.gravity.requires_grad = True
         # Sediment constants
         #inf
-        self.sediment_capacity_constant = torch.nn.Parameter(torch.cuda.DoubleTensor([15.0]))
+        #self.sediment_capacity_constant = torch.nn.Parameter(torch.cuda.DoubleTensor([15.0]))
+        self.sediment_capacity_constant = torch.nn.Parameter(torch.cuda.DoubleTensor([3.906]))
         self.sediment_capacity_constant.requires_grad = True
         #inf
         #self.dissolving_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.1]))
@@ -1157,7 +1163,7 @@ class ErosionLayer(nn.Module):
         for i in range(0, iterations):
             # Add precipitation.
             if not store_water:
-                water = water + self.relu(self.rain_rate.clone()) * self.random_rainfall[:, i]
+                water = water + self.relu((2 ** self.rain_rate) * self.random_rainfall[:, i])
 
             # Compute the normalized gradient of the terrain height to determine direction of water and sediment.
             # Gradient is 4D. BatchSize x Height X Width x 2
@@ -1173,9 +1179,9 @@ class ErosionLayer(nn.Module):
             #new_height_delta = torch.max(height_delta.clone(), self.min_height_delta.clone() / self.cell_width)
             e = 2.718281828459045
             e_8 = torch.cuda.DoubleTensor([e ** (-8)])
-            max_term = self.min_height_delta / self.cell_width
+            max_term = (2 ** self.min_height_delta) / self.cell_width
             new_height_delta = self.relu(height_delta.clone() - max_term) + torch.min(e_8, e ** (height_delta - max_term - 8)) + max_term
-            sediment_capacity = new_height_delta * velocity * water * self.relu(self.sediment_capacity_constant.clone())
+            sediment_capacity = new_height_delta * velocity * water * 2 ** self.sediment_capacity_constant
 
             # Sediment is deposited as height is higher
             first_term_boolean = self.relu(torch.sign(-height_delta))
@@ -1203,10 +1209,10 @@ class ErosionLayer(nn.Module):
             #terrain = self.apply_slippage(terrain, self.repose_slope, self.random_gradient[:, i].view(-1, self.width, self.width))
 
             # Update velocity
-            velocity = self.relu(self.gravity.clone()) * height_delta / self.cell_width
+            velocity = (2 ** self.gravity.clone()) * height_delta / self.cell_width
         
             # Apply evaporation
-            water = water * (1 - self.relu(self.evaporation_rate.clone()))
+            water = water * (1 - 2 ** self.evaporation_rate.clone())
             
             if store_water:
                 print(torch.mean(water))
@@ -1214,10 +1220,17 @@ class ErosionLayer(nn.Module):
 
         terrain = terrain.unsqueeze(1)
         terrain = 1 - terrain * 2
-        return terrain if not store_water else (terrain, water_history)
+        if not store_water and not self.output_water:
+            return terrain
+        elif store_water:
+            return else (terrain, water_history)
+        elif self.output_water:
+            return (terrain, water)
+        else:
+            return terrain
 
     def get_var_and_grad(self):
-        names = ['sediment_capacity_constant', 'deposition_rate', 'dissolving_rate']
+        names = ['rain_rate', 'evaporation_rate', 'min_height_delta', 'gravity', 'sediment_capacity_constant', 'deposition_rate', 'dissolving_rate']
         vars = [getattr(self, name).item() for name in names]
         grads = [getattr(self, name).grad.item() for name in names]
         return names, vars, grads

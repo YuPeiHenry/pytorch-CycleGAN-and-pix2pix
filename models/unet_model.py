@@ -12,12 +12,14 @@ class UnetModel(BaseModel):
         parser.add_argument('--generate_residue', action='store_true', help='')
         parser.add_argument('--input_height_channel', type=int, default=0)
         parser.add_argument('--output_height_channel', type=int, default=1)
+        parser.add_argument('--output_flow_channel', type=int, default=0)
         parser.add_argument('--fixed_example', action='store_true', help='')
         parser.add_argument('--fixed_index', type=int, default=0, help='')
         parser.add_argument('--width', type=int, default=512)
         parser.add_argument('--iterations', type=int, default=10)
         parser.add_argument('--preload_unet', action='store_true', help='')
         parser.add_argument('--use_erosion', action='store_true', help='')
+        parser.add_argument('--erosion_flowmap', action='store_true', help='')
         parser.add_argument('--erosion_only', action='store_true', help='')
         parser.add_argument('--store_water', action='store_true', help='')
         parser.add_argument('--debug_gradients', action='store_true', help='')
@@ -45,7 +47,7 @@ class UnetModel(BaseModel):
         self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm_G,
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method, linear=opt.linear)
         if opt.use_erosion:
-            self.netErosion = networks.init_net(networks.ErosionLayer(opt.width, opt.iterations), gpu_ids=self.gpu_ids)
+            self.netErosion = networks.init_net(networks.ErosionLayer(opt.width, opt.iterations, opt.erosion_flowmap), gpu_ids=self.gpu_ids)
         if opt.preload_unet:
             self.preload_names += ['G']
             self.set_requires_grad(self.netG, False)
@@ -88,6 +90,7 @@ class UnetModel(BaseModel):
             self.real_B = self.break_into_4(self.real_B)
         in_h = self.opt.input_height_channel
         out_h = self.opt.output_height_channel
+        out_f = self.opt.output_flow_channel
         if not self.opt.erosion_only:
             self.post_unet = self.netG(self.real_A)  # G(A)
             if self.opt.generate_residue:
@@ -96,7 +99,12 @@ class UnetModel(BaseModel):
                 self.post_unet = self.post_unet + residue
             if self.opt.preload_unet:
                 self.post_unet = self.post_unet.detach()
-        if self.opt.use_erosion and not self.opt.erosion_only:
+        if self.opt.use_erosion and not self.opt.erosion_only and self.opt.erosion_flowmap:
+            self.fake_B = self.post_unet.clone()
+            terrain, water = self.netErosion(self.post_unet[:, out_h, :, :], self.real_A[:, in_h, :, :])  # G(A)
+            self.fake_B[:, out_h, :, :] = terrain.float().squeeze(1)
+            self.fake_B[:, out_f, :, :] = water.float().squeeze(1)
+        elif self.opt.use_erosion and not self.opt.erosion_only:
             self.fake_B = self.post_unet.clone()
             self.fake_B[:, out_h, :, :] = self.netErosion(self.post_unet[:, out_h, :, :], self.real_A[:, in_h, :, :]).float().squeeze(1)  # G(A)
         elif self.opt.use_erosion:
@@ -115,7 +123,7 @@ class UnetModel(BaseModel):
         else:
             fake_B = self.post_unet
 
-        if not self.opt.use_feature_extractor:
+        if self.opt.use_erosion or not self.opt.use_feature_extractor:
             self.loss_D_L2 = torch.zeros([1]).to(self.device)
             self.loss_D = self.loss_D_L2
             #self.loss_D = self.criterionL2(fake_B, self.real_B)
@@ -132,10 +140,18 @@ class UnetModel(BaseModel):
         else:
             fake_B = self.post_unet
 
-        self.loss_G_L2 = (self.opt.lambda_L2 * self.criterionL2(fake_B, self.real_B) + self.opt.lambda_L1 * self.criterionL1(fake_B, self.real_B))
-        if not self.opt.use_feature_extractor:
+        if self.use_erosion:
+            out_h = self.opt.output_height_channel
+            out_f = self.opt.output_flow_channel
+            if not self.erosion_flowmap:
+                self.loss_G_L2 = (self.opt.lambda_L2 * self.criterionL2(fake_B[:, out_h, :, :], self.real_B[:, out_h, :, :]) + self.opt.lambda_L1 * self.criterionL1(fake_B[:, out_h, :, :], self.real_B[:, out_h, :, :]))
+            else:
+                self.loss_G_L2 = (self.opt.lambda_L2 * self.criterionL2(fake_B[:, out_f, :, :], self.real_B[:, out_f, :, :]) + self.opt.lambda_L1 * self.criterionL1(fake_B[:, out_f, :, :], self.real_B[:, out_f, :, :]))
+        elif not self.opt.use_feature_extractor:
+            self.loss_G_L2 = (self.opt.lambda_L2 * self.criterionL2(fake_B, self.real_B) + self.opt.lambda_L1 * self.criterionL1(fake_B, self.real_B))
             self.loss_G = self.loss_G_L2
         else:
+            self.loss_G_L2 = (self.opt.lambda_L2 * self.criterionL2(fake_B, self.real_B) + self.opt.lambda_L1 * self.criterionL1(fake_B, self.real_B))
             fake_B_output = self.netFeature(fake_B)
             real_B_output = self.netFeature(self.real_B)
             feat_loss = self.opt.lambda_L2 * self.criterionL2(fake_B_output, real_B_output) + self.opt.lambda_L1 * self.criterionL1(fake_B_output, real_B_output)
