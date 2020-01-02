@@ -147,6 +147,7 @@ class UnetModel(BaseModel):
                 self.loss_G_L2 = (self.opt.lambda_L2 * self.criterionL2(fake_B[:, out_h, :, :], self.real_B[:, out_h, :, :]) + self.opt.lambda_L1 * self.criterionL1(fake_B[:, out_h, :, :], self.real_B[:, out_h, :, :]))
             else:
                 self.loss_G_L2 = (self.opt.lambda_L2 * self.criterionL2(fake_B[:, out_f, :, :], self.real_B[:, out_f, :, :]) + self.opt.lambda_L1 * self.criterionL1(fake_B[:, out_f, :, :], self.real_B[:, out_f, :, :]))
+            self.loss_G = self.loss_G_L2
         elif not self.opt.use_feature_extractor:
             self.loss_G_L2 = (self.opt.lambda_L2 * self.criterionL2(fake_B, self.real_B) + self.opt.lambda_L1 * self.criterionL1(fake_B, self.real_B))
             self.loss_G = self.loss_G_L2
