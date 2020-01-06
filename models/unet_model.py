@@ -51,7 +51,6 @@ class UnetModel(BaseModel):
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method, linear=opt.linear)
         if opt.use_erosion:
             self.netErosion = networks.init_net(networks.ErosionLayer(opt.width, opt.iterations, opt.erosion_flowmap, opt.erosion_random), gpu_ids=self.gpu_ids)
-            torch.nn.utils.clip_grad_value_(self.netErosion.parameters(), 10)
         if opt.preload_unet:
             self.preload_names += ['G']
             self.set_requires_grad(self.netG, False)
@@ -163,6 +162,7 @@ class UnetModel(BaseModel):
             else:
                 self.loss_G_L2 = (self.opt.lambda_L2 * self.criterionL2(fake_B[:, out_f, :, :], self.real_B[:, out_f, :, :]) + self.opt.lambda_L1 * self.criterionL1(fake_B[:, out_f, :, :], self.real_B[:, out_f, :, :]))
             self.loss_G = self.loss_G_L2
+            torch.nn.utils.clip_grad_value_(self.netErosion.parameters(), 10)
         elif not self.opt.use_feature_extractor:
             self.loss_G_L2 = (self.opt.lambda_L2 * self.criterionL2(fake_B, self.real_B) + self.opt.lambda_L1 * self.criterionL1(fake_B, self.real_B))
             self.loss_G = self.loss_G_L2
