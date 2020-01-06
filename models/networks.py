@@ -1106,13 +1106,13 @@ class ErosionLayer(nn.Module):
         self.alpha.requires_grad = False
         #inf
         if random_param:
-            self.rain_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.uniform(-8, -4)]))
-            self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.uniform(-11, -7)]))
-            self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.uniform(-8, -4)]))
+            self.rain_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.uniform(-7, -4)]))
+            self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.uniform(-10, -7)]))
+            self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.uniform(-11, -9)]))
             self.gravity = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.uniform(4, 6)]))
-            self.sediment_capacity_constant = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.uniform(3, 6)]))
-            self.dissolving_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.uniform(-5, -1)]))
-            self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.uniform(-11, -6)]))
+            self.sediment_capacity_constant = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.uniform(3, 5)]))
+            self.dissolving_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.uniform(-5, -2)]))
+            self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.uniform(-9, -6)]))
         else:
             #self.rain_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.1 * self.cell_area]))
             self.rain_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-4.67]))
