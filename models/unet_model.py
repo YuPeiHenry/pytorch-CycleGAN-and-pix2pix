@@ -21,6 +21,7 @@ class UnetModel(BaseModel):
         parser.add_argument('--preload_unet', action='store_true', help='')
         parser.add_argument('--temp_unet_fix', action='store_true', help='')
         parser.add_argument('--use_erosion', action='store_true', help='')
+        parser.add_argument('--erosion_random', action='store_true', help='')
         parser.add_argument('--erosion_flowmap', action='store_true', help='')
         parser.add_argument('--erosion_only', action='store_true', help='')
         parser.add_argument('--store_water', action='store_true', help='')
@@ -49,7 +50,7 @@ class UnetModel(BaseModel):
         self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm_G,
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method, linear=opt.linear)
         if opt.use_erosion:
-            self.netErosion = networks.init_net(networks.ErosionLayer(opt.width, opt.iterations, opt.erosion_flowmap), gpu_ids=self.gpu_ids)
+            self.netErosion = networks.init_net(networks.ErosionLayer(opt.width, opt.iterations, opt.erosion_flowmap, opt.erosion_random), gpu_ids=self.gpu_ids)
         if opt.preload_unet:
             self.preload_names += ['G']
             self.set_requires_grad(self.netG, False)
