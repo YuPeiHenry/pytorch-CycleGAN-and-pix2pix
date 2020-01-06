@@ -1148,7 +1148,7 @@ class ErosionLayer(nn.Module):
         batch_size = input_terrain.size()[0]
 
         # These tensors are BatchSize x Height X Width
-        terrain = ((1 - (self.alpha * input_terrain + (1 - self.alpha) * original_terrain)) / 2).view(-1, self.width, self.width).double()
+        terrain = ((1 + (self.alpha * input_terrain + (1 - self.alpha) * original_terrain)) / 2).view(-1, self.width, self.width).double()
         # `sediment` is the amount of suspended "dirt" in the water. Terrain will be
         # transfered to/from sediment depending on a number of different factors.
         sediment = self.zeros.clone().repeat(batch_size, 1, 1)
@@ -1222,7 +1222,7 @@ class ErosionLayer(nn.Module):
                 water_history.append(water.detach().clone())
 
         terrain = terrain.unsqueeze(1)
-        terrain = 1 - terrain * 2
+        terrain = terrain * 2 - 1
         if not store_water and not self.output_water:
             return terrain
         elif store_water:
