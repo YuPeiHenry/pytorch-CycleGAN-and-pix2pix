@@ -10,6 +10,7 @@ class UnetModel(BaseModel):
     def modify_commandline_options(parser, is_train=True):
         parser.set_defaults(norm='instance', norm_G='instance', netG='unet_256', dataset_mode='exr', input_nc=3, output_nc=2, preprocess='N.A.', image_type='exr', image_value_bound=26350, no_flip=True)
         parser.add_argument('--generate_residue', action='store_true', help='')
+        parser.add_argument('--SGD', action='store_true', help='')
         parser.add_argument('--input_height_channel', type=int, default=0)
         parser.add_argument('--output_height_channel', type=int, default=1)
         parser.add_argument('--output_flow_channel', type=int, default=0)
@@ -60,7 +61,17 @@ class UnetModel(BaseModel):
             # define loss functions
             self.criterionL2 = torch.nn.MSELoss()
             self.criterionL1 = torch.nn.L1Loss()
-            # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
+        # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
+        if self.isTrain and opt.SGD:
+            self.optimizer_G = torch.optim.SGD(self.netG.parameters(), lr=opt.lr, momentum=0.9)
+            if not opt.preload_unet: self.optimizers.append(self.optimizer_G)
+            if opt.use_erosion:
+                self.optimizer_Erosion = torch.optim.SGD(self.netErosion.parameters(), lr=opt.lr, momentum=0.9)
+                self.optimizers.append(self.optimizer_Erosion)
+            if opt.use_feature_extractor:
+                self.optimizer_Feature = torch.optim.SGD(self.netFeature.parameters(), lr=opt.lr, momentum=0.9)
+                self.optimizers.append(self.optimizer_Feature)
+        elif self.isTrain:
             self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             if not opt.preload_unet: self.optimizers.append(self.optimizer_G)
             if opt.use_erosion:
