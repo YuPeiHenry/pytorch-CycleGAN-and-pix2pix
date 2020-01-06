@@ -14,6 +14,7 @@ class UnetModel(BaseModel):
         parser.add_argument('--input_height_channel', type=int, default=0)
         parser.add_argument('--output_height_channel', type=int, default=1)
         parser.add_argument('--output_flow_channel', type=int, default=0)
+        parser.add_argument('--exclude_input', action='store_true', help='')
         parser.add_argument('--fixed_example', action='store_true', help='')
         parser.add_argument('--fixed_index', type=int, default=0, help='')
         parser.add_argument('--width', type=int, default=512)
@@ -38,7 +39,7 @@ class UnetModel(BaseModel):
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
         self.loss_names = ['D_L2', 'G_L2']
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
-        self.visual_names = ['real_A', 'real_B']
+        self.visual_names = ['real_A', 'real_B'] if not opt.exclude_input else []
         if opt.use_erosion: self.visual_names += ['fake_B']
         if not opt.erosion_only: self.visual_names += ['post_unet']
         # specify the models you want to save to the disk. The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>
