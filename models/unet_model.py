@@ -162,7 +162,6 @@ class UnetModel(BaseModel):
             else:
                 self.loss_G_L2 = (self.opt.lambda_L2 * self.criterionL2(fake_B[:, out_f, :, :], self.real_B[:, out_f, :, :]) + self.opt.lambda_L1 * self.criterionL1(fake_B[:, out_f, :, :], self.real_B[:, out_f, :, :]))
             self.loss_G = self.loss_G_L2
-            torch.nn.utils.clip_grad_value_(self.netErosion.parameters(), 0.05)
         elif not self.opt.use_feature_extractor:
             self.loss_G_L2 = (self.opt.lambda_L2 * self.criterionL2(fake_B, self.real_B) + self.opt.lambda_L1 * self.criterionL1(fake_B, self.real_B))
             self.loss_G = self.loss_G_L2
@@ -173,7 +172,9 @@ class UnetModel(BaseModel):
             feat_loss = self.opt.lambda_L2 * self.criterionL2(fake_B_output, real_B_output) + self.opt.lambda_L1 * self.criterionL1(fake_B_output, real_B_output)
             self.loss_G = self.loss_G_L2 + feat_loss / feat_loss.item() * self.loss_G_L2.item()
         self.loss_G.backward()
-        if self.opt.use_erosion: self.var_names, self.var_values, self.var_grads = self.netErosion.module.get_var_and_grad()
+        if self.opt.use_erosion:
+            torch.nn.utils.clip_grad_value_(self.netErosion.parameters(), 0.05)
+            self.var_names, self.var_values, self.var_grads = self.netErosion.module.get_var_and_grad()
 
     def optimize_parameters(self):
         self.forward()
