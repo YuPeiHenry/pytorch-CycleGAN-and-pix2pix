@@ -51,6 +51,7 @@ class UnetModel(BaseModel):
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method, linear=opt.linear)
         if opt.use_erosion:
             self.netErosion = networks.init_net(networks.ErosionLayer(opt.width, opt.iterations, opt.erosion_flowmap, opt.erosion_random), gpu_ids=self.gpu_ids)
+            clip_grad_value_(self.netErosion.parameters(), 10)
         if opt.preload_unet:
             self.preload_names += ['G']
             self.set_requires_grad(self.netG, False)
