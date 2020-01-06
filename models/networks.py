@@ -1105,29 +1105,29 @@ class ErosionLayer(nn.Module):
         self.alpha = torch.nn.Parameter(torch.cuda.DoubleTensor([0.0]))
         self.alpha.requires_grad = False
         #inf
-        if random_param:
-            self.rain_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.rand() * 20 - 10]))
-            self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.rand() * 20 - 10]))
-            self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.rand() * 20 - 10]))
-            self.gravity = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.rand() * 20 - 10]))
-            self.sediment_capacity_constant = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.rand() * 20 - 10]))
-            self.dissolving_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.rand() * 20 - 10]))
-            self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.rand() * 20 - 10]))
-        else:
-            #self.rain_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.1 * self.cell_area]))
-            self.rain_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-4.67]))
-            #self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.002]))
-            self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-8.96]))
-            #self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([0.0005]))
-            self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([-10.965]))
-            #self.gravity = torch.nn.Parameter(torch.cuda.DoubleTensor([30.0]))
-            self.gravity = torch.nn.Parameter(torch.cuda.DoubleTensor([4.906]))
-            #self.sediment_capacity_constant = torch.nn.Parameter(torch.cuda.DoubleTensor([15.0]))
-            self.sediment_capacity_constant = torch.nn.Parameter(torch.cuda.DoubleTensor([3.906]))
-            #self.dissolving_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.1]))
-            self.dissolving_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-3.32]))
-            #self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.0025]))
-            self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-8.64]))
+		if random_param:
+			self.rain_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.uniform(-9, -3)]))
+			self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.uniform(-12, -6)]))
+			self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.uniform(-9, -3)]))
+			self.gravity = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.uniform(3, 7)]))
+			self.sediment_capacity_constant = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.uniform(2, 7)]))
+			self.dissolving_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.uniform(-6, 0)]))
+			self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.uniform(-12, -5)]))
+		else:
+			#self.rain_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.1 * self.cell_area]))
+			self.rain_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-4.67]))
+			#self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.002]))
+			self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-8.96]))
+			#self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([0.0005]))
+			self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([-10.965]))
+			#self.gravity = torch.nn.Parameter(torch.cuda.DoubleTensor([30.0]))
+			self.gravity = torch.nn.Parameter(torch.cuda.DoubleTensor([4.906]))
+			#self.sediment_capacity_constant = torch.nn.Parameter(torch.cuda.DoubleTensor([15.0]))
+			self.sediment_capacity_constant = torch.nn.Parameter(torch.cuda.DoubleTensor([3.906]))
+			#self.dissolving_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.1]))
+			self.dissolving_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-3.32]))
+			#self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.0025]))
+			self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-8.64]))
 
         self.rain_rate.requires_grad = True
         self.evaporation_rate.requires_grad = True
