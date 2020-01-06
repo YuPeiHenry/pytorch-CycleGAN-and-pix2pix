@@ -68,7 +68,7 @@ class UnetModel(BaseModel):
             self.optimizer_G = torch.optim.SGD(self.netG.parameters(), lr=opt.lr, momentum=0.9)
             if not opt.preload_unet: self.optimizers.append(self.optimizer_G)
             if opt.use_erosion:
-                self.optimizer_Erosion = torch.optim.SGD(self.netErosion.parameters(), lr=opt.lr, momentum=0.9)
+                self.optimizer_Erosion = torch.optim.SGD(self.netErosion.parameters(), lr=opt.erosion_lr, momentum=0.9)
                 self.optimizers.append(self.optimizer_Erosion)
             if opt.use_feature_extractor:
                 self.optimizer_Feature = torch.optim.SGD(self.netFeature.parameters(), lr=opt.lr, momentum=0.9)
