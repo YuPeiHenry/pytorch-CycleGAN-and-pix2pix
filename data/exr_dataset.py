@@ -145,4 +145,4 @@ class ExrDataset(BaseDataset):
         A1 = self.convert_input(A1_img)
         B = self.convert_output(B_img)
 
-        return {'A': A1, 'B': B, 'A_paths': A1_path, 'B_paths': B_path}
+        return {'A': A1, 'B': B, 'A_orig': np.transpose(A1_img, (2, 0, 1)), 'B_orig': np.transpose(B_img, (2, 0, 1)), 'A_paths': A1_path, 'B_paths': B_path}
