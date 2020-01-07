@@ -87,7 +87,7 @@ class UnetModel(BaseModel):
         self.real_A = input['A'].to(self.device)
         self.real_B = input['B'].to(self.device)
         if self.opt.linear:
-            self.residue = self.real_A[:, self.opt.input_height_channel, :, :] = input['A_orig'][:, self.opt.input_height_channel, :, :].to(self.device)
+            self.residue = input['A_orig'][:, self.opt.input_height_channel, :, :].to(self.device)
             self.real_B[:, self.opt.output_height_channel, :, :] = input['B_orig'][:, self.opt.output_height_channel, :, :].to(self.device)
         else:
             self.real_B = 1 - torch.nn.ReLU()(2 - torch.nn.ReLU()(self.real_B + 1)) #clip to [-1, 1]
@@ -196,8 +196,8 @@ class UnetModel(BaseModel):
         self.real_A = single['A'].unsqueeze(0).to(self.device)
         self.real_B = single['B'].unsqueeze(0).to(self.device)
         if self.opt.linear:
-            self.residue = self.real_A[:, self.opt.input_height_channel, :, :] = single['A_orig'][:, self.opt.input_height_channel, :, :].to(self.device)
-            self.real_B[:, self.opt.output_height_channel, :, :] = single['B_orig'][:, self.opt.output_height_channel, :, :].to(self.device)
+            self.residue = single['A_orig'].unsqueeze(0)[:, self.opt.input_height_channel, :, :].to(self.device)
+            self.real_B[:, self.opt.output_height_channel, :, :] = single['B_orig'].unsqueeze(0)[:, self.opt.output_height_channel, :, :].to(self.device)
         else:
             self.real_B = 1 - torch.nn.ReLU()(2 - torch.nn.ReLU()(self.real_B + 1)) #clip to [-1, 1]
         self.image_paths = [single['A_paths']]
