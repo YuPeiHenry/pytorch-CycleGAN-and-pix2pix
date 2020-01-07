@@ -84,17 +84,13 @@ class UnetModel(BaseModel):
                 self.optimizers.append(self.optimizer_Feature)
 
     def set_input(self, input):
-        """Unpack input data from the dataloader and perform necessary pre-processing steps.
-
-        Parameters:
-            input (dict): include the data itself and its metadata information.
-
-        The option 'direction' can be used to swap images in domain A and domain B.
-        """
-        AtoB = self.opt.direction == 'AtoB'
-        self.real_A = input['A' if AtoB else 'B'].to(self.device)
-        self.real_B = input['B' if AtoB else 'A'].to(self.device)
-        if not self.opt.linear: self.real_B = 1 - torch.nn.ReLU()(2 - torch.nn.ReLU()(self.real_B + 1)) #clip to [-1, 1]
+        self.real_A = input['A'].to(self.device)
+        self.real_B = input['B'].to(self.device)
+        if self.opt.linear:
+            self.residue = self.real_A[:, input_height_channel, :, :] = input['A_orig'][:, input_height_channel, :, :].to(self.device)
+            self.real_B[:, output_height_channel, :, :] = input['B_orig'][:, output_height_channel, :, :].to(self.device)
+        else:
+            self.real_B = 1 - torch.nn.ReLU()(2 - torch.nn.ReLU()(self.real_B + 1)) #clip to [-1, 1]
         self.image_paths = input['A_paths' if AtoB else 'B_paths']
 
     def forward(self):
@@ -109,19 +105,19 @@ class UnetModel(BaseModel):
             self.post_unet = self.netG(self.real_A)  # G(A)
             if self.opt.generate_residue:
                 residue = torch.zeros(self.post_unet.shape).to(self.device)
-                residue[:, out_h, :, :] = self.real_A[:, in_h, :, :]
+                residue[:, out_h, :, :] = self.real_A[:, in_h, :, :] if not self.opt.linear else self.residue
                 self.post_unet = self.post_unet + residue
             if self.opt.preload_unet:
                 if self.opt.temp_unet_fix: self.post_unet[:, out_f, :, :] = self.post_unet[:, out_f, :, :] * 5 - 4
                 self.post_unet = self.post_unet.detach()
         if self.opt.use_erosion and not self.opt.erosion_only and self.opt.erosion_flowmap:
             self.fake_B = self.post_unet.clone()
-            terrain, water = self.netErosion(self.post_unet[:, out_h, :, :], self.real_A[:, in_h, :, :])  # G(A)
+            terrain, water = self.netErosion(self.post_unet[:, out_h, :, :] / 824 - 1, self.real_A[:, in_h, :, :])  # G(A)
             self.fake_B[:, out_h, :, :] = terrain.float().squeeze(1)
             self.fake_B[:, out_f, :, :] = water.float().squeeze(1)
         elif self.opt.use_erosion and not self.opt.erosion_only:
             self.fake_B = self.post_unet.clone()
-            self.fake_B[:, out_h, :, :] = self.netErosion(self.post_unet[:, out_h, :, :], self.real_A[:, in_h, :, :], init_water=self.post_unet[:, out_f, :, :]).float().squeeze(1)  # G(A)
+            self.fake_B[:, out_h, :, :] = self.netErosion(self.post_unet[:, out_h, :, :] / 824 - 1, self.real_A[:, in_h, :, :], init_water=self.post_unet[:, out_f, :, :]).float().squeeze(1)  # G(A)
         elif self.opt.use_erosion:
             iterations = None if not self.opt.debug_gradients else self.epoch
             self.fake_B = self.netErosion(self.real_A[:, in_h, :, :], self.real_A[:, in_h, :, :], iterations=iterations, store_water=self.opt.store_water)
@@ -205,6 +201,8 @@ class UnetModel(BaseModel):
         self.forward()
         #if self.opt.generate_residue:
         #    self.post_unet[:, 1, :, :] = 1 - torch.nn.ReLU()(2 - torch.nn.ReLU()(self.post_unet[:, 1, :, :] + 1))
+        if self.opt.linear:
+            self.post_unet[:, output_height_channel, :, :] = self.post_unet[:, output_height_channel, :, :] / 824 - 1
         if self.opt.break4:
             self.real_A = self.combine_from_4(self.real_A)
             self.real_B = self.combine_from_4(self.real_B)
