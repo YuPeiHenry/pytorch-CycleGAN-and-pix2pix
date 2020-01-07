@@ -133,7 +133,7 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[]):
 
 
 def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, init_type='normal', init_gain=0.02, gpu_ids=[],
-    n_downsample_global=0, n_blocks_global=0, n_local_enhancers=0, n_blocks_local=0, progressive=False, progressive_stages=4, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest', linear=False):
+    n_downsample_global=0, n_blocks_global=0, n_local_enhancers=0, n_blocks_local=0, progressive=False, progressive_stages=4, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest', linear=False, numUpsampleConv=1):
     """Create a generator
 
     Parameters:
@@ -168,11 +168,11 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
     elif netG == 'resnet_6blocks':
         net = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=6, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method)
     elif netG == 'unet_128':
-        net = UnetGenerator(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout, styled=norm=='adain', progressive=progressive, n_stage=progressive_stages, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method, linear=linear)
+        net = UnetGenerator(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout, styled=norm=='adain', progressive=progressive, n_stage=progressive_stages, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method, linear=linear, numUpsampleConv=numUpsampleConv)
     elif netG == 'unet_256':
-        net = UnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout, styled=norm=='adain', progressive=progressive, n_stage=progressive_stages, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method, linear=linear)
+        net = UnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout, styled=norm=='adain', progressive=progressive, n_stage=progressive_stages, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method, linear=linear, numUpsampleConv=numUpsampleConv)
     elif netG == 'unet_512':
-        net = UnetGenerator(input_nc, output_nc, 9, ngf, norm_layer=norm_layer, use_dropout=use_dropout, styled=norm=='adain', progressive=progressive, n_stage=progressive_stages, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method, linear=linear)
+        net = UnetGenerator(input_nc, output_nc, 9, ngf, norm_layer=norm_layer, use_dropout=use_dropout, styled=norm=='adain', progressive=progressive, n_stage=progressive_stages, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method, linear=linear, numUpsampleConv=numUpsampleConv)
     elif netG == 'unet_resblock':
         net = UnetResBlock(input_nc, output_nc, ngf, depth=4, inc_rate=2., activation=nn.ReLU(), 
          dropout=0.5, batchnorm=False, maxpool=True, upconv=True, residual=False)
@@ -525,7 +525,7 @@ class ResnetBlock(nn.Module):
 class UnetGenerator(nn.Module):
     """Create a Unet-based generator"""
 
-    def __init__(self, input_nc, output_nc, num_downs, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, styled=False, addNoise=False, progressive=False, n_stage=4, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest', linear=False):
+    def __init__(self, input_nc, output_nc, num_downs, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, styled=False, addNoise=False, progressive=False, n_stage=4, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest', linear=False, numUpsampleConv=1):
         """Construct a Unet generator
         Parameters:
             input_nc (int)  -- the number of channels in input images
@@ -547,17 +547,17 @@ class UnetGenerator(nn.Module):
             norm_layer = get_norm_layer('adain', style_dim=8 * ngf)
 
         # construct unet structure
-        unet_block = UnetSkipConnectionBlock(ngf * 8, ngf * 8, input_nc=None, submodule=None, norm_layer=norm_layer, styled=styled, innermost=True, progressive=progressive, addNoise=addNoise, downsample_mode=downsample_mode, upsample_mode=upsample_mode)  # add the innermost layer
+        unet_block = UnetSkipConnectionBlock(ngf * 8, ngf * 8, input_nc=None, submodule=None, norm_layer=norm_layer, styled=styled, innermost=True, progressive=progressive, addNoise=addNoise, downsample_mode=downsample_mode, upsample_mode=upsample_mode, numUpsampleConv=numUpsampleConv)  # add the innermost layer
         for i in range(num_downs - 5):          # add intermediate layers with ngf * 8 filters
-            unet_block = UnetSkipConnectionBlock(ngf * 8, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer, styled=styled,  progressive=progressive, addNoise=addNoise, use_dropout=use_dropout, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
+            unet_block = UnetSkipConnectionBlock(ngf * 8, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer, styled=styled,  progressive=progressive, addNoise=addNoise, use_dropout=use_dropout, downsample_mode=downsample_mode, upsample_mode=upsample_mode, numUpsampleConv=numUpsampleConv)
         # gradually reduce the number of filters from ngf * 8 to ngf
-        unet_block = UnetSkipConnectionBlock(ngf * 4, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer, styled=styled, progressive=progressive, addNoise=addNoise, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
+        unet_block = UnetSkipConnectionBlock(ngf * 4, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer, styled=styled, progressive=progressive, addNoise=addNoise, downsample_mode=downsample_mode, upsample_mode=upsample_mode, numUpsampleConv=numUpsampleConv)
         blocks.append(unet_block)
-        unet_block = UnetSkipConnectionBlock(ngf * 2, ngf * 4, input_nc=None, submodule=unet_block, norm_layer=norm_layer, styled=styled, progressive=progressive, addNoise=addNoise, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
+        unet_block = UnetSkipConnectionBlock(ngf * 2, ngf * 4, input_nc=None, submodule=unet_block, norm_layer=norm_layer, styled=styled, progressive=progressive, addNoise=addNoise, downsample_mode=downsample_mode, upsample_mode=upsample_mode, numUpsampleConv=numUpsampleConv)
         blocks.append(unet_block)
-        unet_block = UnetSkipConnectionBlock(ngf, ngf * 2, input_nc=None, submodule=unet_block, norm_layer=norm_layer, styled=styled, progressive=progressive, addNoise=addNoise, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
+        unet_block = UnetSkipConnectionBlock(ngf, ngf * 2, input_nc=None, submodule=unet_block, norm_layer=norm_layer, styled=styled, progressive=progressive, addNoise=addNoise, downsample_mode=downsample_mode, upsample_mode=upsample_mode, numUpsampleConv=numUpsampleConv)
         blocks.append(unet_block)
-        unet_block = UnetSkipConnectionBlock(output_nc, ngf, input_nc=input_nc, submodule=unet_block, outermost=True, norm_layer=norm_layer, styled=styled, progressive=progressive, addNoise=addNoise, downsample_mode=downsample_mode, upsample_mode=upsample_mode, linear=linear)  # add the outermost layer
+        unet_block = UnetSkipConnectionBlock(output_nc, ngf, input_nc=input_nc, submodule=unet_block, outermost=True, norm_layer=norm_layer, styled=styled, progressive=progressive, addNoise=addNoise, downsample_mode=downsample_mode, upsample_mode=upsample_mode, linear=linear, numUpsampleConv=numUpsampleConv)  # add the outermost layer
         blocks.append(unet_block)
         self.model = unet_block
         if not self.progressive:
@@ -628,7 +628,7 @@ class UnetSkipConnectionBlock(nn.Module):
     """
 
     def __init__(self, outer_nc, inner_nc, input_nc=None,
-                 submodule=None, outermost=False, innermost=False, norm_layer=nn.BatchNorm2d, use_dropout=False, styled=False, addNoise=False, progressive=False, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest', linear=False):
+                 submodule=None, outermost=False, innermost=False, norm_layer=nn.BatchNorm2d, use_dropout=False, styled=False, addNoise=False, progressive=False, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest', linear=False, numUpsampleConv=1):
         """Construct a Unet submodule with skip connections.
 
         Parameters:
@@ -671,17 +671,17 @@ class UnetSkipConnectionBlock(nn.Module):
         upnorm = [norm_layer(outer_nc)] if not self.styled else []
 
         if outermost:
-            upconv = getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, True, upsample_mode, upsample_method=upsample_method)
+            upconv = getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, True, upsample_mode, upsample_method=upsample_method) + [nn.Conv2d(outer_nc, outer_nc, kernel_size=1, stride=1, padding=0) for _ in range(numUpsampleConv - 1)]
             down = downconv
             up = uprelu + upconv + ([nn.Tanh()] if not linear else [])
             model = down + [submodule] + up
         elif innermost:
-            upconv = getUpsample(inner_nc, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method)
+            upconv = getUpsample(inner_nc, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method) + [nn.Conv2d(outer_nc, outer_nc, kernel_size=1, stride=1, padding=0) for _ in range(numUpsampleConv - 1)]
             down = [downrelu] + downconv
             up = uprelu + upconv + upnorm
             model = down + up
         else:
-            upconv = getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method)
+            upconv = getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method) + [nn.Conv2d(outer_nc, outer_nc, kernel_size=1, stride=1, padding=0) for _ in range(numUpsampleConv - 1)]
             down = [downrelu] + downconv + downnorm
             up = uprelu + upconv + upnorm
 
