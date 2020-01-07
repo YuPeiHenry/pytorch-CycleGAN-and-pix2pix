@@ -147,4 +147,4 @@ class ExrDataset(BaseDataset):
         B = self.convert_output(B_img)
 
         return {'A': A1, 'B': B, 'A_orig': torch.Tensor(np.transpose(A1_img, (2, 0, 1))),
-            torch.Tensor('B_orig': np.transpose(B_img, (2, 0, 1))), 'A_paths': A1_path, 'B_paths': B_path}
+            'B_orig': torch.Tensor(np.transpose(B_img, (2, 0, 1))), 'A_paths': A1_path, 'B_paths': B_path}
