@@ -91,7 +91,7 @@ class UnetModel(BaseModel):
             self.real_B[:, self.opt.output_height_channel, :, :] = input['B_orig'][:, self.opt.output_height_channel, :, :].to(self.device)
         else:
             self.real_B = 1 - torch.nn.ReLU()(2 - torch.nn.ReLU()(self.real_B + 1)) #clip to [-1, 1]
-        self.image_paths = input['A_paths' if AtoB else 'B_paths']
+        self.image_paths = input['A_paths']
 
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
@@ -193,10 +193,14 @@ class UnetModel(BaseModel):
         if not self.opt.fixed_example or dataset is None:
             return
         single = dataset.dataset.get_val_item(self.opt.fixed_index)
-        AtoB = self.opt.direction == 'AtoB'
-        self.real_A = single['A' if AtoB else 'B'].unsqueeze(0).to(self.device)
-        self.real_B = single['B' if AtoB else 'A'].unsqueeze(0).to(self.device)
-        self.image_paths = [single['A_paths' if AtoB else 'B_paths']]
+        self.real_A = single['A'].unsqueeze(0).to(self.device)
+        self.real_B = single['B'].unsqueeze(0).to(self.device)
+        if self.opt.linear:
+            self.residue = self.real_A[:, self.opt.input_height_channel, :, :] = single['A_orig'][:, self.opt.input_height_channel, :, :].to(self.device)
+            self.real_B[:, self.opt.output_height_channel, :, :] = single['B_orig'][:, self.opt.output_height_channel, :, :].to(self.device)
+        else:
+            self.real_B = 1 - torch.nn.ReLU()(2 - torch.nn.ReLU()(self.real_B + 1)) #clip to [-1, 1]
+        self.image_paths = [single['A_paths']]
 
         self.forward()
         #if self.opt.generate_residue:
