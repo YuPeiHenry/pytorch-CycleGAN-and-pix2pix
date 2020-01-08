@@ -769,22 +769,28 @@ class FixedUnet(nn.Module):
         self.conv2d_12 = nn.Conv2d(1024, 1024, kernel_size=3, stride=1, padding=1)
         self.conv2d_13 = nn.Conv2d(2019, 2048, kernel_size=3, stride=1, padding=1)
         self.conv2d_14 = nn.Conv2d(2048, 2048, kernel_size=3, stride=1, padding=1)
-        self.conv2d_15 = nn.Conv2d(4067, 1024, kernel_size=3, stride=1, padding=1)
+        self.conv2d_15 = nn.Sequential(nn.ReplicationPad2d((0, 1, 0, 1)),
+            nn.Conv2d(4067, 1024, kernel_size=3, stride=1, padding=1))
         self.conv2d_16 = nn.Conv2d(3043, 1024, kernel_size=3, stride=1, padding=1)
         self.conv2d_17 = nn.Conv2d(1024, 1024, kernel_size=3, stride=1, padding=1)
-        self.conv2d_18 = nn.Conv2d(4067, 512, kernel_size=3, stride=1, padding=1)
+        self.conv2d_18 = nn.Sequential(nn.ReplicationPad2d((0, 1, 0, 1)),
+            nn.Conv2d(4067, 512, kernel_size=3, stride=1, padding=1))
         self.conv2d_19 = nn.Conv2d(1507, 512, kernel_size=3, stride=1, padding=1)
         self.conv2d_20 = nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1)
-        self.conv2d_21 = nn.Conv2d(2019, 256, kernel_size=3, stride=1, padding=1)
+        self.conv2d_21 = nn.Sequential(nn.ReplicationPad2d((0, 1, 0, 1)),
+            nn.Conv2d(2019, 256, kernel_size=3, stride=1, padding=1))
         self.conv2d_22 = nn.Conv2d(739, 256, kernel_size=3, stride=1, padding=1)
         self.conv2d_23 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
-        self.conv2d_24 = nn.Conv2d(995, 128, kernel_size=3, stride=1, padding=1)
+        self.conv2d_24 = nn.Sequential(nn.ReplicationPad2d((0, 1, 0, 1)),
+            nn.Conv2d(995, 128, kernel_size=3, stride=1, padding=1))
         self.conv2d_25 = nn.Conv2d(355, 128, kernel_size=3, stride=1, padding=1)
         self.conv2d_26 = nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1)
-        self.conv2d_27 = nn.Conv2d(483, 64, kernel_size=3, stride=1, padding=1)
+        self.conv2d_27 = nn.Sequential(nn.ReplicationPad2d((0, 1, 0, 1)),
+            nn.Conv2d(483, 64, kernel_size=3, stride=1, padding=1))
         self.conv2d_28 = nn.Conv2d(163, 64, kernel_size=3, stride=1, padding=1)
         self.conv2d_29 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1)
-        self.conv2d_30 = nn.Conv2d(227, 32, kernel_size=3, stride=1, padding=1)
+        self.conv2d_30 = nn.Sequential(nn.ReplicationPad2d((0, 1, 0, 1)),
+            nn.Conv2d(227, 32, kernel_size=2, stride=1, padding=0))
         self.conv2d_31 = nn.Conv2d(67, 32, kernel_size=3, stride=1, padding=1)
         self.conv2d_32 = nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1)
         self.conv2d_33 = nn.Conv2d(99, 1, kernel_size=1, stride=1, padding=1)
