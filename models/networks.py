@@ -133,7 +133,7 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[]):
 
 
 def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, init_type='normal', init_gain=0.02, gpu_ids=[],
-    n_downsample_global=0, n_blocks_global=0, n_local_enhancers=0, n_blocks_local=0, progressive=False, progressive_stages=4, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest', linear=False, numUpsampleConv=1):
+    n_downsample_global=0, n_blocks_global=0, n_local_enhancers=0, n_blocks_local=0, progressive=False, progressive_stages=4, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest', linear=False, numUpsampleConv=0):
     """Create a generator
 
     Parameters:
@@ -525,7 +525,7 @@ class ResnetBlock(nn.Module):
 class UnetGenerator(nn.Module):
     """Create a Unet-based generator"""
 
-    def __init__(self, input_nc, output_nc, num_downs, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, styled=False, addNoise=False, progressive=False, n_stage=4, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest', linear=False, numUpsampleConv=1):
+    def __init__(self, input_nc, output_nc, num_downs, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, styled=False, addNoise=False, progressive=False, n_stage=4, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest', linear=False, numUpsampleConv=0):
         """Construct a Unet generator
         Parameters:
             input_nc (int)  -- the number of channels in input images
@@ -628,7 +628,7 @@ class UnetSkipConnectionBlock(nn.Module):
     """
 
     def __init__(self, outer_nc, inner_nc, input_nc=None,
-                 submodule=None, outermost=False, innermost=False, norm_layer=nn.BatchNorm2d, use_dropout=False, styled=False, addNoise=False, progressive=False, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest', linear=False, numUpsampleConv=1):
+                 submodule=None, outermost=False, innermost=False, norm_layer=nn.BatchNorm2d, use_dropout=False, styled=False, addNoise=False, progressive=False, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest', linear=False, numUpsampleConv=0):
         """Construct a Unet submodule with skip connections.
 
         Parameters:
@@ -671,17 +671,17 @@ class UnetSkipConnectionBlock(nn.Module):
         upnorm = [norm_layer(outer_nc)] if not self.styled else []
 
         if outermost:
-            upconv = getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, True, upsample_mode, upsample_method=upsample_method) + [nn.Conv2d(outer_nc, outer_nc, kernel_size=1, stride=1, padding=0) for _ in range(numUpsampleConv - 1)]
+            upconv = getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, True, upsample_mode, upsample_method=upsample_method) + [nn.Conv2d(outer_nc, outer_nc, kernel_size=1, stride=1, padding=0), DenseBlockUnet(outer_nc, numUpsampleConv)]
             down = downconv
             up = uprelu + upconv + ([nn.Tanh()] if not linear else [])
             model = down + [submodule] + up
         elif innermost:
-            upconv = getUpsample(inner_nc, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method) + [nn.Conv2d(outer_nc, outer_nc, kernel_size=1, stride=1, padding=0) for _ in range(numUpsampleConv - 1)]
+            upconv = getUpsample(inner_nc, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method) + [nn.Conv2d(outer_nc, outer_nc, kernel_size=1, stride=1, padding=0), DenseBlockUnet(outer_nc, numUpsampleConv)]
             down = [downrelu] + downconv
             up = uprelu + upconv + upnorm
             model = down + up
         else:
-            upconv = getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method) + [nn.Conv2d(outer_nc, outer_nc, kernel_size=1, stride=1, padding=0) for _ in range(numUpsampleConv - 1)]
+            upconv = getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method) + [nn.Conv2d(outer_nc, outer_nc, kernel_size=1, stride=1, padding=0), DenseBlockUnet(outer_nc, numUpsampleConv)]
             down = [downrelu] + downconv + downnorm
             up = uprelu + upconv + upnorm
 
@@ -729,6 +729,21 @@ class UnetSkipConnectionBlock(nn.Module):
             intermediate = torch.cat([noise, output], 1)
 
         return self.up(intermediate)
+
+class DenseBlockUnet(nn.Module):
+    def __init__(self, in_c, num_conv)
+        self.in_c = in_c
+        self.num_conv = num_conv
+        self.relu = nn.ReLU(True)
+        self.out_conv = nn.Conv2d(in_c * (num_conv + 1), in_c, kernel_size=1, stride=1, padding=0)
+        for i in range(num_conv):
+            setattr(self, 'conv' + str(i), nn.Conv2d(in_c * (i + 1), in_c, kernel_size=3, stride=1, padding=1)
+
+    def forward(self, x):
+        outputs = [x]
+        for i in range(self.num_conv):
+            outputs.append(self.relu(getattr(self, 'conv' + str(i))(torch.cat(outputs, 1))))
+        return self.out_conv(torch.cat(outputs, 1))
 
 class UnetResBlock(nn.Module):
     def __init__(self, in_c = 3, out_ch=2, start_ch=64, depth=4, inc_rate=2., activation=nn.ReLU(True), 
