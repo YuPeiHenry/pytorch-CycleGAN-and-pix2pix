@@ -793,7 +793,7 @@ class FixedUnet(nn.Module):
             nn.Conv2d(227, 32, kernel_size=2, stride=1, padding=0))
         self.conv2d_31 = nn.Conv2d(67, 32, kernel_size=3, stride=1, padding=1)
         self.conv2d_32 = nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1)
-        self.conv2d_33 = nn.Conv2d(99, 1, kernel_size=1, stride=1, padding=1)
+        self.conv2d_33 = nn.Conv2d(99, 2, kernel_size=1, stride=1, padding=1)
     def forward(self, x):
         input_1 = x
         conv2d_1 = self.relu(self.conv2d_1(input_1))
