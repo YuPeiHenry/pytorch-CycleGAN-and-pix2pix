@@ -27,8 +27,8 @@ def getDownsample(in_c, out_c, k_size, stride, padding, use_bias, downsample_mod
                 ]
     elif downsample_mode == 'max_pool':
         return [nn.Conv2d(in_c, out_c,
-                    kernel_size=1, stride=1,
-                    padding=0, bias=use_bias),
+                    kernel_size=3, stride=1,
+                    padding=1, bias=use_bias),
                     nn.MaxPool2d(stride)]
     else:
         return [nn.Conv2d(in_c, out_c,
