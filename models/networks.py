@@ -737,7 +737,7 @@ class DenseBlockUnet(nn.Module):
         self.relu = nn.ReLU(True)
         self.out_conv = nn.Conv2d(in_c * (num_conv + 1), in_c, kernel_size=1, stride=1, padding=0)
         for i in range(num_conv):
-            setattr(self, 'conv' + str(i), nn.Conv2d(in_c * (i + 1), in_c, kernel_size=3, stride=1, padding=1)
+            setattr(self, 'conv' + str(i), nn.Conv2d(in_c * (i + 1), in_c, kernel_size=3, stride=1, padding=1))
 
     def forward(self, x):
         outputs = [x]
