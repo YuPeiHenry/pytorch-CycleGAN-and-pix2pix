@@ -731,7 +731,7 @@ class UnetSkipConnectionBlock(nn.Module):
         return self.up(intermediate)
 
 class DenseBlockUnet(nn.Module):
-    def __init__(self, in_c, num_conv)
+    def __init__(self, in_c, num_conv):
         self.in_c = in_c
         self.num_conv = num_conv
         self.relu = nn.ReLU(True)
