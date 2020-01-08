@@ -33,10 +33,12 @@ class UnetModel(BaseModel):
         parser.add_argument('--erosion_lr', type=float, default=0.0001, help='')
         parser.add_argument('--use_feature_extractor', action='store_true', help='')
         parser.add_argument('--break4', action='store_true', help='')
+        parser.add_argument('--disable_cudnn', action='store_true', help='')
         return parser
 
     def __init__(self, opt):
         BaseModel.__init__(self, opt)
+        if opt.disable_cudnn: torch.backends.cudnn.enabled = False
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
         self.loss_names = ['D_L2', 'G_L2']
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
