@@ -669,8 +669,9 @@ class UnetSkipConnectionBlock(nn.Module):
             input_nc = outer_nc
         
         self.input_transform = DenseBlockUnet(input_nc, numDownsampleConv)
-        self.output_transform = DenseBlockUnet(input_nc + outer_nc, numUpsampleConv)
-        self.out_conv = nn.Conv2d(input_nc + outer_nc, outer_nc * 2, kernel_size=1, stride=1, padding=0)
+		concat_nc = input_nc + outer_nc if not outermost else input_nc
+        self.output_transform = DenseBlockUnet(concat_nc, numUpsampleConv)
+        self.out_conv = nn.Conv2d(concat_nc, outer_nc * 2, kernel_size=1, stride=1, padding=0)
         downconv = getDownsample(input_nc, inner_nc, 4, 2, 1, use_bias, downsample_mode=downsample_mode)
         downrelu = [nn.LeakyReLU(0.2, True)]
         downnorm = [norm_layer(inner_nc)] if not self.styled else [nn.InstanceNorm2d(inner_nc)]
