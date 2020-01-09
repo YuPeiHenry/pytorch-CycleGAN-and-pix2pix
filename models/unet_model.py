@@ -10,6 +10,7 @@ class UnetModel(BaseModel):
     def modify_commandline_options(parser, is_train=True):
         parser.set_defaults(norm='instance', norm_G='instance', netG='unet_256', dataset_mode='exr', input_nc=3, output_nc=2, preprocess='N.A.', image_type='exr', image_value_bound=26350, no_flip=True)
         parser.add_argument('--generate_residue', action='store_true', help='')
+        parser.add_argument('--downsampleConv', type=int, default=0)
         parser.add_argument('--upsampleConv', type=int, default=0)
         parser.add_argument('--maxFilters', type=int, default=512)
         parser.add_argument('--no_normalization', action='store_true', help='')
@@ -56,7 +57,7 @@ class UnetModel(BaseModel):
         self.preload_names = []
         # define networks
         self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.maxFilters, opt.norm_G,
-                                      not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method, linear=opt.linear, numUpsampleConv=opt.upsampleConv)
+                                      not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method, linear=opt.linear, numDownsampleConv=downsampleConv, numUpsampleConv=opt.upsampleConv)
         if opt.use_erosion:
             self.netErosion = networks.init_net(networks.ErosionLayer(opt.width, opt.iterations, opt.erosion_flowmap, opt.erosion_random, opt.blend_inputs), gpu_ids=self.gpu_ids)
         if opt.preload_unet:
