@@ -880,7 +880,7 @@ class LevelBlock(nn.Module):
         self.depth = depth
         inner_dim = int(inc * dim)
         post_conv1 = dim if not res else (dim + in_dim)
-        inner_post_conv2 = inner_dim if not res and not depth == 1 else (inner_dim * 3 + post_conv1)
+        inner_post_conv2 = inner_dim if not res or depth == 1 else (inner_dim * 3 + post_conv1)
         pre_conv2 = dim + post_conv1
         self.conv1 = ConvBlock(in_dim, dim, acti, bn, res)
         
