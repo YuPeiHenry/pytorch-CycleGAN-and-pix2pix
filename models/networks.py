@@ -1217,7 +1217,7 @@ class MultiscaleDiscriminator(nn.Module):
         return result
 
 class ErosionLayer(nn.Module):
-    def __init__(self, width=512, iterations=10, output_water=False, random_param=False):
+    def __init__(self, width=512, iterations=10, output_water=False, random_param=False, blend_inputs=False):
         super(ErosionLayer, self).__init__()
         self.width = width
         self.iterations = iterations
@@ -1237,7 +1237,7 @@ class ErosionLayer(nn.Module):
         # Water-related constants
         
         self.alpha = torch.nn.Parameter(torch.cuda.DoubleTensor([0.0]))
-        self.alpha.requires_grad = False
+        self.alpha.requires_grad = blend_inputs
         #inf
         if random_param:
             self.rain_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.uniform(-8, -2)]))
