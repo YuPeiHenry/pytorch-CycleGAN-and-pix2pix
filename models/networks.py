@@ -669,7 +669,7 @@ class UnetSkipConnectionBlock(nn.Module):
             input_nc = outer_nc
         
         self.input_transform = DenseBlockUnet(input_nc, numDownsampleConv)
-        concat_nc = input_nc + outer_nc if not outermost else input_nc
+        concat_nc = input_nc + outer_nc if not outermost else outer_nc
         self.output_transform = DenseBlockUnet(concat_nc, numUpsampleConv)
         self.out_conv = nn.Conv2d(concat_nc, outer_nc * 2, kernel_size=1, stride=1, padding=0)
         downconv = getDownsample(input_nc, inner_nc, 4, 2, 1, use_bias, downsample_mode=downsample_mode)
