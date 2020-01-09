@@ -549,14 +549,14 @@ class UnetGenerator(nn.Module):
             norm_layer = get_norm_layer('adain', style_dim=8 * ngf)
 
         # construct unet structure
-        outer_nc = min(max_filters, ngf * (2 ** (num_downs - 1)))
-        inner_nc = min(max_filters, ngf * (2 ** (num_downs)))
+        outer_nc = min(max_filters, ngf * (2 ** (num_downs - 2)))
+        inner_nc = min(max_filters, ngf * (2 ** (num_downs - 1)))
         # add the innermost layer
         unet_block = UnetSkipConnectionBlock(outer_nc, inner_nc, input_nc=None, submodule=None, norm_layer=norm_layer, styled=styled, innermost=True, progressive=progressive, addNoise=addNoise, downsample_mode=downsample_mode, upsample_mode=upsample_mode, numUpsampleConv=numUpsampleConv)
         
         for i in range(num_downs - 2):
-            outer_nc = min(max_filters, ngf * (2 ** (num_downs - i - 2)))
-            inner_nc = min(max_filters, ngf * (2 ** (num_downs - i - 1)))
+            outer_nc = min(max_filters, ngf * (2 ** (num_downs - i - 3)))
+            inner_nc = min(max_filters, ngf * (2 ** (num_downs - i - 2)))
             unet_block = UnetSkipConnectionBlock(outer_nc, inner_nc, input_nc=None, submodule=unet_block, norm_layer=norm_layer, styled=styled,  progressive=progressive, addNoise=addNoise, use_dropout=use_dropout, downsample_mode=downsample_mode, upsample_mode=upsample_mode, numUpsampleConv=numUpsampleConv)
             if (i >= num_downs - 2 - n_stage + 1):
                 blocks.append(unet_block)
