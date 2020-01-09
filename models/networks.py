@@ -667,7 +667,11 @@ class UnetSkipConnectionBlock(nn.Module):
             use_bias = norm_layer != nn.BatchNorm2d
         if input_nc is None:
             input_nc = outer_nc
-        downconv = [DenseBlockUnet(input_nc, numDownsampleConv)] + getDownsample(input_nc, inner_nc, 4, 2, 1, use_bias, downsample_mode=downsample_mode)
+        
+        self.input_transform = DenseBlockUnet(input_nc, numDownsampleConv)
+        self.output_transform = DenseBlockUnet(input_nc + outer_nc, numUpsampleConv)
+        self.out_conv = nn.Conv2d(input_nc + outer_nc, outer_nc, kernel_size=1, stride=1, padding=0)
+        downconv = getDownsample(input_nc, inner_nc, 4, 2, 1, use_bias, downsample_mode=downsample_mode)
         downrelu = [nn.LeakyReLU(0.2, True)]
         downnorm = [norm_layer(inner_nc)] if not self.styled else [nn.InstanceNorm2d(inner_nc)]
         if no_normalization: downnorm = []
@@ -676,17 +680,17 @@ class UnetSkipConnectionBlock(nn.Module):
         if no_normalization: upnorm = []
 
         if outermost:
-            upconv = getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, True, upsample_mode, upsample_method=upsample_method) + [DenseBlockUnet(outer_nc, numUpsampleConv)]
+            upconv = getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, True, upsample_mode, upsample_method=upsample_method)
             down = downconv + downrelu
             up = upconv + ([nn.Tanh()] if not linear else [])
             model = down + [submodule] + up
         elif innermost:
-            upconv = getUpsample(inner_nc, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method) + [DenseBlockUnet(outer_nc, numUpsampleConv)]
+            upconv = getUpsample(inner_nc, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method)
             down = downconv + downrelu
             up = upconv + upnorm + uprelu
             model = down + up
         else:
-            upconv = getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method) + [DenseBlockUnet(outer_nc, numUpsampleConv)]
+            upconv = getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method)
             down = downconv + downnorm + downrelu
             up = upconv + upnorm + uprelu
 
@@ -704,10 +708,14 @@ class UnetSkipConnectionBlock(nn.Module):
 
     def forward(self, x):
         if not self.progressive and not self.styled:
-            if self.outermost:
-                return self.model(x)
-            return torch.cat([x, self.model(x)], 1)
+            x = self.input_transform(x)
+            intermediate = self.model(x)
+            if not self.outermost:
+                intermediate = torch.cat([x, intermediate], 1)
+            output = self.output_transform(intermediate)
+            return self.out_conv(output)
 
+        #TODO: Fix progressive/style code to use the above res/dense blocks
         style = None
         if self.submodule is None:
             intermediate = self.down(x)
