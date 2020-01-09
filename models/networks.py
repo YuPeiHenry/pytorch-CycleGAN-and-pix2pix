@@ -132,7 +132,7 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[]):
     return net
 
 
-def define_G(input_nc, output_nc, ngf, max_filters=512, netG, norm='batch', use_dropout=False, init_type='normal', init_gain=0.02, gpu_ids=[],
+def define_G(input_nc, output_nc, ngf, netG, max_filters=512, norm='batch', use_dropout=False, init_type='normal', init_gain=0.02, gpu_ids=[],
     n_downsample_global=0, n_blocks_global=0, n_local_enhancers=0, n_blocks_local=0, progressive=False, progressive_stages=4, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest', linear=False, numUpsampleConv=0):
     """Create a generator
 

@@ -54,7 +54,7 @@ class UnetModel(BaseModel):
         if opt.use_feature_extractor: self.model_names += ['Feature']
         self.preload_names = []
         # define networks
-        self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.maxFilters, opt.netG, opt.norm_G,
+        self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.maxFilters, opt.norm_G,
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method, linear=opt.linear, numUpsampleConv=opt.upsampleConv)
         if opt.use_erosion:
             self.netErosion = networks.init_net(networks.ErosionLayer(opt.width, opt.iterations, opt.erosion_flowmap, opt.erosion_random), gpu_ids=self.gpu_ids)
