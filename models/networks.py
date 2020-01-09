@@ -890,8 +890,6 @@ class LevelBlock(nn.Module):
         up = nn.Sequential(nn.Upsample(scale_factor=2, mode='nearest'), nn.ReplicationPad2d((0, 1, 0, 1)), nn.Conv2d(inner_post_conv2 , dim, kernel_size=2, stride=1, padding=0), acti) if up else nn.Sequential(nn.ConvTranspose2d(inner_post_conv2, dim, kernel_size=3, stride=2, padding=1), acti)
         self.model = nn.Sequential(down, submodule, up)
 
-    def compute_post_conv2(self, depth):
-    
 
     def forward(self, x):
         if self.depth <= 1: return self.conv1(x)
