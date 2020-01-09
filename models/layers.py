@@ -40,8 +40,8 @@ def getUpsample(in_c, out_c, k_size, stride, padding, use_bias, upsample_mode, u
     parity = (stride - 1) % 2
     if upsample_mode == 'upsample':
         return [nn.Upsample(scale_factor = 2, mode=upsample_method),
-            nn.ReplicationPad2d((0, 1, 0, 1)),
-            nn.Conv2d(in_c, out_c, kernel_size=2, stride=1, padding=0)]
+            nn.ReflectionPad2d(1),
+            nn.Conv2d(in_c, out_c, kernel_size=3, stride=1, padding=0)]
     elif upsample_mode == 'subpixel':
         return [nn.Conv2d(in_c, out_c * (stride ** 2),
                     kernel_size=3, stride=1,
