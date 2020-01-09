@@ -880,19 +880,21 @@ class LevelBlock(nn.Module):
         self.depth = depth
         inner_dim = int(inc * dim)
         post_conv1 = dim if not res else (dim + in_dim)
-        inner_post_conv2 = inner_dim if not res else (inner_dim * 3 + post_conv1)
+        inner_post_conv2 = inner_dim if not res and not depth == 1 else (inner_dim * 3 + post_conv1)
         pre_conv2 = dim + post_conv1
         self.conv1 = ConvBlock(in_dim, dim, acti, bn, res)
+        
+        if depth <= 0: return
         self.conv2 = ConvBlock(pre_conv2, dim, acti, bn, res)
 
         down = nn.MaxPool2d(2, 2) if mp else nn.Sequential(nn.Conv2d(post_conv1, post_conv1, kernel_size=3, stride=2, padding=1), acti)
-        submodule = LevelBlock(post_conv1, inner_dim, depth - 1, inc, acti, do, bn, mp, up, res) if depth > 0 else None
+        submodule = LevelBlock(post_conv1, inner_dim, depth - 1, inc, acti, do, bn, mp, up, res)
         up = nn.Sequential(nn.Upsample(scale_factor=2, mode='nearest'), nn.ReplicationPad2d((0, 1, 0, 1)), nn.Conv2d(inner_post_conv2 , dim, kernel_size=2, stride=1, padding=0), acti) if up else nn.Sequential(nn.ConvTranspose2d(inner_post_conv2, dim, kernel_size=3, stride=2, padding=1), acti)
         self.model = nn.Sequential(down, submodule, up)
 
 
     def forward(self, x):
-        if self.depth <= 1: return self.conv1(x)
+        if self.depth <= 0: return self.conv1(x)
 
         n1 = self.conv1(x)
         m = self.model(n1)
