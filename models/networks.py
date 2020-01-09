@@ -174,8 +174,8 @@ def define_G(input_nc, output_nc, ngf, netG, max_filters=512, norm='batch', use_
     elif netG == 'unet_512':
         net = UnetGenerator(input_nc, output_nc, 9, ngf, max_filters=max_filters, norm_layer=norm_layer, use_dropout=use_dropout, styled=norm=='adain', progressive=progressive, n_stage=progressive_stages, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method, linear=linear, numUpsampleConv=numUpsampleConv)
     elif netG == 'unet_resblock':
-        net = UnetResBlock(input_nc, output_nc, ngf, depth=4, inc_rate=2., activation=nn.ReLU(), 
-         dropout=0.5, batchnorm=False, maxpool=True, upconv=True, residual=False)
+        net = UnetResBlock(input_nc, output_nc, ngf, depth=6, inc_rate=2., activation=nn.ReLU(), 
+         dropout=0.5, batchnorm=False, maxpool=True, upconv=True, residual=True)
     elif netG == 'fixed':
         net = FixedUnet()
     elif netG == 'global':
@@ -878,21 +878,28 @@ class LevelBlock(nn.Module):
     def __init__(self, in_dim, dim, depth, inc, acti, do, bn, mp, up, res):
         super(LevelBlock, self).__init__()
         self.depth = depth
+        inner_dim = int(inc * dim)
+        post_conv1 = dim if not res else (dim + in_dim)
+        inner_post_conv2 = inner_dim if not res else (inner_dim * 3 + post_conv1)
+        pre_conv2 = dim + post_conv1
         self.conv1 = ConvBlock(in_dim, dim, acti, bn, res)
-        self.conv2 = ConvBlock(dim * 2, dim, acti, bn, res)
+        self.conv2 = ConvBlock(pre_conv2, dim, acti, bn, res)
 
-        down = nn.MaxPool2d(2, 2) if mp else nn.Sequential(nn.Conv2d(dim, dim, kernel_size=3, stride=2, padding=1), acti)
-        submodule = LevelBlock(dim, int(inc * dim), depth - 1, inc, acti, do, bn, mp, up, res) if depth > 0 else None
-        up = nn.Sequential(nn.Upsample(scale_factor=2, mode='nearest'), nn.ReplicationPad2d((0, 1, 0, 1)), nn.Conv2d(int(inc * dim) , dim, kernel_size=2, stride=1, padding=0), acti) if up else nn.Sequential(nn.ConvTranspose2d(inc * dim, dim, kernel_size=3, stride=2, padding=1), acti)
+        down = nn.MaxPool2d(2, 2) if mp else nn.Sequential(nn.Conv2d(post_conv1, post_conv1, kernel_size=3, stride=2, padding=1), acti)
+        submodule = LevelBlock(post_conv1, inner_dim, depth - 1, inc, acti, do, bn, mp, up, res) if depth > 0 else None
+        up = nn.Sequential(nn.Upsample(scale_factor=2, mode='nearest'), nn.ReplicationPad2d((0, 1, 0, 1)), nn.Conv2d(inner_post_conv2 , dim, kernel_size=2, stride=1, padding=0), acti) if up else nn.Sequential(nn.ConvTranspose2d(inner_post_conv2, dim, kernel_size=3, stride=2, padding=1), acti)
         self.model = nn.Sequential(down, submodule, up)
 
-    def forward(self, x):
-        if self.depth <= 0: return self.conv1(x)
+    def compute_post_conv2(self, depth):
+    
 
-        n = self.conv1(x)
-        m = self.model(n)
-        n = torch.cat((n, m), 1)
-        return self.conv2(n)
+    def forward(self, x):
+        if self.depth <= 1: return self.conv1(x)
+
+        n1 = self.conv1(x)
+        m = self.model(n1)
+        n2 = torch.cat((n1, m), 1)
+        return self.conv2(n2)
 
 class ConvBlock(nn.Module):
     def __init__(self, in_dim, dim, acti, bn, res, do=0):
