@@ -869,7 +869,11 @@ class UnetResBlock(nn.Module):
          dropout=0.5, batchnorm=False, maxpool=True, upconv=True, residual=False):
         super(UnetResBlock, self).__init__()
         self.model = LevelBlock(in_c, start_ch, depth, inc_rate, activation, dropout, batchnorm, maxpool, upconv, residual)
-        self.out_conv = nn.Conv2d(start_ch, out_ch, kernel_size=1, stride=1, padding=0)
+
+        post_conv1 = start_ch if not res else (start_ch + in_c)
+        inner_dim = int(inc * start_ch)
+        out_conv_channels = inner_dim if not res else (inner_dim * 3 + post_conv1)
+        self.out_conv = nn.Conv2d(out_conv_channels, out_ch, kernel_size=1, stride=1, padding=0)
     def forward(self, x):
         x = self.model(x)
         return self.out_conv(x)
