@@ -557,7 +557,7 @@ class UnetGenerator(nn.Module):
         for i in range(num_downs - 2):
             outer_nc = min(max_filters, ngf * (2 ** (num_downs - i - 3)))
             inner_nc = min(max_filters, ngf * (2 ** (num_downs - i - 2)))
-            unet_block = UnetSkipConnectionBlock(outer_nc, inner_nc, input_nc=None, submodule=unet_block, norm_layer=norm_layer, styled=styled,  progressive=progressive, addNoise=addNoise, use_dropout=use_dropout, downsample_mode=downsample_mode, upsample_mode=upsample_mode, numUpsampleConv=numUpsampleConv, no_normalization=no_normalization)
+            unet_block = UnetSkipConnectionBlock(outer_nc, inner_nc, input_nc=None, submodule=unet_block, norm_layer=norm_layer, styled=styled,  progressive=progressive, addNoise=addNoise, use_dropout=use_dropout and outer_nc >= max_filters, downsample_mode=downsample_mode, upsample_mode=upsample_mode, numUpsampleConv=numUpsampleConv, no_normalization=no_normalization)
             if (i >= num_downs - 2 - n_stage + 1):
                 blocks.append(unet_block)
         unet_block = UnetSkipConnectionBlock(output_nc, min(max_filters, ngf), input_nc=input_nc, submodule=unet_block, outermost=True, norm_layer=norm_layer, styled=styled, progressive=progressive, addNoise=addNoise, downsample_mode=downsample_mode, upsample_mode=upsample_mode, linear=linear, numUpsampleConv=numUpsampleConv, no_normalization=no_normalization)  # add the outermost layer
