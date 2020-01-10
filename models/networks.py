@@ -94,6 +94,10 @@ def init_weights(net, init_type='normal', init_gain=0.02):
     def init_func(m):  # define the initialization function
         classname = m.__class__.__name__
         if hasattr(m, 'weight') and (classname.find('Conv') != -1 or classname.find('Linear') != -1):
+            #ignore adain layer
+            if hasattr(m, 'bias') and m.bias is not None and m.bias.data[0] == 0 and m.bias.data[-1] == 1:
+                return
+
             if init_type == 'normal':
                 init.normal_(m.weight.data, 0.0, init_gain)
             elif init_type == 'xavier':
