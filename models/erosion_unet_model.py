@@ -76,8 +76,6 @@ class ErosionUnetModel(BaseModel):
         self.erosion_B = self.real_B[:, self.opt.output_height_channel, :, :].unsqueeze(1)
         self.residue = input['A_orig'][:, self.opt.input_height_channel, :, :].to(self.device)
         self.real_B[:, self.opt.output_height_channel, :, :] = input['B_orig'][:, self.opt.output_height_channel, :, :].to(self.device)
-        else:
-            self.real_B = 1 - torch.nn.ReLU()(2 - torch.nn.ReLU()(self.real_B + 1)) #clip to [-1, 1]
         self.image_paths = input['A_paths']
 
     def forward(self):
