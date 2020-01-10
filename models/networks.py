@@ -688,7 +688,7 @@ class UnetSkipConnectionBlock(nn.Module):
         elif innermost:
             upconv = getUpsample(inner_nc, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method)
             down = downconv + downrelu
-            submodule = DenseBlockUnet(inner_nc, numDownsampleConv)
+            submodule = [DenseBlockUnet(inner_nc, numDownsampleConv)]
             up = upconv + upnorm + uprelu
             model = down + submodule + up
         else:
