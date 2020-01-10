@@ -149,7 +149,7 @@ class ErosionUnetModel(BaseModel):
         self.forward()
         #if self.opt.generate_residue:
         #    self.post_unet[:, 1, :, :] = 1 - torch.nn.ReLU()(2 - torch.nn.ReLU()(self.post_unet[:, 1, :, :] + 1))
-        self.fake_B[:, self.opt.output_height_channel, :, :] = self.post_unet[:, self.opt.output_height_channel, :, :] / 824 * 2 - 1
+        self.fake_B[:, self.opt.output_height_channel, :, :] = self.fake_B[:, self.opt.output_height_channel, :, :] / 824 * 2 - 1
 
     def update_epoch_params(self, epoch):
         self.epoch = epoch
