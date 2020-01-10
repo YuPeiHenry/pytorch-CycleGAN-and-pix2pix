@@ -792,13 +792,13 @@ class NoiseUnetGenerator(nn.Module):
         outer_nc = min(max_filters, ngf * (2 ** (num_downs - 2)))
         inner_nc = min(max_filters, ngf * (2 ** (num_downs - 1)))
         # add the innermost layer
-        unet_block = UnetSkipConnectionBlock(outer_nc, inner_nc, input_nc=None, submodule=None, norm_layer=norm_layer, innermost=True, downsample_mode=downsample_mode, upsample_mode=upsample_mode, numDownsampleConv=numDownsampleConv, numUpsampleConv=numUpsampleConv, noise_width=int(width/(2 ** (num_downs - 1))))
+        unet_block = NoiseUnetSkipConnectionBlock(outer_nc, inner_nc, input_nc=None, submodule=None, norm_layer=norm_layer, innermost=True, downsample_mode=downsample_mode, upsample_mode=upsample_mode, numDownsampleConv=numDownsampleConv, numUpsampleConv=numUpsampleConv, noise_width=int(width/(2 ** (num_downs - 1))))
         
         for i in range(num_downs - 2):
             outer_nc = min(max_filters, ngf * (2 ** (num_downs - i - 3)))
             inner_nc = min(max_filters, ngf * (2 ** (num_downs - i - 2)))
-            unet_block = UnetSkipConnectionBlock(outer_nc, inner_nc, input_nc=None, submodule=unet_block, norm_layer=norm_layer, use_dropout=use_dropout and outer_nc >= max_filters, downsample_mode=downsample_mode, upsample_mode=upsample_mode, numDownsampleConv=numDownsampleConv, numUpsampleConv=numUpsampleConv, noise_width=int(width/(2 ** (num_downs - i - 2))))
-        unet_block = UnetSkipConnectionBlock(output_nc, min(max_filters, ngf), input_nc=input_nc, submodule=unet_block, outermost=True, norm_layer=norm_layer, downsample_mode=downsample_mode, upsample_mode=upsample_mode, linear=linear, numDownsampleConv=numDownsampleConv, numUpsampleConv=numUpsampleConv, noise_width=width)  # add the outermost layer
+            unet_block = NoiseUnetSkipConnectionBlock(outer_nc, inner_nc, input_nc=None, submodule=unet_block, norm_layer=norm_layer, use_dropout=use_dropout and outer_nc >= max_filters, downsample_mode=downsample_mode, upsample_mode=upsample_mode, numDownsampleConv=numDownsampleConv, numUpsampleConv=numUpsampleConv, noise_width=int(width/(2 ** (num_downs - i - 2))))
+        unet_block = NoiseUnetSkipConnectionBlock(output_nc, min(max_filters, ngf), input_nc=input_nc, submodule=unet_block, outermost=True, norm_layer=norm_layer, downsample_mode=downsample_mode, upsample_mode=upsample_mode, linear=linear, numDownsampleConv=numDownsampleConv, numUpsampleConv=numUpsampleConv, noise_width=width)  # add the outermost layer
         self.model = unet_block
 
     def forward(self, input):
