@@ -73,7 +73,7 @@ class ErosionUnetModel(BaseModel):
     def set_input(self, input):
         self.real_A = input['A'].to(self.device)
         self.real_B = input['B'].to(self.device)
-        self.erosion_B = self.real_B[:, self.opt.output_height_channel, :, :].unsqueeze(1)
+        self.erosion_B = input['B'][:, self.opt.output_height_channel, :, :].to(self.device).unsqueeze(1)
         self.residue = input['A_orig'][:, self.opt.input_height_channel, :, :].to(self.device)
         self.real_B[:, self.opt.output_height_channel, :, :] = input['B_orig'][:, self.opt.output_height_channel, :, :].to(self.device)
         self.image_paths = input['A_paths']
