@@ -806,7 +806,7 @@ class NoiseUnetGenerator(nn.Module):
         
 class NoiseUnetSkipConnectionBlock(nn.Module):
     def __init__(self, outer_nc, inner_nc, input_nc=None,
-                 submodule=None, outermost=False, innermost=False, norm_layer=nn.BatchNorm2d, use_dropout=False, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest', linear=False, numDownsampleConv=0, numUpsampleConv=0, noise_width):
+                 submodule=None, outermost=False, innermost=False, norm_layer=nn.BatchNorm2d, use_dropout=False, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest', linear=False, numDownsampleConv=0, numUpsampleConv=0, noise_width=512):
         super(NoiseUnetSkipConnectionBlock, self).__init__()
         self.outermost = outermost
         if type(norm_layer) == functools.partial:
