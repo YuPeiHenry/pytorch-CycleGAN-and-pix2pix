@@ -129,7 +129,7 @@ class ErosionUnetModel(BaseModel):
             self.optimizer_Feature.step()
             self.set_requires_grad(self.netFeature, False)
         # update G
-        optimizer_Erosion.zero_grad()
+        self.optimizer_Erosion.zero_grad()
         self.backward_E()
         self.optimizer_Erosion.step()
         self.optimizer_G.zero_grad()
