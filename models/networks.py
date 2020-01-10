@@ -822,7 +822,7 @@ class NoiseUnetSkipConnectionBlock(nn.Module):
         self.out_conv = nn.Conv2d(concat_nc, outer_nc * 2 if not outermost else outer_nc, kernel_size=1, stride=1, padding=0)
 
         self.noise_weights = nn.Sequential(ResBlockUnet(concat_nc, numUpsampleConv), nn.Conv2d(concat_nc, 32, kernel_size=1, stride=1, padding=0), nn.Sigmoid())
-        self.noise = torch.nn.Parameter(torch.cuda.DoubleTensor(np.random.rand(1, 32, noise_width, noise_width)))
+        self.noise = torch.nn.Parameter(torch.cuda.FloatTensor(np.random.rand(1, 32, noise_width, noise_width)))
         self.noise.requires_grad = True
         self.noise_transform = nn.Conv2d(32, outer_nc * 2 if not outermost else outer_nc, kernel_size=1, stride=1, padding=0)
 
