@@ -84,7 +84,7 @@ class ErosionUnetModel(BaseModel):
         out_h = self.opt.output_height_channel
         out_f = self.opt.output_flow_channel
 
-        self.post_erosion = self.netErosion(self.real_A[:, in_h, :, :], self.real_A[:, in_h, :, :], iterations=self.opt.iterations).float()
+        self.post_erosion = self.netErosion(self.real_A[:, in_h, :, :], self.real_A[:, in_h, :, :]).float()
         self.fake_B = self.netG(torch.cat((self.real_A, (self.post_erosion - self.real_A[:, in_h, :, :].unsqueeze(1)).detach() * 10), 1))
         residue = torch.zeros(self.fake_B.shape).to(self.device)
         residue[:, out_h, :, :] = self.residue
