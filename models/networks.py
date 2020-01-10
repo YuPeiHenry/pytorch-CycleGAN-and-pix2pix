@@ -851,6 +851,7 @@ class NoiseUnetSkipConnectionBlock(nn.Module):
             if use_dropout:
                 up = up + [nn.Dropout(0.5)]
             model = down + [submodule] + up
+        self.model = nn.Sequential(*model)
 
     def forward(self, x):
         batch_size = x.shape[0]
