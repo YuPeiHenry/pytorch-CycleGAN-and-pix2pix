@@ -668,9 +668,9 @@ class UnetSkipConnectionBlock(nn.Module):
         if input_nc is None:
             input_nc = outer_nc
         
-        self.input_transform = DenseBlockUnet(input_nc, numDownsampleConv)
+        self.input_transform = ResBlockUnet(input_nc, numDownsampleConv)
         concat_nc = input_nc + outer_nc if not outermost else outer_nc
-        self.output_transform = DenseBlockUnet(concat_nc, numUpsampleConv)
+        self.output_transform = ResBlockUnet(concat_nc, numUpsampleConv)
         self.out_conv = nn.Conv2d(concat_nc, outer_nc * 2 if not outermost else outer_nc, kernel_size=1, stride=1, padding=0)
         downconv = getDownsample(input_nc, inner_nc, 4, 2, 1, use_bias, downsample_mode=downsample_mode)
         downrelu = [nn.LeakyReLU(0.2, True)]
@@ -688,8 +688,9 @@ class UnetSkipConnectionBlock(nn.Module):
         elif innermost:
             upconv = getUpsample(inner_nc, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method)
             down = downconv + downrelu
+            submodule = DenseBlockUnet(inner_nc, numDownsampleConv)
             up = upconv + upnorm + uprelu
-            model = down + up
+            model = down + submodule + up
         else:
             upconv = getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method)
             down = downconv + downnorm + downrelu
@@ -743,6 +744,22 @@ class UnetSkipConnectionBlock(nn.Module):
             intermediate = torch.cat([noise, output], 1)
 
         return self.up(intermediate)
+
+class ResBlockUnet(nn.Module):
+    def __init__(self, in_c, num_conv):
+        super(ResBlockUnet, self).__init__()
+        self.in_c = in_c
+        self.num_conv = num_conv
+        self.relu = nn.ReLU(True)
+        self.out_conv = nn.Conv2d(in_c * 2, in_c, kernel_size=1, stride=1, padding=0)
+        for i in range(num_conv):
+            setattr(self, 'conv' + str(i), nn.Conv2d(in_c, in_c, kernel_size=3, stride=1, padding=1))
+
+    def forward(self, x):
+        output = x
+        for i in range(self.num_conv):
+            output = self.relu(getattr(self, 'conv' + str(i))(output))
+        return self.out_conv(torch.cat((output, x), 1))
 
 class DenseBlockUnet(nn.Module):
     def __init__(self, in_c, num_conv):
