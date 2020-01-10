@@ -171,6 +171,8 @@ def define_G(input_nc, output_nc, ngf, netG, max_filters=512, norm='batch', use_
         net = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method)
     elif netG == 'resnet_6blocks':
         net = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=6, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method)
+    elif netG == 'noise_unet':
+        net = NoiseUnetGenerator(input_nc, output_nc, 7, ngf, max_filters=max_filters, norm_layer=norm_layer, use_dropout=use_dropout, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method, linear=linear, numDownsampleConv=numDownsampleConv, numUpsampleConv=numUpsampleConv)
     elif netG == 'unet_128':
         net = UnetGenerator(input_nc, output_nc, 7, ngf, max_filters=max_filters, norm_layer=norm_layer, use_dropout=use_dropout, styled=norm=='adain', progressive=progressive, n_stage=progressive_stages, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method, linear=linear, numDownsampleConv=numDownsampleConv, numUpsampleConv=numUpsampleConv)
     elif netG == 'unet_256':
@@ -780,6 +782,86 @@ class DenseBlockUnet(nn.Module):
         for i in range(self.num_conv):
             outputs.append(self.relu(getattr(self, 'conv' + str(i))(torch.cat(outputs, 1))))
         return self.out_conv(torch.cat(outputs, 1))
+
+class NoiseUnetGenerator(nn.Module):
+    """Create a Unet-based generator"""
+
+    def __init__(self, input_nc, output_nc, num_downs, ngf=64, max_filters=512, norm_layer=nn.BatchNorm2d, use_dropout=False, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest', linear=False, numDownsampleConv=0, numUpsampleConv=0, width=512):
+        super(NoiseUnetGenerator, self).__init__()
+        # construct unet structure
+        outer_nc = min(max_filters, ngf * (2 ** (num_downs - 2)))
+        inner_nc = min(max_filters, ngf * (2 ** (num_downs - 1)))
+        # add the innermost layer
+        unet_block = UnetSkipConnectionBlock(outer_nc, inner_nc, input_nc=None, submodule=None, norm_layer=norm_layer, innermost=True, downsample_mode=downsample_mode, upsample_mode=upsample_mode, numDownsampleConv=numDownsampleConv, numUpsampleConv=numUpsampleConv, noise_width=int(width/(2 ** (num_downs - 1))))
+        
+        for i in range(num_downs - 2):
+            outer_nc = min(max_filters, ngf * (2 ** (num_downs - i - 3)))
+            inner_nc = min(max_filters, ngf * (2 ** (num_downs - i - 2)))
+            unet_block = UnetSkipConnectionBlock(outer_nc, inner_nc, input_nc=None, submodule=unet_block, norm_layer=norm_layer, use_dropout=use_dropout and outer_nc >= max_filters, downsample_mode=downsample_mode, upsample_mode=upsample_mode, numDownsampleConv=numDownsampleConv, numUpsampleConv=numUpsampleConv, noise_width=int(width/(2 ** (num_downs - i - 2))))
+        unet_block = UnetSkipConnectionBlock(output_nc, min(max_filters, ngf), input_nc=input_nc, submodule=unet_block, outermost=True, norm_layer=norm_layer, downsample_mode=downsample_mode, upsample_mode=upsample_mode, linear=linear, numDownsampleConv=numDownsampleConv, numUpsampleConv=numUpsampleConv, noise_width=width)  # add the outermost layer
+        self.model = unet_block
+
+    def forward(self, input):
+        return self.model(input)
+        
+class NoiseUnetSkipConnectionBlock(nn.Module):
+    def __init__(self, outer_nc, inner_nc, input_nc=None,
+                 submodule=None, outermost=False, innermost=False, norm_layer=nn.BatchNorm2d, use_dropout=False, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest', linear=False, numDownsampleConv=0, numUpsampleConv=0, noise_width):
+        super(NoiseUnetSkipConnectionBlock, self).__init__()
+        self.outermost = outermost
+        if type(norm_layer) == functools.partial:
+            use_bias = norm_layer.func == nn.InstanceNorm2d
+        else:
+            use_bias = norm_layer != nn.BatchNorm2d
+        if input_nc is None:
+            input_nc = outer_nc
+        
+        self.input_transform = ResBlockUnet(input_nc, numDownsampleConv)
+        concat_nc = input_nc + outer_nc if not outermost else outer_nc
+        self.output_transform = ResBlockUnet(concat_nc, numUpsampleConv)
+        self.out_conv = nn.Conv2d(concat_nc, outer_nc * 2 if not outermost else outer_nc, kernel_size=1, stride=1, padding=0)
+
+        self.noise_weights = nn.Sequential(ResBlockUnet(concat_nc, numUpsampleConv), nn.Conv2d(concat_nc, 32, kernel_size=1, stride=1, padding=0), nn.Sigmoid())
+        self.noise = torch.nn.Parameter(torch.cuda.DoubleTensor(np.random.rand(1, 32, noise_width, noise_width)))
+        self.noise.requires_grad = True
+        self.noise_transform = nn.Conv2d(32, outer_nc * 2 if not outermost else outer_nc, kernel_size=1, stride=1, padding=0)
+
+        downconv = getDownsample(input_nc, inner_nc, 4, 2, 1, use_bias, downsample_mode=downsample_mode)
+        downrelu = [nn.LeakyReLU(0.2, True)]
+        downnorm = [norm_layer(inner_nc)]
+        uprelu = [nn.ReLU(True)]
+        upnorm = [norm_layer(outer_nc)]
+
+        if outermost:
+            upconv = getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, True, upsample_mode, upsample_method=upsample_method)
+            down = downconv + downrelu
+            up = upconv + ([nn.Tanh()] if not linear else [])
+            model = down + [submodule] + up
+        elif innermost:
+            upconv = getUpsample(inner_nc, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method)
+            down = downconv + downrelu
+            submodule = [DenseBlockUnet(inner_nc, numDownsampleConv)]
+            up = upconv + upnorm + uprelu
+            model = down + submodule + up
+        else:
+            upconv = getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method)
+            down = downconv + downnorm + downrelu
+            up = upconv + upnorm + uprelu
+
+            if use_dropout:
+                up = up + [nn.Dropout(0.5)]
+            model = down + [submodule] + up
+
+    def forward(self, x):
+        batch_size = x.shape[0]
+        x = self.input_transform(x)
+        intermediate = self.model(x)
+        if not self.outermost:
+            intermediate = torch.cat([x, intermediate], 1)
+        output = self.output_transform(intermediate)
+
+        noise_output = self.noise_weights(intermediate) * self.noise.repeat(batch_size, 1, 1, 1)
+        return self.out_conv(output) + self.noise_transform(noise_output)
 
 #Hardcoded for debugging
 class FixedUnet(nn.Module):
