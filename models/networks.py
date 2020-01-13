@@ -894,7 +894,7 @@ class SkipUnetSkipConnectionBlock(nn.Module):
         self.upsample = nn.Upsample(scale_factor = 2, mode='bilinear')
         inconv1 = nn.Conv2d(outer_nc, inner_nc, kernel_size=3, stride=1, padding=1)
         inconv2 = nn.Conv2d(inner_nc, inner_nc, kernel_size=3, stride=1, padding=1)
-        self.inconv = nn.Sequential(nn.ReLU() if not outermost else None, inconv1, nn.ReLU(), inconv2)
+        self.inconv = nn.Sequential(nn.ReLU(), inconv1, nn.ReLU(), inconv2) if not outermost else nn.Sequential(inconv1, nn.ReLU(), inconv2)
 
         if level > 1:
             self.cross_residual = nn.Sequential(DeepSkipBlock(concat1_nc, 1), nn.Conv2d(concat1_nc, up_nc, kernel_size=1, stride=1, padding=0))
