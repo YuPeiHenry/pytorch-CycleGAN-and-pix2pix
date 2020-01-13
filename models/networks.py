@@ -939,7 +939,7 @@ class SkipUnetSkipConnectionBlock(nn.Module):
             new_outputs = [self.upsample(output) for output in outputs]
             output = self.shared_module.to_output(concat3)
             new_outputs.append(output + new_outputs[-1])
-            return concat3, outputs
+            return concat3, new_outputs
         elif self.level == 1:
             post_submodule = self.submodule(self.downsample(concat1))
             upsampled = self.upsample_img(post_submodule)
