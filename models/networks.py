@@ -774,7 +774,7 @@ class DenseBlockUnet(nn.Module):
         super(DenseBlockUnet, self).__init__()
         self.in_c = in_c
         self.num_conv = num_conv
-        self.relu = nn.ReLU()
+        self.relu = nn.ReLU(True)
         self.out_conv = nn.Conv2d(in_c * (num_conv + 1), in_c, kernel_size=1, stride=1, padding=0)
         for i in range(num_conv):
             setattr(self, 'conv' + str(i), nn.Conv2d(in_c * (i + 1), in_c, kernel_size=3, stride=1, padding=1))
@@ -894,7 +894,7 @@ class SkipUnetSkipConnectionBlock(nn.Module):
         self.upsample = nn.Upsample(scale_factor = 2, mode='bilinear')
         inconv1 = nn.Conv2d(outer_nc, inner_nc, kernel_size=3, stride=1, padding=1)
         inconv2 = nn.Conv2d(inner_nc, inner_nc, kernel_size=3, stride=1, padding=1)
-        self.inconv = nn.Sequential(nn.ReLU(), inconv1, nn.ReLU(), inconv2) if not outermost else nn.Sequential(inconv1, nn.ReLU(), inconv2)
+        self.inconv = nn.Sequential(nn.ReLU(True), inconv1, nn.ReLU(True), inconv2) if not outermost else nn.Sequential(inconv1, nn.ReLU(True), inconv2)
 
         self.level = level
         if level > 1:
@@ -948,8 +948,8 @@ class DeepSkipBlock(nn.Module):
         self.num_conv = num_conv
         for i in range(num_conv):
             setattr(self, 'conv' + str(i), nn.Sequential(
-                nn.ReLU(), nn.Conv2d(in_c, in_c, kernel_size=3, stride=1, padding=1),
-                nn.ReLU(), nn.Conv2d(in_c, in_c, kernel_size=3, stride=1, padding=1)))
+                nn.ReLU(True), nn.Conv2d(in_c, in_c, kernel_size=3, stride=1, padding=1),
+                nn.ReLU(True), nn.Conv2d(in_c, in_c, kernel_size=3, stride=1, padding=1)))
 
     def forward(self, x):
         output = x
