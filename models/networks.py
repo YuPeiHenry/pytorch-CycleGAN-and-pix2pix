@@ -183,7 +183,7 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
         net = UnetResBlock(input_nc, output_nc, ngf, depth=6, inc_rate=2., activation=nn.ReLU(), 
          dropout=0.5, batchnorm=False, maxpool=True, upconv=True, residual=True)
     elif netG == 'skip_unet':
-        net = SkipUnetGenerator(input_nc, output_nc, ngf=64)
+        net = SkipUnetGenerator(input_nc, output_nc, ngf=ngf)
     elif netG == 'fixed':
         net = FixedUnet()
     elif netG == 'global':
