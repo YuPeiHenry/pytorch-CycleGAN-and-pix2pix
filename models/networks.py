@@ -897,11 +897,11 @@ class SkipUnetSkipConnectionBlock(nn.Module):
         self.inconv = nn.Sequential(nn.ReLU() if not outermost else None, inconv1, nn.ReLU(), inconv2)
 
         if level > 1:
-            self.cross_residual = nn.Sequential(DeepSkipBlock(concat_nc1, 1), nn.Conv2d(concat_nc1, up_nc, kernel_size=1, stride=1, padding=0))
+            self.cross_residual = nn.Sequential(DeepSkipBlock(concat1_nc, 1), nn.Conv2d(concat1_nc, up_nc, kernel_size=1, stride=1, padding=0))
             self.submodule = SkipUnetSkipConnectionBlock(level - 1, concat1_nc, inner_nc * 2, output_nc, shared_module)
             return
         elif level == 1:
-            self.cross_residual = DeepSkipBlock(concat_nc1, 1)
+            self.cross_residual = DeepSkipBlock(concat1_nc, 1)
             self.submodule = SkipUnetSkipConnectionBlock(level - 1, concat1_nc, inner_nc * 2, output_nc, shared_module)
             upsample_nc = int(inner_nc / 2)
             self.upsample_img = nn.Sequential(self.upsample, nn.Conv2d(concat1_nc, upsample_nc, kernel_size=3, stride=1, padding=1))
@@ -911,7 +911,7 @@ class SkipUnetSkipConnectionBlock(nn.Module):
             self.to_above_layer = nn.Conv2d(input_nc + 2 * upsample_nc, 3 * up_nc, kernel_size=1, stride=1, padding=0)
             return
         else:
-            self.cross_residual = DeepSkipBlock(concat_nc1, 1)
+            self.cross_residual = DeepSkipBlock(concat1_nc, 1)
             return
 
     def forward(self, x):
