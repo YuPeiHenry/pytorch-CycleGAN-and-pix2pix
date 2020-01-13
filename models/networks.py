@@ -920,7 +920,7 @@ class SkipUnetSkipConnectionBlock(nn.Module):
             return self.cross_residual(x)
 
         inconv = self.inconv(x)
-        concat1 = torch.cat((x, inconv), 1)
+        concat1 = self.downsample(torch.cat((x, inconv), 1))
         cross_residual = self.cross_residual(concat1)
         if self.level > 1:
             post_submodule, outputs = self.submodule(concat1)
