@@ -912,7 +912,7 @@ class SkipUnetSkipConnectionBlock(nn.Module):
             self.to_above_layer = nn.Conv2d(outer_nc + 2 * upsample_nc, 3 * up_nc, kernel_size=1, stride=1, padding=0)
             return
         else:
-            self.cross_residual = DeepSkipBlock(concat1_nc, 1)
+            self.cross_residual = DeepSkipBlock(outer_nc, 1)
             return
 
     def forward(self, x):
