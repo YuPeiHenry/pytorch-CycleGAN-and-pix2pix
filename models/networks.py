@@ -872,16 +872,22 @@ class SkipUnetGenerator(nn.Module):
     def __init__(self, input_nc, output_nc, ngf=64):
         super(SkipUnetGenerator, self).__init__()
 
+        shared_module = SkipUnetSharedModule()
+        self.model = SkipUnetSkipConnectionBlock(4, input_nc, ngf, output_nc, shared_module, outermost=True)
+
+    def forward(self, input):
+        return self.model(input)[1]
+
+class SkipUnetSharedModule(nn.Module):
+    def __init__(self):
         up_nc = 64
         upsample = nn.Upsample(scale_factor = 2, mode='bilinear')
         self.upsample = nn.Sequential(nn.Conv2d(up_nc * 3, up_nc, kernel_size=1, stride=1, padding=0), DeepSkipBlock(up_nc, 3), upsample)
         self.post_upsample = nn.Sequential(nn.Conv2d(up_nc * 2, up_nc, kernel_size=1, stride=1, padding=0), DeepSkipBlock(up_nc, 3))
         self.to_output = nn.Sequential(DeepSkipBlock(up_nc * 3, 3), nn.Conv2d(up_nc * 3, output_nc, kernel_size=1, stride=1, padding=0))
-
-        self.model = SkipUnetSkipConnectionBlock(4, input_nc, ngf, output_nc, self, outermost=True)
-
-    def forward(self, input):
-        return self.model(input)[1]
+    #dummy
+    def forward(self, x):
+        return x
 
 class SkipUnetSkipConnectionBlock(nn.Module):
     def __init__(self, level, outer_nc, inner_nc, output_nc, shared_module, outermost=False):
