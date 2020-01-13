@@ -874,11 +874,11 @@ class SkipUnetGenerator(nn.Module):
 
         up_nc = 128
         upsample = nn.Upsample(scale_factor = 2, mode='bilinear')
-        self.upsample = nn.Sequential(nn.Conv2d(up_nc * 3, up_nc, kernel_size=1, stride=1, padding=0), DeepSkipBlock(up_nc, 4), upsample)
-        self.post_upsample = nn.Sequential(nn.Conv2d(up_nc * 2, up_nc, kernel_size=1, stride=1, padding=0), DeepSkipBlock(up_nc, 4))
-        self.to_output = nn.Sequential(DeepSkipBlock(up_nc * 3, 4), nn.Conv2d(up_nc * 3, output_nc, kernel_size=1, stride=1, padding=0))
+        self.upsample = nn.Sequential(nn.Conv2d(up_nc * 3, up_nc, kernel_size=1, stride=1, padding=0), DeepSkipBlock(up_nc, 3), upsample)
+        self.post_upsample = nn.Sequential(nn.Conv2d(up_nc * 2, up_nc, kernel_size=1, stride=1, padding=0), DeepSkipBlock(up_nc, 3))
+        self.to_output = nn.Sequential(DeepSkipBlock(up_nc * 3, 3), nn.Conv2d(up_nc * 3, output_nc, kernel_size=1, stride=1, padding=0))
 
-        self.model = SkipUnetSkipConnectionBlock(5, input_nc, ngf, output_nc, self, outermost=True)
+        self.model = SkipUnetSkipConnectionBlock(4, input_nc, ngf, output_nc, self, outermost=True)
 
     def forward(self, input):
         return self.model(input)[1]
