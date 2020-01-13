@@ -880,7 +880,7 @@ class SkipUnetGenerator(nn.Module):
 
 class SkipUnetSharedModule(nn.Module):
     def __init__(self):
-        super(SkipUnetSharedModule).__init__()
+        super(SkipUnetSharedModule, self).__init__()
         up_nc = 64
         upsample = nn.Upsample(scale_factor = 2, mode='bilinear')
         self.upsample = nn.Sequential(nn.Conv2d(up_nc * 3, up_nc, kernel_size=1, stride=1, padding=0), DeepSkipBlock(up_nc, 3), upsample)
