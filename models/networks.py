@@ -896,6 +896,7 @@ class SkipUnetSkipConnectionBlock(nn.Module):
         inconv2 = nn.Conv2d(inner_nc, inner_nc, kernel_size=3, stride=1, padding=1)
         self.inconv = nn.Sequential(nn.ReLU(), inconv1, nn.ReLU(), inconv2) if not outermost else nn.Sequential(inconv1, nn.ReLU(), inconv2)
 
+        self.level = level
         if level > 1:
             self.cross_residual = nn.Sequential(DeepSkipBlock(concat1_nc, 1), nn.Conv2d(concat1_nc, up_nc, kernel_size=1, stride=1, padding=0))
             self.submodule = SkipUnetSkipConnectionBlock(level - 1, concat1_nc, inner_nc * 2, output_nc, shared_module)
@@ -918,7 +919,7 @@ class SkipUnetSkipConnectionBlock(nn.Module):
         inconv = self.inconv(x)
         concat1 = torch.cat((x, inconv), 1)
         cross_residual = self.cross_residual(concat1)
-        if level > 1:
+        if self.level > 1:
             post_submodule, outputs = self.submodule(concat1)
             upsampled = shared_module.upsample(post_submodule)
             concat2 = torch.cat((cross_residual, upsampled), 1)
@@ -928,7 +929,7 @@ class SkipUnetSkipConnectionBlock(nn.Module):
             output = shared_module.to_output(concat3)
             new_outputs.append(output + new_outputs[-1])
             return concat3, outputs
-        elif level == 1:
+        elif self.level == 1:
             post_submodule = self.submodule(concat1)
             upsampled = self.upsample_img(post_submodule)
             concat2 = torch.cat((cross_residual, upsampled), 1)
