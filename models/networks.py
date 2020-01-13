@@ -182,6 +182,8 @@ def define_G(input_nc, output_nc, ngf, netG, max_filters=512, norm='batch', use_
     elif netG == 'unet_resblock':
         net = UnetResBlock(input_nc, output_nc, ngf, depth=6, inc_rate=2., activation=nn.ReLU(), 
          dropout=0.5, batchnorm=False, maxpool=True, upconv=True, residual=True)
+    elif netG == 'skip_unet':
+        net = SkipUnetGenerator(input_nc, output_nc, ngf=64)
     elif netG == 'fixed':
         net = FixedUnet()
     elif netG == 'global':
@@ -772,7 +774,7 @@ class DenseBlockUnet(nn.Module):
         super(DenseBlockUnet, self).__init__()
         self.in_c = in_c
         self.num_conv = num_conv
-        self.relu = nn.ReLU(True)
+        self.relu = nn.ReLU()
         self.out_conv = nn.Conv2d(in_c * (num_conv + 1), in_c, kernel_size=1, stride=1, padding=0)
         for i in range(num_conv):
             setattr(self, 'conv' + str(i), nn.Conv2d(in_c * (i + 1), in_c, kernel_size=3, stride=1, padding=1))
@@ -863,6 +865,97 @@ class NoiseUnetSkipConnectionBlock(nn.Module):
 
         noise_output = self.noise_weights(intermediate) * self.noise.repeat(batch_size, 1, 1, 1)
         return self.out_conv(output) + self.noise_transform(noise_output)
+
+class SkipUnetGenerator(nn.Module):
+    """Create a Unet-based generator"""
+
+    def __init__(self, input_nc, output_nc, ngf=64):
+        super(SkipUnetGenerator, self).__init__()
+
+        up_nc = 256
+        upsample = nn.Upsample(scale_factor = 2, mode='bilinear')
+        self.upsample = nn.Sequential(nn.Conv2d(up_nc * 3, up_nc, kernel_size=1, stride=1, padding=0), DeepSkipBlock(up_nc, 4), upsample)
+        self.post_upsample = nn.Sequential(nn.Conv2d(up_nc * 2, up_nc, kernel_size=1, stride=1, padding=0), DeepSkipBlock(up_nc, 4))
+        self.to_output = nn.Sequential(DeepSkipBlock(up_nc * 3, 4), nn.Conv2d(up_nc * 3, output_nc, kernel_size=1, stride=1, padding=0))
+
+        self.model = SkipUnetSkipConnectionBlock(5, input_nc, ngf, output_nc, self, outermost=True)
+
+    def forward(self, input):
+        return self.model(input)[1]
+
+class SkipUnetSkipConnectionBlock(nn.Module):
+    def __init__(self, level, outer_nc, inner_nc, output_nc, shared_module, outermost=False):
+        super(SkipUnetSkipConnectionBlock, self).__init__()
+
+        up_nc = 256
+        concat1_nc = outer_nc + inner_nc
+
+        self.downsample = nn.AvgPool2d(kernel_size=2, stride=2)
+        self.upsample = nn.Upsample(scale_factor = 2, mode='bilinear')
+        inconv1 = nn.Conv2d(outer_nc, inner_nc, kernel_size=3, stride=1, padding=1)
+        inconv2 = nn.Conv2d(inner_nc, inner_nc, kernel_size=3, stride=1, padding=1)
+        self.inconv = nn.Sequential(nn.ReLU() if not outermost else None, in_conv1, nn.ReLU(), in_conv2)
+
+        if level > 1:
+            self.cross_residual = nn.Sequential(DeepSkipBlock(concat_nc1, 1), nn.Conv2d(concat_nc1, up_nc, kernel_size=1, stride=1, padding=0))
+            self.submodule = SkipUnetSkipConnectionBlock(level - 1, concat1_nc, inner_nc * 2, output_nc, shared_module)
+            return
+        elif level == 1:
+            self.cross_residual = DeepSkipBlock(concat_nc1, 1)
+            self.submodule = SkipUnetSkipConnectionBlock(level - 1, concat1_nc, inner_nc * 2, output_nc, shared_module)
+            upsample_nc = int(inner_nc / 2)
+            self.upsample_img = nn.Sequential(self.upsample, nn.Conv2d(concat1_nc, upsample_nc, kernel_size=3, stride=1, padding=1))
+            self.post_upsample = nn.Sequential(nn.Conv2d(input_nc + upsample_nc, upsample_nc, kernel_size=1, stride=1, padding=0),
+                DeepSkipBlock(upsample_nc, 1))
+            self.to_output = nn.Sequential(DeepSkipBlock(input_nc + 2 * upsample_nc, 1), nn.Conv2d(input_nc + 2 * upsample_nc, output_nc, kernel_size=1, stride=1, padding=0))
+            self.to_above_layer = nn.Conv2d(input_nc + 2 * upsample_nc, 3 * up_nc, kernel_size=1, stride=1, padding=0)
+            return
+        else:
+            self.cross_residual = DeepSkipBlock(concat_nc1, 1)
+            return
+
+    def forward(self, x):
+        inconv = self.inconv(x)
+        concat1 = torch.cat((x, inconv), 1)
+        cross_residual = self.cross_residual(concat1)
+        if level > 1:
+            post_submodule, outputs = self.submodule(concat1)
+            upsampled = shared_module.upsample(post_submodule)
+            concat2 = torch.cat((cross_residual, upsampled), 1)
+            post_upsample = shared_module.post_upsample(concat2)
+            concat3 = torch.cat((concat2, post_upsample), 1)
+            new_outputs = [self.upsample(output) for output in outputs]
+            output = shared_module.to_output(concat3)
+            new_outputs.append(output + new_outputs[-1])
+            return concat3, outputs
+        elif level == 1:
+            post_submodule = self.submodule(concat1)
+            upsampled = self.upsample_img(post_submodule)
+            concat2 = torch.cat((cross_residual, upsampled), 1)
+            post_upsample = self.post_upsample(concat2)
+            concat3 = torch.cat((concat2, post_upsample), 1)
+            output = self.to_output(concat3)
+            to_above_layer = self.to_above_layer(concat3)
+            return to_above_layer, [output]
+        else:
+            return cross_residual
+
+class DeepSkipBlock(nn.Module):
+    def __init__(self, in_c, num_conv):
+        super(DenseBlockUnet, self).__init__()
+        self.in_c = in_c
+        self.num_conv = num_conv
+        for i in range(num_conv):
+            setattr(self, 'conv' + str(i), nn.Sequential(
+                nn.ReLU(), nn.Conv2d(in_c, in_c, kernel_size=3, stride=1, padding=1),
+                nn.ReLU(), nn.Conv2d(in_c, in_c, kernel_size=3, stride=1, padding=1)))
+
+    def forward(self, x):
+        output = x
+        for i in range(self.num_conv):
+            output = getattr(self, 'conv' + str(i))(output)
+            output = output + x
+        return output
 
 #Hardcoded for debugging
 class FixedUnet(nn.Module):
