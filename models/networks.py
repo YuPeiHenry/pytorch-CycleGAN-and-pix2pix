@@ -872,7 +872,7 @@ class SkipUnetGenerator(nn.Module):
     def __init__(self, input_nc, output_nc, ngf=64):
         super(SkipUnetGenerator, self).__init__()
 
-        up_nc = 256
+        up_nc = 128
         upsample = nn.Upsample(scale_factor = 2, mode='bilinear')
         self.upsample = nn.Sequential(nn.Conv2d(up_nc * 3, up_nc, kernel_size=1, stride=1, padding=0), DeepSkipBlock(up_nc, 4), upsample)
         self.post_upsample = nn.Sequential(nn.Conv2d(up_nc * 2, up_nc, kernel_size=1, stride=1, padding=0), DeepSkipBlock(up_nc, 4))
@@ -887,7 +887,7 @@ class SkipUnetSkipConnectionBlock(nn.Module):
     def __init__(self, level, outer_nc, inner_nc, output_nc, shared_module, outermost=False):
         super(SkipUnetSkipConnectionBlock, self).__init__()
 
-        up_nc = 256
+        up_nc = 128
         concat1_nc = outer_nc + inner_nc
 
         self.downsample = nn.AvgPool2d(kernel_size=2, stride=2)
