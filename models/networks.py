@@ -920,10 +920,10 @@ class SkipUnetSkipConnectionBlock(nn.Module):
             return self.cross_residual(x)
 
         inconv = self.inconv(x)
-        concat1 = self.downsample(torch.cat((x, inconv), 1))
+        concat1 = torch.cat((x, inconv), 1)
         cross_residual = self.cross_residual(concat1)
         if self.level > 1:
-            post_submodule, outputs = self.submodule(concat1)
+            post_submodule, outputs = self.submodule(self.downsample(concat1))
             upsampled = shared_module.upsample(post_submodule)
             concat2 = torch.cat((cross_residual, upsampled), 1)
             post_upsample = shared_module.post_upsample(concat2)
@@ -933,7 +933,7 @@ class SkipUnetSkipConnectionBlock(nn.Module):
             new_outputs.append(output + new_outputs[-1])
             return concat3, outputs
         elif self.level == 1:
-            post_submodule = self.submodule(concat1)
+            post_submodule = self.submodule(self.downsample(concat1))
             upsampled = self.upsample_img(post_submodule)
             concat2 = torch.cat((cross_residual, upsampled), 1)
             post_upsample = self.post_upsample(concat2)
