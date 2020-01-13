@@ -893,8 +893,7 @@ class SkipUnetSkipConnectionBlock(nn.Module):
         self.downsample = nn.AvgPool2d(kernel_size=2, stride=2)
         self.upsample = nn.Upsample(scale_factor = 2, mode='bilinear')
         inconv1 = nn.Conv2d(outer_nc, inner_nc, kernel_size=3, stride=1, padding=1)
-        inconv2 = nn.Conv2d(inner_nc, inner_nc, kernel_size=3, stride=1, padding=1)
-        self.inconv = nn.Sequential(nn.ReLU(True), inconv1, nn.ReLU(True), inconv2) if not outermost else nn.Sequential(inconv1, nn.ReLU(True), inconv2)
+        self.inconv = nn.Sequential(nn.ReLU(True), inconv1) if not outermost else nn.Sequential(inconv1)
 
         self.level = level
         if level > 1:
@@ -948,7 +947,6 @@ class DeepSkipBlock(nn.Module):
         self.num_conv = num_conv
         for i in range(num_conv):
             setattr(self, 'conv' + str(i), nn.Sequential(
-                nn.ReLU(True), nn.Conv2d(in_c, in_c, kernel_size=3, stride=1, padding=1),
                 nn.ReLU(True), nn.Conv2d(in_c, in_c, kernel_size=3, stride=1, padding=1)))
 
     def forward(self, x):
