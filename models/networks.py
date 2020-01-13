@@ -942,7 +942,7 @@ class SkipUnetSkipConnectionBlock(nn.Module):
 
 class DeepSkipBlock(nn.Module):
     def __init__(self, in_c, num_conv):
-        super(DenseBlockUnet, self).__init__()
+        super(DeepSkipBlock, self).__init__()
         self.in_c = in_c
         self.num_conv = num_conv
         for i in range(num_conv):
