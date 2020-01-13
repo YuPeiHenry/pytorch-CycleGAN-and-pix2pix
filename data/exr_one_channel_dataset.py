@@ -128,7 +128,11 @@ class ExrOneChannelDataset(BaseDataset):
         B_path = self.B_test_paths[index % self.B_test_size]
         A1_img = exrlib.read_exr_float32(A1_path, list(self.input_names[self.input_channels]), 512, 512)
         B_img = exrlib.read_exr_float32(B_path, list(self.output_names[self.output_channels]), 512, 512)
+
+        normalized_A = A1_img - (self.i_channels_max + self.i_channels_min) / 2
+        normalized_A = normalized_A / (self.i_channels_max - self.i_channels_min) * 2
+        normalized_A = self.convert_image(normalized_A)
         A1 = self.convert_image(A1_img)
         B = self.convert_image(B_img)
 
-        return {'A': A1, 'B': B, 'A_paths': A1_path, 'B_paths': B_path}
+        return {'A': A1, 'B': B, 'normalized_A': normalized_A, 'A_paths': A1_path, 'B_paths': B_path}
