@@ -1126,6 +1126,7 @@ class LevelBlock(nn.Module):
                 emb = self.erosion_emb
             elif embedding == 'un_erosion':
                 emb = self.zero_erosion - self.erosion_emb
+            emb = emb.repeat(x.shape[0], 1, 1, 1)
             return torch.cat((x, emb), 1)
         n1 = self.conv1(x)
         #m = self.model(n1)
