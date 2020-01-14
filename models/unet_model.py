@@ -127,9 +127,10 @@ class UnetModel(BaseModel):
             self.fake_B[:, out_h, :, :] = terrain.float().squeeze(1)
             self.fake_B[:, out_f, :, :] = water.float().squeeze(1)
         elif self.opt.use_erosion and not self.opt.erosion_only:
-            mult = (1 / 824 * 2 - 1) if self.opt.linear else 1
+            mult = (1 / 824 * 2) if self.opt.linear else 1
+            bias = -1 if self.opt.linear else 0
             self.fake_B = self.post_unet.clone()
-            self.fake_B[:, out_h, :, :] = self.netErosion(self.post_unet[:, out_h, :, :] * mult, self.real_A[:, in_h, :, :]).float().squeeze(1)  # G(A)
+            self.fake_B[:, out_h, :, :] = self.netErosion(self.post_unet[:, out_h, :, :] * mult _ bias, self.real_A[:, in_h, :, :]).float().squeeze(1)  # G(A)
         elif self.opt.use_erosion:
             iterations = None if not self.opt.debug_gradients else self.epoch
             self.fake_B = self.netErosion(self.real_A[:, in_h, :, :], self.real_A[:, in_h, :, :], iterations=iterations, store_water=self.opt.store_water)
