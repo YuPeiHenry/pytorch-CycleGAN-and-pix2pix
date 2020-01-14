@@ -77,40 +77,23 @@ class EmbeddingModel(BaseModel):
     def backward_D(self):
         self.loss_D = torch.zeros([1]).to(self.device)
 
-    def backward_G_A(self):
+    def backward_G(self):
         self.forward_A_e()
         self.loss_A_e = self.criterionL2(self.fake_A_e, self.real_A)
-        if self.loss_A_e >= self.loss_A_i:
-            self.optimizer_G.zero_grad()
-            self.loss_A_e.backward()
-            self.optimizer_G.step()
-
         self.forward_A_i()
         self.loss_A_i = self.criterionL2(self.fake_A_i, self.real_A)
-        if self.loss_A_e <= self.loss_A_i:
-            self.optimizer_G.zero_grad()
-            self.loss_A_i.backward()
-            self.optimizer_G.step()
-
-    def backward_G_B(self):
         self.forward_B_e()
         self.loss_B_e = self.criterionL2(self.fake_B_e, self.real_B)
-        if self.loss_B_e >= self.loss_B_i:
-            self.optimizer_G.zero_grad()
-            self.loss_B_e.backward()
-            self.optimizer_G.step()
-
         self.forward_B_i()
         self.loss_B_i = self.criterionL2(self.fake_B_i, self.real_B)
-        if self.loss_B_e <= self.loss_B_i:
-            self.optimizer_G.zero_grad()
-            self.loss_B_i.backward()
-            self.optimizer_G.step()
+
+        self.optimizer_G.zero_grad()
+        (self.loss_A_e + self.loss_A_i + self.loss_B_e + self.loss_B_i).backward()
+        self.optimizer_G.step()
 
     def optimize_parameters(self):
         self.backward_D()
-        self.backward_G_B()
-        self.backward_G_A()
+        self.backward_G()
         self.loss_G = self.loss_A_e + self.loss_B_e + self.loss_A_i + self.loss_B_i
 
     def compute_visuals(self, dataset=None):
