@@ -47,6 +47,7 @@ class EmbeddingModel(BaseModel):
         The option 'direction' can be used to swap images in domain A and domain B.
         """
         self.normalized_A = input['normalized_A'].to(self.device)
+        self.normalized_B = input['normalized_B'].to(self.device)
         self.real_A = input['A'].to(self.device)
         self.real_B = input['B'].to(self.device)
         self.image_paths = input['A_paths']
