@@ -1098,7 +1098,7 @@ class LevelBlock(nn.Module):
             inner_post_conv2 = inner_dim if not res else (inner_dim * 3 + post_conv1)
         else:
             #inner_post_conv2 = inner_dim if not res else (inner_dim + post_conv1)
-            inner_post_conv2 = inner_dim + 2 * max_filters
+            inner_post_conv2 = post_conv1 + 2 * max_filters
         pre_conv2 = dim + post_conv1
         #self.conv1 = ConvBlock(in_dim, dim, acti, bn, res)
         
