@@ -1129,9 +1129,9 @@ class LevelBlock(nn.Module):
             return torch.cat((x, emb), 1)
         n1 = self.conv1(x)
         #m = self.model(n1)
-		m1 = self.down(n1)
-		m2 = self.submodule(m1, embedding)
-		m = self.up(m2)
+        m1 = self.down(n1)
+        m2 = self.submodule(m1, embedding)
+        m = self.up(m2)
 
         n2 = torch.cat((n1, m), 1)
         return self.conv2(n2)
