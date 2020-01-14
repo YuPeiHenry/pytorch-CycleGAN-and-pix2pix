@@ -84,7 +84,7 @@ class EmbeddingModel(BaseModel):
         self.loss_A_i = self.criterionL2(self.fake_A_i, self.real_A)
 
         self.optimizer_G.zero_grad()
-        self.(loss_A_e + loss_A_i).backward()
+        (self.loss_A_e + self.loss_A_i).backward()
         self.optimizer_G.step()
 
     def backward_G_B(self):
@@ -94,7 +94,7 @@ class EmbeddingModel(BaseModel):
         self.loss_B_i = self.criterionL2(self.fake_B_i, self.real_B)
 
         self.optimizer_G.zero_grad()
-        self.(loss_B_e + loss_B_i).backward()
+        (self.loss_B_e + self.loss_B_i).backward()
         self.optimizer_G.step()
 
     def optimize_parameters(self):
