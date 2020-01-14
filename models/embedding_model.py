@@ -54,9 +54,13 @@ class EmbeddingModel(BaseModel):
 
     def forward(self):
         self.forward_A_e()
+        self.fake_A_e.detach()
         self.forward_B_e()
+        self.fake_B_e.detach()
         self.forward_A_i()
+        self.fake_A_i.detach()
         self.forward_B_i()
+        self.fake_B_i.detach()
 
     def forward_A_e(self):
         self.fake_A_e = self.netG(self.normalized_B, 'un_erosion') + self.real_B
