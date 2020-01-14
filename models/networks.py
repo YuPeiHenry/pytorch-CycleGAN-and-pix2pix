@@ -137,7 +137,7 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[]):
 
 
 def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, init_type='normal', init_gain=0.02, gpu_ids=[],
-    n_downsample_global=0, n_blocks_global=0, n_local_enhancers=0, n_blocks_local=0, progressive=False, progressive_stages=4, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest', linear=False, numDownsampleConv=0, numUpsampleConv=0, max_filters=512):
+    n_downsample_global=0, n_blocks_global=0, n_local_enhancers=0, n_blocks_local=0, progressive=False, progressive_stages=4, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest', linear=False, numDownsampleConv=0, numUpsampleConv=0, max_filters=512, depth=6):
     """Create a generator
 
     Parameters:
@@ -180,7 +180,7 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
     elif netG == 'unet_512':
         net = UnetGenerator(input_nc, output_nc, 9, ngf, max_filters=max_filters, norm_layer=norm_layer, use_dropout=use_dropout, styled=norm=='adain', progressive=progressive, n_stage=progressive_stages, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method, linear=linear, numDownsampleConv=numDownsampleConv, numUpsampleConv=numUpsampleConv)
     elif netG == 'unet_resblock':
-        net = UnetResBlock(input_nc, output_nc, ngf, depth=6, inc_rate=2., activation=nn.ReLU(), 
+        net = UnetResBlock(input_nc, output_nc, ngf, depth=depth, inc_rate=2., max_filters=max_filters, activation=nn.ReLU(), 
          dropout=0.5, batchnorm=False, maxpool=True, upconv=True, residual=True)
     elif netG == 'skip_unet':
         net = SkipUnetGenerator(input_nc, output_nc, ngf=ngf)
@@ -1075,47 +1075,64 @@ class FixedUnet(nn.Module):
         concat_19 = torch.cat((concat_18, conv2d_32), 1)
         conv2d_33 = self.conv2d_33(concat_19)
         return conv2d_33
-        
 
 class UnetResBlock(nn.Module):
-    def __init__(self, in_c = 3, out_ch=2, start_ch=64, depth=4, inc_rate=2., activation=nn.ReLU(True), 
+    def __init__(self, in_c = 3, out_ch=2, ngf=64, depth=4, inc_rate=2., max_filters=512, activation=nn.ReLU(True), 
          dropout=0.5, batchnorm=False, maxpool=True, upconv=True, residual=False):
         super(UnetResBlock, self).__init__()
-        self.model = LevelBlock(in_c, start_ch, depth, inc_rate, activation, dropout, batchnorm, maxpool, upconv, residual)
+        self.model = LevelBlock(in_c, ngf, depth, inc_rate, max_filters, activation, dropout, batchnorm, maxpool, upconv, residual)
 
-        out_conv_channels = start_ch if not residual else (start_ch * 3 + in_c)
+        out_conv_channels = ngf if not residual else (ngf * 3 + in_c)
         self.out_conv = nn.Conv2d(out_conv_channels, out_ch, kernel_size=1, stride=1, padding=0)
-    def forward(self, x):
-        x = self.model(x)
+    def forward(self, x, embedding='zero_erosion'):
+        x = self.model(x, embedding)
         return self.out_conv(x)
     
 class LevelBlock(nn.Module):
-    def __init__(self, in_dim, dim, depth, inc, acti, do, bn, mp, up, res):
+    def __init__(self, in_dim, dim, depth, inc, max_filters, acti, do, bn, mp, up, res):
         super(LevelBlock, self).__init__()
         self.depth = depth
-        inner_dim = int(inc * dim)
+        inner_dim = min(max_filters, int(inc * dim))
         post_conv1 = dim if not res else (dim + in_dim)
         if depth != 1:
             inner_post_conv2 = inner_dim if not res else (inner_dim * 3 + post_conv1)
         else:
-            inner_post_conv2 = inner_dim if not res else (inner_dim + post_conv1)
+            #inner_post_conv2 = inner_dim if not res else (inner_dim + post_conv1)
+            inner_post_conv2 = inner_dim + 2 * max_filters
         pre_conv2 = dim + post_conv1
-        self.conv1 = ConvBlock(in_dim, dim, acti, bn, res)
+        #self.conv1 = ConvBlock(in_dim, dim, acti, bn, res)
         
-        if depth <= 0: return
+        if depth <= 0:
+            #Add GATA embeddings
+            self.zero_erosion = torch.nn.Parameter(torch.cuda.FloatTensor(np.random.rand(1, 2 * max_filters, 1, 1)))
+            self.zero_erosion.requires_grad = True
+            self.erosion_emb = torch.nn.Parameter(torch.cuda.FloatTensor(np.random.rand(1, 2 * max_filters, 1, 1)))
+            self.erosion_emb.requires_grad = True
+            return
+        self.conv1 = ConvBlock(in_dim, dim, acti, bn, res)
         self.conv2 = ConvBlock(pre_conv2, dim, acti, bn, res)
 
-        down = nn.MaxPool2d(2, 2) if mp else nn.Sequential(nn.Conv2d(post_conv1, post_conv1, kernel_size=3, stride=2, padding=1), acti)
-        submodule = LevelBlock(post_conv1, inner_dim, depth - 1, inc, acti, do, bn, mp, up, res)
-        up = nn.Sequential(nn.Upsample(scale_factor=2, mode='nearest'), nn.ReplicationPad2d((0, 1, 0, 1)), nn.Conv2d(inner_post_conv2 , dim, kernel_size=2, stride=1, padding=0), acti) if up else nn.Sequential(nn.ConvTranspose2d(inner_post_conv2, dim, kernel_size=3, stride=2, padding=1), acti)
-        self.model = nn.Sequential(down, submodule, up)
+        self.down = nn.MaxPool2d(2, 2) if mp else nn.Sequential(nn.Conv2d(post_conv1, post_conv1, kernel_size=3, stride=2, padding=1), acti)
+        self.submodule = LevelBlock(post_conv1, inner_dim, depth - 1, inc, acti, do, bn, mp, up, res)
+        self.up = nn.Sequential(nn.Upsample(scale_factor=2, mode='nearest'), nn.ReplicationPad2d((0, 1, 0, 1)), nn.Conv2d(inner_post_conv2 , dim, kernel_size=2, stride=1, padding=0), acti) if up else nn.Sequential(nn.ConvTranspose2d(inner_post_conv2, dim, kernel_size=3, stride=2, padding=1), acti)
+        #self.model = nn.Sequential(down, submodule, up)
 
 
-    def forward(self, x):
-        if self.depth <= 0: return self.conv1(x)
-
+    def forward(self, x, embedding='zero_erosion'):
+        if self.depth <= 0:
+            if embedding == 'zero_erosion':
+                emb = self.zero_erosion
+            elif embedding == 'erosion':
+                emb = self.erosion_emb
+            elif embedding == 'un_erosion':
+                emb = self.zero_erosion - self.erosion_emb
+            return torch.cat((x, emb), 1)
         n1 = self.conv1(x)
-        m = self.model(n1)
+        #m = self.model(n1)
+		m1 = self.down(n1)
+		m2 = self.submodule(m1, embedding)
+		m = self.up(m2)
+
         n2 = torch.cat((n1, m), 1)
         return self.conv2(n2)
 

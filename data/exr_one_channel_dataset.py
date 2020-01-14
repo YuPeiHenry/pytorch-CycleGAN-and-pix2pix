@@ -100,10 +100,14 @@ class ExrOneChannelDataset(BaseDataset):
         normalized_A = A1_img - (self.i_channels_max + self.i_channels_min) / 2
         normalized_A = normalized_A / (self.i_channels_max - self.i_channels_min) * 2
         normalized_A = self.convert_image(normalized_A)
+        normalized_B = B_img - (self.o_channels_max + self.o_channels_min) / 2
+        normalized_B = normalized_B / (self.o_channels_max - self.o_channels_min) * 2
+        normalized_B = self.convert_image(normalized_B)
+
         A1 = self.convert_image(A1_img)
         B = self.convert_image(B_img)
 
-        return {'A': A1, 'B': B, 'normalized_A': normalized_A, 'A_paths': A1_path, 'B_paths': B_path}
+        return {'A': A1, 'B': B, 'normalized_A': normalized_A, 'normalized_B': normalized_B, 'A_paths': A1_path, 'B_paths': B_path}
 
     def __len__(self):
         """Return the total number of images in the dataset.
@@ -132,7 +136,11 @@ class ExrOneChannelDataset(BaseDataset):
         normalized_A = A1_img - (self.i_channels_max + self.i_channels_min) / 2
         normalized_A = normalized_A / (self.i_channels_max - self.i_channels_min) * 2
         normalized_A = self.convert_image(normalized_A)
+        normalized_B = B_img - (self.o_channels_max + self.o_channels_min) / 2
+        normalized_B = normalized_B / (self.o_channels_max - self.o_channels_min) * 2
+        normalized_B = self.convert_image(normalized_B)
+
         A1 = self.convert_image(A1_img)
         B = self.convert_image(B_img)
 
-        return {'A': A1, 'B': B, 'normalized_A': normalized_A, 'A_paths': A1_path, 'B_paths': B_path}
+        return {'A': A1, 'B': B, 'normalized_A': normalized_A, 'normalized_B': normalized_B, 'A_paths': A1_path, 'B_paths': B_path}
