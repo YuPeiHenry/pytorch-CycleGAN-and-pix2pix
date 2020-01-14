@@ -1512,7 +1512,7 @@ class ErosionLayer(nn.Module):
             iterations = self.iterations
         iterations = min(iterations, self.iterations)
         if self.use_convs:
-            intermediate = self.in_rain_conv(original_terrain)
+            intermediate = self.in_rain_conv(original_terrain.unsqueeze(1))
             for i in range(4):
                 intermediate = getattr(self, 'rain_conv' + str(i))(intermediate) + intermediate
             self.random_rainfall = self.out_rain_conv(intermediate)
