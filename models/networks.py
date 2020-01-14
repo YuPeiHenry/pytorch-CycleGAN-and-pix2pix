@@ -208,8 +208,6 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
             in_channels=input_nc, down_blocks=(4,5,7,10,12),
             up_blocks=(12,10,7,5,4), bottleneck_layers=15,
             growth_rate=16, out_chans_first_conv=48, out_channels=output_nc, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method)
-    elif netG == 'multi_unet':
-        net = MultiUnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout, styled=norm=='adain', downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method)
     else:
         raise NotImplementedError('Generator model name [%s] is not recognized' % netG)
     if not (netG == 'unet_256' or 'unet_128') and progressive:
@@ -250,9 +248,7 @@ def define_D(input_nc, ndf, netD, n_layers_D=3, norm='batch', init_type='normal'
     net = None
     norm_layer = get_norm_layer(norm_type=norm)
 
-    if netD == 'multiscale':
-        net = MultiscaleDiscriminator(input_nc, ndf, n_layers_D, norm_layer, use_sigmoid, num_D, use_gan_feat_loss, downsample_mode=downsample_mode)
-    elif netD == 'basic':  # default PatchGAN classifier
+    if netD == 'basic':  # default PatchGAN classifier
         net = NLayerDiscriminator(input_nc, ndf, n_layers=3, norm_layer=norm_layer, progressive=progressive, n_stage=progressive_stages, downsample_mode=downsample_mode, upsample_method=upsample_method)
     elif netD == 'n_layers':  # more options
         net = NLayerDiscriminator(input_nc, ndf, n_layers_D, norm_layer=norm_layer, progressive=progressive, n_stage=progressive_stages, downsample_mode=downsample_mode, upsample_method=upsample_method)
@@ -1404,47 +1400,6 @@ class Encoder(nn.Module):
                     outputs_mean[indices[:,0] + b, indices[:,1] + j, indices[:,2], indices[:,3]] = mean_feat                       
         return outputs_mean
 
-class MultiscaleDiscriminator(nn.Module):
-    def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d, 
-                 use_sigmoid=False, num_D=3, getIntermFeat=False):
-        super(MultiscaleDiscriminator, self).__init__()
-        self.num_D = num_D
-        self.n_layers = n_layers
-        self.getIntermFeat = getIntermFeat
-     
-        for i in range(num_D):
-            netD = NLayerDiscriminator(input_nc, ndf, n_layers, norm_layer, use_sigmoid, getIntermFeat, downsample_mode=downsample_mode)
-            if getIntermFeat:                                
-                for j in range(n_layers+2):
-                    setattr(self, 'scale'+str(i)+'_layer'+str(j), getattr(netD, 'model'+str(j)))                                   
-            else:
-                setattr(self, 'layer'+str(i), netD.model)
-
-        self.downsample = nn.AvgPool2d(3, stride=2, padding=[1, 1], count_include_pad=False)
-
-    def singleD_forward(self, model, input):
-        if self.getIntermFeat:
-            result = [input]
-            for i in range(len(model)):
-                result.append(model[i](result[-1]))
-            return result[1:]
-        else:
-            return model(input)
-
-    def forward(self, input):        
-        num_D = self.num_D
-        result = []
-        input_downsampled = input
-        for i in range(num_D):
-            if self.getIntermFeat:
-                model = [getattr(self, 'scale'+str(num_D-1-i)+'_layer'+str(j)) for j in range(self.n_layers+2)]
-            else:
-                model = getattr(self, 'layer'+str(num_D-1-i))
-            result.append(self.singleD_forward(model, input_downsampled))
-            if i != (num_D-1):
-                input_downsampled = self.downsample(input_downsampled)
-        return result
-
 class ErosionLayer(nn.Module):
     def __init__(self, width=512, iterations=10, output_water=False, random_param=False, blend_inputs=False, use_convs=False):
         super(ErosionLayer, self).__init__()
@@ -1704,111 +1659,6 @@ class FCDenseNet(nn.Module):
 
         out = self.tanh(self.finalConv(out))
         return out
-
-class MultiUnetGenerator(nn.Module):
-    def __init__(self, input_nc, output_nc, num_downs=8, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, styled=False, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest'):
-        super(MultiUnetGenerator, self).__init__()
-        self.num_downs = num_downs
-        self.styled = styled
-        core_norm_layer = norm_layer
-        if styled:
-            core_norm_layer = get_norm_layer('adain', style_dim=8 * ngf)
-            norm_layer = nn.BatchNorm2d
-        
-        new_input_size = int(ngf / 2)
-        # construct unet structure
-        unet_block = ModifiedUnetBlock(ngf * 8, ngf * 8, new_input_size, submodule=None, norm_layer=core_norm_layer, styled=styled, downsample_mode=downsample_mode, upsample_mode=upsample_mode)  # add the innermost layer
-        for i in range(num_downs - 4):          # add intermediate layers with ngf * 8 filters
-            unet_block = ModifiedUnetBlock(ngf * 8, ngf * 8, new_input_size, submodule=unet_block, norm_layer=core_norm_layer, use_dropout=use_dropout, styled=styled, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
-        # gradually reduce the number of filters from ngf * 8 to ngf
-        unet_block = ModifiedUnetBlock(ngf * 4, ngf * 8, new_input_size, submodule=unet_block, norm_layer=core_norm_layer, styled=styled, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
-        unet_block = ModifiedUnetBlock(ngf * 2, ngf * 4, new_input_size, submodule=unet_block, norm_layer=core_norm_layer, styled=styled, downsample_mode=downsample_mode, upsample_mode=upsample_mode)
-        unet_block = ModifiedUnetBlock(ngf, ngf * 2, new_input_size, submodule=unet_block, norm_layer=core_norm_layer, styled=styled,  downsample_mode=downsample_mode, upsample_mode=upsample_mode)
-        self.model = unet_block
-        
-        self.input_map = nn.Sequential(nn.Conv2d(input_nc, ngf, kernel_size=3, stride=1, padding=1, bias=False),
-            norm_layer(ngf), nn.LeakyReLU(0.2, True))
-        self.input_map2 = nn.Sequential(nn.Conv2d(input_nc, new_input_size, kernel_size=3, stride=1, padding=1, bias=False),
-            norm_layer(new_input_size), nn.LeakyReLU(0.2, True))
-        for i in range(num_downs - 3, num_downs):
-            exponent = min(num_downs - i - 1, 3)
-            setattr(self, 'feature_conv'+str(i),
-                nn.Sequential(nn.LeakyReLU(0.2, True), nn.Conv2d(ngf * 2 * (2 ** exponent), ngf, kernel_size=3, stride=1, padding=1, bias=False),
-                norm_layer(ngf), nn.LeakyReLU(0.2, True),
-                nn.Conv2d(ngf, output_nc, kernel_size=3, stride=1, padding=1)))
-        self.tanh = nn.Tanh()
-
-    def forward(self, input):
-        input1 = self.input_map(input)
-        input2 = self.input_map2(input)
-        num_downs = self.num_downs
-        submodule_outputs =  self.model(input1, input2)
-        outputs = [getattr(self, 'feature_conv'+str(i))(submodule_outputs[i]) for i in range(num_downs - 3, self.num_downs)]
-        # Smallest output at the front
-        return [self.tanh(output) for output in outputs]
-        
-class ModifiedUnetBlock(nn.Module):
-    def __init__(self, outer_nc, inner_nc, input_nc,
-                 submodule=None, norm_layer=nn.BatchNorm2d, use_dropout=False, styled=False, outermost=False, downsample_mode='strided', upsample_mode='transConv', upsample_method='nearest'):
-        super(ModifiedUnetBlock, self).__init__()
-        self.styled = styled
-        if self.styled:
-            use_bias = True
-            self.adain = norm_layer(inner_nc if submodule is None else inner_nc * 2)
-            self.up_activation = nn.ReLU(True)
-            norm_layer = nn.BatchNorm2d
-            if submodule is None:
-                self.linear1 = nn.Sequential(nn.ReLU(True), nn.Linear(inner_nc, inner_nc))
-                self.linear2 = nn.Sequential(nn.ReLU(True), nn.Linear(inner_nc, inner_nc))
-        elif type(norm_layer) == functools.partial:
-            use_bias = norm_layer.func == nn.InstanceNorm2d
-        else:
-            use_bias = norm_layer == nn.InstanceNorm2d
-        downconv = getDownsample(outer_nc, inner_nc, 4, 2, 1, use_bias, downsample_mode=downsample_mode)
-        downrelu = nn.LeakyReLU(0.2, True)
-        downnorm = [norm_layer(inner_nc)]
-        uprelu = [nn.ReLU(True)] if not self.styled else []
-        upnorm = [norm_layer(outer_nc)] if not self.styled else []
-
-        if submodule is None:
-            upconv = getUpsample(inner_nc, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method)
-            down = [downrelu] + downconv
-            up = uprelu + upconv + upnorm
-        else:
-            upconv = getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, use_bias, upsample_mode, upsample_method=upsample_method)
-            down = [downrelu] + downconv + downnorm
-            up = uprelu + upconv + upnorm
-
-            if use_dropout:
-                up = up + [nn.Dropout(0.5)]
-
-        self.down = nn.Sequential(*down)
-        self.up = nn.Sequential(*up)
-        self.submodule = submodule
-        inconv = [nn.LeakyReLU(0.2), nn.Conv2d(input_nc, outer_nc, kernel_size=3, stride=1, padding=1),
-            nn.Conv2d(outer_nc, outer_nc, kernel_size=3, stride=1, padding=1), norm_layer(outer_nc)]
-        self.inconv = nn.Sequential(*inconv)
-        self.inconv_scalar = torch.nn.Parameter(torch.cuda.FloatTensor(1))
-        self.inconv_scalar.requires_grad = True
-        decimation = [nn.AvgPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=False),
-            nn.Conv2d(input_nc, input_nc, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.Conv2d(input_nc, input_nc, kernel_size=3, stride=1, padding=1, bias=False),
-            norm_layer(input_nc), nn.LeakyReLU(0.2)]
-        self.decimation = nn.Sequential(*decimation) if self.submodule is not None else None
-
-    def forward(self, x, input):
-        transformed_input = self.inconv(input)
-        residual_x = x + self.inconv_scalar * transformed_input
-        submodule_x = self.down(residual_x)
-        
-        if self.submodule is None:
-            submodule_outputs = [torch.cat([residual_x, self.up(submodule_x)], 1)]
-        else:
-            decimated_input = self.decimation(input)
-            submodule_outputs = self.submodule(submodule_x, decimated_input)
-            feature_output = torch.cat([residual_x, self.up(submodule_outputs[-1].clone())], 1)
-            submodule_outputs.append(feature_output)
-        return submodule_outputs
 
 class StyledGenerator128(nn.Module):
     def __init__(self, input_nc, output_nc, n_class, task, ngf=64, norm_layer=nn.BatchNorm2d):
