@@ -51,6 +51,12 @@ class EmbeddingModel(BaseModel):
         self.real_B = input['B'].to(self.device)
         self.image_paths = input['A_paths']
 
+    def forward(self):
+        self.forward_A_e()
+        self.forward_B_e()
+        self.forward_A_i()
+        self.forward_B_i()
+
     def forward_A_e(self):
         self.fake_A_e = self.netG(self.normalized_B, 'un_erosion') + self.real_B
 
@@ -108,8 +114,5 @@ class EmbeddingModel(BaseModel):
         self.image_paths = [single['A_paths']]
 
         self.netG.eval()
-        self.forward_A_e()
-        self.forward_B_e()
-        self.forward_A_i()
-        self.forward_B_i()
+        self.forward()
         self.netG.train()
