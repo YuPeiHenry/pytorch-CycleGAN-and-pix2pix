@@ -1446,7 +1446,7 @@ class MultiscaleDiscriminator(nn.Module):
         return result
 
 class ErosionLayer(nn.Module):
-    def __init__(self, width=512, iterations=10, output_water=False, random_param=False, blend_inputs=False):
+    def __init__(self, width=512, iterations=10, output_water=False, random_param=False, blend_inputs=False, use_convs=False):
         super(ErosionLayer, self).__init__()
         self.width = width
         self.iterations = iterations
@@ -1455,8 +1455,15 @@ class ErosionLayer(nn.Module):
         self.relu = nn.ReLU(True)
         self.epsilon = 1e-10
 
-        self.random_rainfall = torch.nn.Parameter(torch.cuda.DoubleTensor(np.random.rand(1, self.iterations, self.width, self.width)))
-        self.random_rainfall.requires_grad = True
+        self.use_convs = use_convs
+        if not use_convs:
+            self.random_rainfall = torch.nn.Parameter(torch.cuda.DoubleTensor(np.random.rand(1, self.iterations, self.width, self.width)))
+            self.random_rainfall.requires_grad = True
+        else:
+            self.in_rain_conv = nn.Conv2d(1, 32, kernel_size=1, stride=1, padding=0)
+            self.out_rain_conv = nn.Conv2d(32, iterations, kernel_size=1, stride=1, padding=0)
+            for i in range(4):
+                setattr(self, 'rain_conv' + str(i), nn.Sequential(nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1), nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1), nn.ReLU(True)))
         self.random_gradient = torch.nn.Parameter(torch.cuda.DoubleTensor(np.random.rand(1, self.iterations, self.width, self.width)))
         self.random_gradient.requires_grad = False
 
@@ -1504,6 +1511,11 @@ class ErosionLayer(nn.Module):
         if iterations is None:
             iterations = self.iterations
         iterations = min(iterations, self.iterations)
+        if self.use_convs:
+            intermediate = self.in_rain_conv(original_terrain)
+            for i in range(4):
+                intermediate = getattr(self, 'rain_conv' + str(i))(intermediate) + intermediate
+            self.random_rainfall = self.out_rain_conv(intermediate)
 
         coord_grid = np.array([[[[i, j] for i in range(self.width)] for j in range(self.width)]])
         self.coord_grid = torch.cuda.DoubleTensor(coord_grid).cuda()
