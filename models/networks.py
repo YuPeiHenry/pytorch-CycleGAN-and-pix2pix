@@ -183,10 +183,10 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
     elif netG == 'unet_resblock':
         net = UnetResBlock(input_nc, output_nc, ngf, depth=depth, inc_rate=2., activation=nn.ReLU(), 
          dropout=0.5, batchnorm=False, maxpool=True, upconv=True, residual=True)
+    elif netG == 'overfit':
+        net = TestUnet(input_nc, output_nc)
     elif netG == 'gata':
         net = GATAUnet(input_nc, output_nc, depth, ngf=ngf, max_filters=max_filters)
-    elif netG == 'skip_unet':
-        net = SkipUnetGenerator(input_nc, output_nc, ngf=ngf)
     elif netG == 'fixed':
         net = FixedUnet()
     elif netG == 'global':
@@ -948,106 +948,6 @@ class GATAEmbedding(nn.Module):
             emb = self.zero_erosion - self.erosion_embedding
         return torch.cat((x, self.zero_erosion.repeat(batch_size, 1, 1, 1)), 1)
 
-class SkipUnetGenerator(nn.Module):
-    """Create a Unet-based generator"""
-
-    def __init__(self, input_nc, output_nc, ngf=64):
-        super(SkipUnetGenerator, self).__init__()
-
-        shared_module = SkipUnetSharedModule(output_nc)
-        self.model = SkipUnetSkipConnectionBlock(4, input_nc, ngf, output_nc, shared_module, outermost=True)
-
-    def forward(self, input):
-        return self.model(input)[1]
-
-class SkipUnetSharedModule(nn.Module):
-    def __init__(self, output_nc):
-        super(SkipUnetSharedModule, self).__init__()
-        up_nc = 64
-        upsample = nn.Upsample(scale_factor = 2, mode='bilinear')
-        self.upsample = nn.Sequential(nn.Conv2d(up_nc * 3, up_nc, kernel_size=1, stride=1, padding=0), DeepSkipBlock(up_nc, 3), upsample)
-        self.post_upsample = nn.Sequential(nn.Conv2d(up_nc * 2, up_nc, kernel_size=1, stride=1, padding=0), DeepSkipBlock(up_nc, 3))
-        self.to_output = nn.Sequential(DeepSkipBlock(up_nc * 3, 3), nn.Conv2d(up_nc * 3, output_nc, kernel_size=1, stride=1, padding=0))
-    #dummy
-    def forward(self, x):
-        return x
-
-class SkipUnetSkipConnectionBlock(nn.Module):
-    def __init__(self, level, outer_nc, inner_nc, output_nc, shared_module, outermost=False):
-        super(SkipUnetSkipConnectionBlock, self).__init__()
-
-        up_nc = 64
-        concat1_nc = outer_nc + inner_nc
-
-        self.downsample = nn.AvgPool2d(kernel_size=2, stride=2)
-        self.upsample = nn.Upsample(scale_factor = 2, mode='bilinear')
-        inconv1 = nn.Conv2d(outer_nc, inner_nc, kernel_size=3, stride=1, padding=1)
-
-        self.level = level
-        self.shared_module = shared_module
-        if level > 1:
-            self.inconv = nn.Sequential(nn.ReLU(True), inconv1) if not outermost else nn.Sequential(inconv1)
-            self.cross_residual = nn.Sequential(DeepSkipBlock(concat1_nc, 1), nn.Conv2d(concat1_nc, up_nc, kernel_size=1, stride=1, padding=0))
-            self.submodule = SkipUnetSkipConnectionBlock(level - 1, concat1_nc, inner_nc * 2, output_nc, shared_module)
-            return
-        elif level == 1:
-            self.inconv = nn.Sequential(nn.ReLU(True), inconv1) if not outermost else nn.Sequential(inconv1)
-            self.cross_residual = DeepSkipBlock(concat1_nc, 1)
-            self.submodule = SkipUnetSkipConnectionBlock(level - 1, concat1_nc, inner_nc * 2, output_nc, shared_module)
-            upsample_nc = int(inner_nc / 2)
-            self.upsample_img = nn.Sequential(self.upsample, nn.Conv2d(concat1_nc, upsample_nc, kernel_size=3, stride=1, padding=1))
-            self.post_upsample = nn.Sequential(nn.Conv2d(concat1_nc + upsample_nc, upsample_nc, kernel_size=1, stride=1, padding=0),
-                DeepSkipBlock(upsample_nc, 1))
-            self.to_output = nn.Sequential(DeepSkipBlock(concat1_nc + 2 * upsample_nc, 1), nn.Conv2d(concat1_nc + 2 * upsample_nc, output_nc, kernel_size=1, stride=1, padding=0))
-            self.to_above_layer = nn.Conv2d(concat1_nc + 2 * upsample_nc, 3 * up_nc, kernel_size=1, stride=1, padding=0)
-            return
-        else:
-            self.cross_residual = DeepSkipBlock(outer_nc, 1)
-            return
-
-    def forward(self, x):
-        if self.level <= 0:
-            return self.cross_residual(x)
-
-        inconv = self.inconv(x)
-        concat1 = torch.cat((x, inconv), 1)
-        cross_residual = self.cross_residual(concat1)
-        if self.level > 1:
-            post_submodule, outputs = self.submodule(self.downsample(concat1))
-            upsampled = self.shared_module.upsample(post_submodule)
-            concat2 = torch.cat((cross_residual, upsampled), 1)
-            post_upsample = self.shared_module.post_upsample(concat2)
-            concat3 = torch.cat((concat2, post_upsample), 1)
-            new_outputs = [self.upsample(output) for output in outputs]
-            output = self.shared_module.to_output(concat3)
-            new_outputs.append(output + new_outputs[-1])
-            return concat3, new_outputs
-        elif self.level == 1:
-            post_submodule = self.submodule(self.downsample(concat1))
-            upsampled = self.upsample_img(post_submodule)
-            concat2 = torch.cat((cross_residual, upsampled), 1)
-            post_upsample = self.post_upsample(concat2)
-            concat3 = torch.cat((concat2, post_upsample), 1)
-            output = self.to_output(concat3)
-            to_above_layer = self.to_above_layer(concat3)
-            return to_above_layer, [output]
-
-class DeepSkipBlock(nn.Module):
-    def __init__(self, in_c, num_conv):
-        super(DeepSkipBlock, self).__init__()
-        self.in_c = in_c
-        self.num_conv = num_conv
-        for i in range(num_conv):
-            setattr(self, 'conv' + str(i), nn.Sequential(
-                nn.ReLU(True), nn.Conv2d(in_c, in_c, kernel_size=3, stride=1, padding=1)))
-
-    def forward(self, x):
-        output = x
-        for i in range(self.num_conv):
-            output = getattr(self, 'conv' + str(i))(output)
-            output = output + x
-        return output
-
 #Hardcoded for debugging
 class FixedUnet(nn.Module):
     def __init__(self):
@@ -1220,6 +1120,45 @@ class ConvBlock(nn.Module):
         output = self.model(x)
         if self.res: output = torch.cat((x, output), 1)
         return output
+
+class TestUnet(nn.Module):
+    def __init__(self, input_nc, output_nc):
+        super(TestUnet, self).__init__()
+        self.model = nn.Sequential(TestUnetSkip(input_nc, 64, 9), nn.Conv2d(128, output_nc, 1, 1, 0), nn.Tanh())
+
+    def forward(self, x):
+        return self.out_conv(self.model(x))
+
+class TestUnetSkip(nn.Module):
+    def __init__(self, outer_nc, inner_nc, level, outermost=False):
+        super(TestUnetSkip, self).__init__()
+        self.outermost = outermost
+        if not outermost: self.cross = TestResBlock(outer_nc, outer_nc)
+        
+        if level <= 0:
+            return
+        conv1 = TestResBlock(outer_nc, inner_nc)
+        down = nn.Conv2d(outer_nc + inner_nc, inner_nc, 4, 2, 1)
+        submodule = TestUnetSkip(inner_nc, inner_nc * 2, level - 1)
+        up = nn.Upsample(scale_factor = 2, mode='bilinear'), nn.ReflectionPad2d(0, 1, 0, 1),
+                nn.Conv2d(inner_nc * (3 if level != 1 else 2), outer_nc * 2, 3, 1, 0)
+        self.model = nn.Sequential(conv1, down, submodule, up)
+        self.conv2 = TestResBlock(outer_nc * 2, outer_nc)
+        
+    def forward(self, x):
+        if level <= 0:
+            return self.cross(x)
+        output = self.model(x)
+        if self.outermost:
+            return output
+        cross = torch.cat((self.cross(x), output), 1)
+        return self.conv2(cross)
+
+class TestResBlock(nn.Module):
+    def __init__(self, in_nc, out_nc):
+        self.model = nn.Sequential(nn.Conv2d(in_nc, out_nc, 3, 1, 1), nn.ReLU(True), nn.InstanceNorm2d(out_nc), nn.Conv2d(out_nc, out_nc, 3, 1, 1), nn.ReLU(True), nn.InstanceNorm2d(out_nc))
+    def forward(self, x)
+        return torch.cat((x, self.model(x)), 1)
 
 # Defines the PatchGAN discriminator with the specified arguments.
 class NLayerDiscriminator(nn.Module):

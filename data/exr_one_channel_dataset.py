@@ -39,10 +39,10 @@ class ExrOneChannelDataset(BaseDataset):
         self.output_channels = np.array([7])
 
         if not self.opt.compute_bounds:
-            self.i_channels_min = np.array([[[0]]])
-            self.i_channels_max = np.array([[[824]]])
-            self.o_channels_min = np.array([[[-4]]])
-            self.o_channels_max = np.array([[[819]]])
+            self.i_channels_min = np.array([[[-86]]]) #0
+            self.i_channels_max = np.array([[[910]]]) #824
+            self.o_channels_min = np.array([[[-86]]]) #-4
+            self.o_channels_max = np.array([[[910]]]) #819
             return
 
         channels_min = np.array([2**16 for _ in self.input_channels])
@@ -96,18 +96,10 @@ class ExrOneChannelDataset(BaseDataset):
         A1_img = exrlib.read_exr_float32(A1_path, list(self.input_names[self.input_channels]), 512, 512)
         B_img = exrlib.read_exr_float32(B_path, list(self.output_names[self.output_channels]), 512, 512)
         #A = torch.Tensor(A_img)
-        
-        normalized_A = A1_img - (self.i_channels_max + self.i_channels_min) / 2
-        normalized_A = normalized_A / (self.i_channels_max - self.i_channels_min) * 2
-        normalized_A = self.convert_image(normalized_A)
-        normalized_B = B_img - (self.o_channels_max + self.o_channels_min) / 2
-        normalized_B = normalized_B / (self.o_channels_max - self.o_channels_min) * 2
-        normalized_B = self.convert_image(normalized_B)
+        A1 = self.convert_input(A1_img)
+        B = self.convert_output(B_img)
 
-        A1 = self.convert_image(A1_img)
-        B = self.convert_image(B_img)
-
-        return {'A': A1, 'B': B, 'normalized_A': normalized_A, 'normalized_B': normalized_B, 'A_paths': A1_path, 'B_paths': B_path}
+        return {'A': A1, 'B': B, 'A_paths': A1_path, 'B_paths': B_path}
 
     def __len__(self):
         """Return the total number of images in the dataset.
@@ -117,12 +109,27 @@ class ExrOneChannelDataset(BaseDataset):
         """
         return max(self.A1_size, self.B_size)
 
-    def convert_image(self, image):
+    def convert_input(self, image):
+        image = image - (self.i_channels_max + self.i_channels_min) / 2
+        image = image / (self.i_channels_max - self.i_channels_min) * 2
+        image = np.transpose(image, (2, 0, 1))
+        return torch.Tensor(image)
+
+    def convert_output(self, image):
+        image = image - (self.o_channels_max + self.o_channels_min) / 2
+        image = image / (self.o_channels_max - self.o_channels_min) * 2
         image = np.transpose(image, (2, 0, 1))
         return torch.Tensor(image)
 
     def convert_output_to_image(self, output_arr):
-        return output_arr
+        if output_arr.shape[2] == len(self.output_channels):
+            output_arr = output_arr * (self.o_channels_max - self.o_channels_min) / 2
+            output_arr = output_arr + (self.o_channels_max + self.o_channels_min) / 2
+            return output_arr.astype(np.float32)
+        else:
+            output_arr = output_arr * (self.i_channels_max - self.i_channels_min) / 2
+            output_arr = output_arr + (self.i_channels_max + self.i_channels_min) / 2
+            return output_arr.astype(np.float32)
 
     def write(self, image_path, image):
         exrlib.write_exr(image_path[:-3] + 'exr', image, [str(i) for i in range(image.shape[2])])
@@ -132,15 +139,7 @@ class ExrOneChannelDataset(BaseDataset):
         B_path = self.B_test_paths[index % self.B_test_size]
         A1_img = exrlib.read_exr_float32(A1_path, list(self.input_names[self.input_channels]), 512, 512)
         B_img = exrlib.read_exr_float32(B_path, list(self.output_names[self.output_channels]), 512, 512)
+        A1 = self.convert_input(A1_img)
+        B = self.convert_output(B_img)
 
-        normalized_A = A1_img - (self.i_channels_max + self.i_channels_min) / 2
-        normalized_A = normalized_A / (self.i_channels_max - self.i_channels_min) * 2
-        normalized_A = self.convert_image(normalized_A)
-        normalized_B = B_img - (self.o_channels_max + self.o_channels_min) / 2
-        normalized_B = normalized_B / (self.o_channels_max - self.o_channels_min) * 2
-        normalized_B = self.convert_image(normalized_B)
-
-        A1 = self.convert_image(A1_img)
-        B = self.convert_image(B_img)
-
-        return {'A': A1, 'B': B, 'normalized_A': normalized_A, 'normalized_B': normalized_B, 'A_paths': A1_path, 'B_paths': B_path}
+        return {'A': A1, 'B': B, 'A_paths': A1_path, 'B_paths': B_path}
