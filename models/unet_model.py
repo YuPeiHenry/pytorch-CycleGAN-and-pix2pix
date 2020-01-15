@@ -121,11 +121,9 @@ class UnetModel(BaseModel):
             if self.opt.preload_unet:
                 if self.opt.temp_unet_fix: self.post_unet[:, out_f, :, :] = self.post_unet[:, out_f, :, :] * 5 - 4
                 self.post_unet = self.post_unet.detach()
-        if self.opt.use_erosion and not self.opt.erosion_only and self.opt.erosion_flowmap:
-            self.fake_B = self.post_unet.clone()
-            terrain, water = self.netErosion(self.post_unet[:, out_h, :, :], self.real_A[:, in_h, :, :])  # G(A)
-            self.fake_B[:, out_h, :, :] = terrain.float().squeeze(1)
-            self.fake_B[:, out_f, :, :] = water.float().squeeze(1)
+        if self.opt.use_erosion and self.opt.erosion_only and self.opt.erosion_flowmap:
+            terrain, water = self.netErosion(self.real_A[:, in_h, :, :], self.real_A[:, in_h, :, :])
+            self.fake_B = torch.cat((terrain.float(), water.float()), 1)
         elif self.opt.use_erosion and not self.opt.erosion_only:
             mult = (1 / 824 * 2) if self.opt.linear else 1
             bias = -1 if self.opt.linear else 0
