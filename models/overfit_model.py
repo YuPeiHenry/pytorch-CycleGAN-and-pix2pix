@@ -10,6 +10,8 @@ class UnetModel(BaseModel):
     def modify_commandline_options(parser, is_train=True):
         parser.set_defaults(norm='instance', norm_G='instance', netG='overfit', dataset_mode='exr_one_channel', input_nc=1, output_nc=1, preprocess='N.A.', image_type='exr', no_flip=True)
         parser.add_argument('--exclude_input', action='store_true', help='')
+        parser.add_argument('--fixed_example', action='store_true', help='')
+        parser.add_argument('--fixed_index', type=int, default=0, help='')
         return parser
 
     def __init__(self, opt):
