@@ -1602,10 +1602,17 @@ class ErosionLayer(nn.Module):
             # NOTE: height_delta has approximately no gradient
             height_delta = terrain - neighbor_height
 
-            # If the sediment exceeds the quantity, then it is deposited, otherwise terrain is eroded.
-            #new_height_delta = torch.max(height_delta.clone(), self.min_height_delta.clone() / self.cell_width)
+            # Update velocity
+            #velocity_2 = torch.max(velocity ** 2 + (2 ** self.gravity.clone()) * height_delta, self.epsilon)
             e = 2.718281828459045
             e_8 = torch.cuda.DoubleTensor([e ** (-8)])
+            max_term = self.epsilon
+            velocity_2 = velocity ** 2 + (2 ** self.gravity.clone()) * height_delta
+            velocity_2 = self.relu(velocity_2 - max_term) + torch.min(e_8, e ** (velocity_2 - max_term - 8)) + max_term
+            velocity = torch.sqrt(velocity_2)
+
+            # If the sediment exceeds the quantity, then it is deposited, otherwise terrain is eroded.
+            #new_height_delta = torch.max(height_delta.clone(), self.min_height_delta.clone() / self.cell_width)
             max_term = (2 ** self.min_height_delta) / self.cell_width
             new_height_delta = self.relu(height_delta.clone() - max_term) + torch.min(e_8, e ** (height_delta - max_term - 8)) + max_term
             sediment_capacity = new_height_delta * velocity * water * 2 ** self.sediment_capacity_constant
@@ -1639,7 +1646,7 @@ class ErosionLayer(nn.Module):
             #terrain = self.apply_slippage(terrain, self.repose_slope, self.random_gradient[:, i].view(-1, self.width, self.width))
 
             # Update velocity
-            velocity = (2 ** self.gravity.clone()) * height_delta / self.cell_width
+            #velocity = (2 ** self.gravity.clone()) * height_delta / self.cell_width
         
             # Apply evaporation
             water = water * (1 - 2 ** self.evaporation_rate.clone())
