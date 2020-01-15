@@ -208,11 +208,11 @@ class UnetModel(BaseModel):
         if not self.opt.fixed_example or dataset is None:
             return
         single = dataset.dataset.get_val_item(self.opt.fixed_index)
-        self.real_A = single['A'].unsqueeze(0).to(self.device)
-        self.real_B = single['B'].unsqueeze(0).to(self.device)
+        self.real_A = single['A'].unsqueeze(0).to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
+        self.real_B = single['B'].unsqueeze(0).to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
         if self.opt.linear:
-            self.residue = single['A_orig'].unsqueeze(0)[:, self.opt.input_height_channel, :, :].to(self.device)
-            self.real_B[:, self.opt.output_height_channel, :, :] = single['B_orig'].unsqueeze(0)[:, self.opt.output_height_channel, :, :].to(self.device)
+            self.residue = single['A_orig'].unsqueeze(0)[:, self.opt.input_height_channel, :, :].to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
+            self.real_B[:, self.opt.output_height_channel, :, :] = single['B_orig'].unsqueeze(0)[:, self.opt.output_height_channel, :, :].to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
         else:
             self.real_B = 1 - torch.nn.ReLU()(2 - torch.nn.ReLU()(self.real_B + 1)) #clip to [-1, 1]
         self.image_paths = [single['A_paths']]
