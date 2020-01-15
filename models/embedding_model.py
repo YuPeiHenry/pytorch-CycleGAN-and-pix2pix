@@ -94,7 +94,7 @@ class EmbeddingModel(BaseModel):
     def optimize_parameters(self):
         self.backward_D()
         self.backward_G()
-        self.loss_G = self.loss_B_e + self.loss_B_i
+        self.loss_G = self.loss_B_e + self.loss_A_e
 
     def compute_visuals(self, dataset=None):
         if not self.opt.fixed_example or dataset is None:
