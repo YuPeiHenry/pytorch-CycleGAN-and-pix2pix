@@ -1152,7 +1152,7 @@ class TestUnetSkip(nn.Module):
         output = self.model(x)
         if self.outermost:
             return output
-        cross = torch.cat((self.cross(x), output), 1)
+        cross = self.cross(x) + output
         return self.conv2(cross)
 
 class TestResBlock(nn.Module):
