@@ -23,7 +23,7 @@ high = -99999
 for file in os.listdir(sys.argv[1]):
     if file[-4:] != '.exr':
         continue
-    exr_file = read_exr_float32(os.path.join(sys.argv[1], file), "height.height", 512, 512)
+    exr_file = read_exr_float32(os.path.join(sys.argv[1], file), ["height.height"], 512, 512)
     low = min(low, np.min(exr_file))
     high = max(high, np.max(exr_file))
 
