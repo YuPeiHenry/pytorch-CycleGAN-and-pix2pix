@@ -896,24 +896,27 @@ class GATASkipBlock(nn.Module):
         self.output_transform = ResBlockUnet(concat_nc, 1)
         self.out_conv = nn.Conv2d(concat_nc, outer_nc * 2 if not outermost else outer_nc, kernel_size=1, stride=1, padding=0)
 
-        downconv = [spectral_norm(nn.Sequential(*getDownsample(input_nc, inner_nc, 4, 2, 1, True, downsample_mode='strided')))]
+        downconv = [spectral_norm(nn.Sequential(getDownsample(input_nc, inner_nc, 4, 2, 1, True, downsample_mode='strided')))]
         downrelu = [nn.LeakyReLU(0.2, True)]
         downnorm = [nn.BatchNorm2d(inner_nc)]
         uprelu = [nn.ReLU(True)]
         upnorm = [nn.BatchNorm2d(outer_nc)]
 
         if outermost:
-            upconv = [spectral_norm(nn.Sequential(*getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, True, 'upsample', 'bilinear')))]
+            upconv = [nn.Upsample(scale_factor = 2, mode=upsample_method), nn.ReflectionPad2d(1),
+                spectral_norm(nn.Conv2d(inner_nc * 2, outer_nc, 4, 2, 1))]
             self.down = downconv + downrelu
             self.up = upconv
             self.submodule = submodule
         elif innermost:
-            upconv = [spectral_norm(nn.Sequential(*getUpsample(inner_nc * 3, outer_nc, 4, 2, 1, True, 'upsample', 'bilinear')))]
+            upconv = [nn.Upsample(scale_factor = 2, mode=upsample_method), nn.ReflectionPad2d(1),
+                spectral_norm(nn.Conv2d(inner_nc * 3, outer_nc, 4, 2, 1))]
             self.down = downconv + downrelu
             self.up = upconv + upnorm + uprelu
             self.submodule = GATAEmbedding(inner_nc * 2)
         else:
-            upconv = [spectral_norm(nn.Sequential(*getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, True, 'upsample', 'bilinear')))]
+            upconv = [nn.Upsample(scale_factor = 2, mode=upsample_method), nn.ReflectionPad2d(1),
+                spectral_norm(nn.Conv2d(inner_nc * 2, outer_nc, 4, 2, 1))]
             self.down = downconv + downnorm + downrelu
             self.up = upconv + upnorm + uprelu
             self.submodule = submodule
