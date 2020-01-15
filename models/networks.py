@@ -923,8 +923,8 @@ class GATASkipBlock(nn.Module):
 
     def forward(self, x, embedding='zero_erosion'):
         intermediate = self.down(x)
-        intermediate = self.submodule(x, embedding)
-        intermediate = self.up(x)
+        intermediate = self.submodule(intermediate, embedding)
+        intermediate = self.up(intermediate)
         if not self.outermost:
             intermediate = torch.cat([x, intermediate], 1)
         output = self.output_transform(intermediate)
