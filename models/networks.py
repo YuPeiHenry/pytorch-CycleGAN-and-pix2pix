@@ -1201,11 +1201,7 @@ class LevelBlock(nn.Module):
         if self.depth <= 0:
             return self.conv1(x)
         n1 = self.conv1(x)
-        #m = self.model(n1)
-        m1 = self.down(n1)
-        m2 = self.submodule(m1)
-        m = self.up(m2)
-
+        m = self.model(n1)
         n2 = torch.cat((n1, m), 1)
         return self.conv2(n2)
 
