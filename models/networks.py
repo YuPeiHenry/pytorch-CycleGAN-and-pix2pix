@@ -1124,10 +1124,10 @@ class ConvBlock(nn.Module):
 class TestUnet(nn.Module):
     def __init__(self, input_nc, output_nc):
         super(TestUnet, self).__init__()
-        self.model = nn.Sequential(TestUnetSkip(input_nc, 64, 9), nn.Conv2d(128, output_nc, 1, 1, 0), nn.Tanh())
+        self.model = nn.Sequential(TestUnetSkip(input_nc, 64, 7), nn.Conv2d(128, output_nc, 1, 1, 0), nn.Tanh())
 
     def forward(self, x):
-        return self.out_conv(self.model(x))
+        return self.model(x)
 
 class TestUnetSkip(nn.Module):
     def __init__(self, outer_nc, inner_nc, level, outermost=False):
