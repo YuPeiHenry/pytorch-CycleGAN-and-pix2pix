@@ -1139,10 +1139,12 @@ class TestUnetSkip(nn.Module):
         if level <= 0:
             return
         conv1 = TestResBlock(outer_nc, inner_nc)
-        down = nn.Conv2d(outer_nc + inner_nc, inner_nc, 4, 2, 1)
+        down = nn.Sequential(nn.Conv2d(outer_nc + inner_nc, inner_nc, 4, 2, 1), nn.ReLU(True), nn.InstanceNorm2d(inner_nc))
         submodule = TestUnetSkip(inner_nc, inner_nc * 2, level - 1)
+        up_nc = (outer_nc * 2) if not outermost else (inner_nc * 2)
         up = nn.Sequential(nn.Upsample(scale_factor = 2, mode='bilinear'), nn.ReflectionPad2d((0, 1, 0, 1)),
-                nn.Conv2d(inner_nc * (3 if level != 1 else 2), (outer_nc * 2) if not outermost else (inner_nc * 2), 2, 1, 0))
+                nn.Conv2d(inner_nc * (3 if level != 1 else 2), up_nc, 2, 1, 0)
+                , nn.ReLU(True), nn.InstanceNorm2d(up_nc))
         self.model = nn.Sequential(conv1, down, submodule, up)
         self.conv2 = TestResBlock(outer_nc * 2, outer_nc)
         
