@@ -5,7 +5,7 @@ import numpy as np
 import os
 import data.exrlib as exrlib
 
-class UnetModel(BaseModel):
+class OverfitModel(BaseModel):
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
         parser.set_defaults(norm='instance', norm_G='instance', netG='overfit', dataset_mode='exr_one_channel', input_nc=1, output_nc=1, preprocess='N.A.', image_type='exr', no_flip=True)
