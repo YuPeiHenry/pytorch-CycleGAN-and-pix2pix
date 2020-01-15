@@ -1135,6 +1135,7 @@ class TestUnetSkip(nn.Module):
         self.outermost = outermost
         if not outermost: self.cross = TestResBlock(outer_nc, outer_nc)
         
+        self.level = level
         if level <= 0:
             return
         conv1 = TestResBlock(outer_nc, inner_nc)
@@ -1146,7 +1147,7 @@ class TestUnetSkip(nn.Module):
         self.conv2 = TestResBlock(outer_nc * 2, outer_nc)
         
     def forward(self, x):
-        if level <= 0:
+        if self.level <= 0:
             return self.cross(x)
         output = self.model(x)
         if self.outermost:
