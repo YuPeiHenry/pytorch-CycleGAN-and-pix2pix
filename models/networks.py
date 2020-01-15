@@ -893,7 +893,7 @@ class GATASkipBlock(nn.Module):
             input_nc = outer_nc
         
         concat_nc = input_nc + outer_nc if not outermost else outer_nc
-        self.output_transform = ResBlockUnet(concat_nc, numUpsampleConv)
+        self.output_transform = ResBlockUnet(concat_nc, 1)
         self.out_conv = nn.Conv2d(concat_nc, outer_nc * 2 if not outermost else outer_nc, kernel_size=1, stride=1, padding=0)
 
         downconv = spectral_norm(getDownsample(input_nc, inner_nc, 4, 2, 1, True, downsample_mode='strided'))
