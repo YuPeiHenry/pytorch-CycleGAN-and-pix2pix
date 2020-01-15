@@ -1156,6 +1156,7 @@ class TestUnetSkip(nn.Module):
 
 class TestResBlock(nn.Module):
     def __init__(self, in_nc, out_nc):
+        super(TestResBlock, self).__init__()
         self.model = nn.Sequential(nn.Conv2d(in_nc, out_nc, 3, 1, 1), nn.ReLU(True), nn.InstanceNorm2d(out_nc), nn.Conv2d(out_nc, out_nc, 3, 1, 1), nn.ReLU(True), nn.InstanceNorm2d(out_nc))
     def forward(self, x):
         return torch.cat((x, self.model(x)), 1)
