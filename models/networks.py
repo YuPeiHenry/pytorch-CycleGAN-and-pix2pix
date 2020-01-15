@@ -933,6 +933,7 @@ class GATASkipBlock(nn.Module):
 
 class GATAEmbedding(nn.Module):
     def __init__(self, nc):
+        super(GATAEmbedding, self).__init__()
         self.erosion_embedding = torch.nn.Parameter(torch.cuda.FloatTensor(np.random.rand(1, nc, 1, 1)))
         self.erosion_embedding.requires_grad = True
         self.zero_erosion = torch.nn.Parameter(torch.cuda.FloatTensor(np.random.rand(1, nc, 1, 1)))
