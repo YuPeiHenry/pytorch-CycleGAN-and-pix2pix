@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.nn import init
+from torch.nn.utils import spectral_norm
 import functools
 from torch.optim import lr_scheduler
 from torch.autograd import Variable
@@ -180,8 +181,10 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
     elif netG == 'unet_512':
         net = UnetGenerator(input_nc, output_nc, 9, ngf, max_filters=max_filters, norm_layer=norm_layer, use_dropout=use_dropout, styled=norm=='adain', progressive=progressive, n_stage=progressive_stages, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method, linear=linear, numDownsampleConv=numDownsampleConv, numUpsampleConv=numUpsampleConv)
     elif netG == 'unet_resblock':
-        net = UnetResBlock(input_nc, output_nc, ngf, depth=depth, inc_rate=2., max_filters=max_filters, activation=nn.ReLU(), 
+        net = UnetResBlock(input_nc, output_nc, ngf, depth=depth, inc_rate=2., activation=nn.ReLU(), 
          dropout=0.5, batchnorm=False, maxpool=True, upconv=True, residual=True)
+    elif netG == 'gata':
+        net = GATAUnet(input_nc, output_nc, depth, ngf=ngf, max_filters=max_filters)
     elif netG == 'skip_unet':
         net = SkipUnetGenerator(input_nc, output_nc, ngf=ngf)
     elif netG == 'fixed':
@@ -862,6 +865,85 @@ class NoiseUnetSkipConnectionBlock(nn.Module):
         noise_output = self.noise_weights(intermediate) * self.noise.repeat(batch_size, 1, 1, 1)
         return self.out_conv(output) + self.noise_transform(noise_output)
 
+class GATAUnet(nn.Module):
+    def __init__(self, input_nc, output_nc, num_downs, ngf=64, max_filters=512):
+        super(GATAUnet, self).__init__()
+        # construct unet structure
+        outer_nc = min(max_filters, ngf * (2 ** (num_downs - 2)))
+        inner_nc = min(max_filters, ngf * (2 ** (num_downs - 1)))
+        # add the innermost layer
+        unet_block = GATASkipBlock(outer_nc, inner_nc, input_nc=None, submodule=None, innermost=True)
+        
+        for i in range(num_downs - 2):
+            outer_nc = min(max_filters, ngf * (2 ** (num_downs - i - 3)))
+            inner_nc = min(max_filters, ngf * (2 ** (num_downs - i - 2)))
+            unet_block = GATASkipBlock(outer_nc, inner_nc, input_nc=None, submodule=unet_block)
+        unet_block = GATASkipBlock(output_nc, min(max_filters, ngf), input_nc=input_nc, submodule=unet_block, outermost=True)  # add the outermost layer
+        self.model = unet_block
+
+    def forward(self, input, embedding='zero_erosion'):
+        return self.model(input)
+        
+class GATASkipBlock(nn.Module):
+    def __init__(self, outer_nc, inner_nc, input_nc=None, submodule=None, outermost=False, innermost=False):
+        super(GATASkipBlock, self).__init__()
+        self.outermost = outermost
+        self.innermost = innermost
+        if input_nc is None:
+            input_nc = outer_nc
+        
+        concat_nc = input_nc + outer_nc if not outermost else outer_nc
+        self.output_transform = ResBlockUnet(concat_nc, numUpsampleConv)
+        self.out_conv = nn.Conv2d(concat_nc, outer_nc * 2 if not outermost else outer_nc, kernel_size=1, stride=1, padding=0)
+
+        downconv = spectral_norm(getDownsample(input_nc, inner_nc, 4, 2, 1, True, downsample_mode='strided'))
+        downrelu = [nn.LeakyReLU(0.2, True)]
+        downnorm = [nn.BatchNorm2d(inner_nc)]
+        uprelu = [nn.ReLU(True)]
+        upnorm = [nn.BatchNorm2d(outer_nc)]
+
+        if outermost:
+            upconv = spectral_norm(getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, True, upsample_mode, upsample_method=upsample_method))
+            self.down = downconv + downrelu
+            self.up = upconv
+            self.submodule = submodule
+        elif innermost:
+            upconv = getUpsample(inner_nc * 3, outer_nc, 4, 2, 1, True, upsample_mode, upsample_method=upsample_method)
+            self.down = downconv + downrelu
+            self.up = upconv + upnorm + uprelu
+            self.submodule = GATAEmbedding(inner_nc * 2)
+        else:
+            upconv = spectral_norm(getUpsample(inner_nc * 2, outer_nc, 4, 2, 1, True, upsample_mode, upsample_method=upsample_method))
+            self.down = downconv + downnorm + downrelu
+            self.up = upconv + upnorm + uprelu
+            self.submodule = submodule
+
+    def forward(self, x, embedding='zero_erosion'):
+        intermediate = self.down(x)
+        intermediate = self.submodule(x, embedding)
+        intermediate = self.up(x)
+        if not self.outermost:
+            intermediate = torch.cat([x, intermediate], 1)
+        output = self.output_transform(intermediate)
+
+        return self.out_conv(output)
+
+class GATAEmbedding(nn.Module):
+    def __init__(self, nc):
+        self.erosion_embedding = torch.nn.Parameter(torch.cuda.FloatTensor(np.random.rand(1, nc, 1, 1)))
+        self.erosion_embedding.requires_grad = True
+        self.zero_erosion = torch.nn.Parameter(torch.cuda.FloatTensor(np.random.rand(1, nc, 1, 1)))
+        self.zero_erosion.requires_grad = True
+    def forward(self, x, embedding='zero_erosion'):
+        batch_size = x.shape[0]
+        if embedding == 'zero_erosion':
+            emb = self.zero_erosion
+        elif embedding == 'erosion':
+            emb = self.erosion_embedding
+        elif embedding == 'un_erosion':
+            emb = self.zero_erosion - self.erosion_embedding
+        return torch.cat((x, self.zero_erosion.repeat(batch_size, 1, 1, 1)), 1)
+
 class SkipUnetGenerator(nn.Module):
     """Create a Unet-based generator"""
 
@@ -1077,61 +1159,47 @@ class FixedUnet(nn.Module):
         return conv2d_33
 
 class UnetResBlock(nn.Module):
-    def __init__(self, in_c = 3, out_ch=2, ngf=64, depth=4, inc_rate=2., max_filters=512, activation=nn.ReLU(True), 
+    def __init__(self, in_c = 3, out_ch=2, ngf=64, depth=4, inc_rate=2., activation=nn.ReLU(True), 
          dropout=0.5, batchnorm=False, maxpool=True, upconv=True, residual=False):
         super(UnetResBlock, self).__init__()
-        self.model = LevelBlock(in_c, ngf, depth, inc_rate, max_filters, activation, dropout, batchnorm, maxpool, upconv, residual)
+        self.model = LevelBlock(in_c, ngf, depth, inc_rate, activation, dropout, batchnorm, maxpool, upconv, residual)
 
         out_conv_channels = ngf if not residual else (ngf * 3 + in_c)
         self.out_conv = nn.Conv2d(out_conv_channels, out_ch, kernel_size=1, stride=1, padding=0)
-    def forward(self, x, embedding='zero_erosion'):
-        x = self.model(x, embedding)
+    def forward(self, x):
+        x = self.model(x)
         return self.out_conv(x)
     
 class LevelBlock(nn.Module):
-    def __init__(self, in_dim, dim, depth, inc, max_filters, acti, do, bn, mp, up, res):
+    def __init__(self, in_dim, dim, depth, inc, acti, do, bn, mp, up, res):
         super(LevelBlock, self).__init__()
         self.depth = depth
-        inner_dim = min(max_filters, int(inc * dim))
+        inner_dim = int(inc * dim)
         post_conv1 = dim if not res else (dim + in_dim)
         if depth != 1:
             inner_post_conv2 = inner_dim if not res else (inner_dim * 3 + post_conv1)
         else:
-            #inner_post_conv2 = inner_dim if not res else (inner_dim + post_conv1)
-            inner_post_conv2 = post_conv1 + 2 * max_filters
+            inner_post_conv2 = inner_dim if not res else (inner_dim + post_conv1)
         pre_conv2 = dim + post_conv1
-        #self.conv1 = ConvBlock(in_dim, dim, acti, bn, res)
+        self.conv1 = ConvBlock(in_dim, dim, acti, bn, res)
         
         if depth <= 0:
-            #Add GATA embeddings
-            self.zero_erosion = torch.nn.Parameter(torch.cuda.FloatTensor(np.random.rand(1, 2 * max_filters, 1, 1)))
-            self.zero_erosion.requires_grad = True
-            self.erosion_emb = torch.nn.Parameter(torch.cuda.FloatTensor(np.random.rand(1, 2 * max_filters, 1, 1)))
-            self.erosion_emb.requires_grad = True
             return
-        self.conv1 = ConvBlock(in_dim, dim, acti, bn, res)
         self.conv2 = ConvBlock(pre_conv2, dim, acti, bn, res)
 
-        self.down = nn.MaxPool2d(2, 2) if mp else nn.Sequential(nn.Conv2d(post_conv1, post_conv1, kernel_size=3, stride=2, padding=1), acti)
-        self.submodule = LevelBlock(post_conv1, inner_dim, depth - 1, inc, max_filters, acti, do, bn, mp, up, res)
-        self.up = nn.Sequential(nn.Upsample(scale_factor=2, mode='nearest'), nn.ReplicationPad2d((0, 1, 0, 1)), nn.Conv2d(inner_post_conv2 , dim, kernel_size=2, stride=1, padding=0), acti) if up else nn.Sequential(nn.ConvTranspose2d(inner_post_conv2, dim, kernel_size=3, stride=2, padding=1), acti)
-        #self.model = nn.Sequential(down, submodule, up)
+        down = nn.MaxPool2d(2, 2) if mp else nn.Sequential(nn.Conv2d(post_conv1, post_conv1, kernel_size=3, stride=2, padding=1), acti)
+        submodule = LevelBlock(post_conv1, inner_dim, depth - 1, inc, max_filters, acti, do, bn, mp, up, res)
+        up = nn.Sequential(nn.Upsample(scale_factor=2, mode='nearest'), nn.ReplicationPad2d((0, 1, 0, 1)), nn.Conv2d(inner_post_conv2 , dim, kernel_size=2, stride=1, padding=0), acti) if up else nn.Sequential(nn.ConvTranspose2d(inner_post_conv2, dim, kernel_size=3, stride=2, padding=1), acti)
+        self.model = nn.Sequential(down, submodule, up)
 
 
-    def forward(self, x, embedding='zero_erosion'):
+    def forward(self, x):
         if self.depth <= 0:
-            if embedding == 'zero_erosion':
-                emb = self.zero_erosion
-            elif embedding == 'erosion':
-                emb = self.erosion_emb
-            elif embedding == 'un_erosion':
-                emb = self.zero_erosion - self.erosion_emb
-            emb = emb.repeat(x.shape[0], 1, 1, 1)
-            return torch.cat((x, emb), 1)
+            return self.conv1(x)
         n1 = self.conv1(x)
         #m = self.model(n1)
         m1 = self.down(n1)
-        m2 = self.submodule(m1, embedding)
+        m2 = self.submodule(m1)
         m = self.up(m2)
 
         n2 = torch.cat((n1, m), 1)
