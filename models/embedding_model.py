@@ -23,9 +23,9 @@ class EmbeddingModel(BaseModel):
         """
         BaseModel.__init__(self, opt)
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
-        self.loss_names = ['G', 'A_e', 'B_e']
+        self.loss_names = ['G', 'B_e']
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
-        self.visual_names = ['fake_A_e', 'fake_B_e']
+        self.visual_names = ['fake_B_e']
         # specify the models you want to save to the disk. The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>
         self.model_names = ['G']
         # define networks (both generator and discriminator)
@@ -53,8 +53,8 @@ class EmbeddingModel(BaseModel):
         self.image_paths = input['A_paths']
 
     def forward(self):
-        self.forward_A_e()
-        self.fake_A_e.detach()
+        #self.forward_A_e()
+        #self.fake_A_e.detach()
         self.forward_B_e()
         self.fake_B_e.detach()
         #self.forward_A_i()
@@ -78,8 +78,8 @@ class EmbeddingModel(BaseModel):
         self.loss_D = torch.zeros([1]).to(self.device)
 
     def backward_G(self):
-        self.forward_A_e()
-        self.loss_A_e = self.criterionL2(self.fake_A_e, self.real_A)
+        #self.forward_A_e()
+        #self.loss_A_e = self.criterionL2(self.fake_A_e, self.real_A)
         #self.forward_A_i()
         #self.loss_A_i = self.criterionL2(self.fake_A_i, self.real_A)
         self.forward_B_e()
@@ -88,13 +88,13 @@ class EmbeddingModel(BaseModel):
         #self.loss_B_i = self.criterionL2(self.fake_B_i, self.real_B)
 
         self.optimizer_G.zero_grad()
-        (self.loss_B_e + self.loss_A_e).backward()
+        (self.loss_B_e).backward()
         self.optimizer_G.step()
 
     def optimize_parameters(self):
         self.backward_D()
         self.backward_G()
-        self.loss_G = self.loss_B_e + self.loss_A_e
+        self.loss_G = self.loss_B_e
 
     def compute_visuals(self, dataset=None):
         if not self.opt.fixed_example or dataset is None:
