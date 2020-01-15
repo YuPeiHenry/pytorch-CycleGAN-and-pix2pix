@@ -1623,8 +1623,8 @@ class ErosionLayer(nn.Module):
             min_term = self.relu(-height_delta.clone())
             first_term = -self.relu(-sediment.clone() + min_term) + torch.max(-(e_8), -(e ** (-sediment + min_term - 8))) + min_term
             # Sediment is eroded as slope is too steep
-            second_term_boolean = self.relu(torch.sign(height_delta - max_height_delta))
-            second_term = second_term_boolean * (max_height_delta - height_delta)
+            second_term_boolean = self.relu(torch.sign(height_delta - self.max_height_delta))
+            second_term = second_term_boolean * (self.max_height_delta - height_delta)
             # Sediment is deposited as it exceeded capacity
             # Sediment is eroded otherwise
             sediment_diff = sediment - sediment_capacity
