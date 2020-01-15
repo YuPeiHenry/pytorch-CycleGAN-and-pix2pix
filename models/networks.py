@@ -903,19 +903,19 @@ class GATASkipBlock(nn.Module):
         upnorm = [nn.BatchNorm2d(outer_nc)]
 
         if outermost:
-            upconv = [nn.Upsample(scale_factor = 2, mode=upsample_method), nn.ReflectionPad2d(1),
+            upconv = [nn.Upsample(scale_factor = 2, mode='bilinear'), nn.ReflectionPad2d(1),
                 spectral_norm(nn.Conv2d(inner_nc * 2, outer_nc, 4, 2, 1))]
             self.down = downconv + downrelu
             self.up = upconv
             self.submodule = submodule
         elif innermost:
-            upconv = [nn.Upsample(scale_factor = 2, mode=upsample_method), nn.ReflectionPad2d(1),
+            upconv = [nn.Upsample(scale_factor = 2, mode='bilinear'), nn.ReflectionPad2d(1),
                 spectral_norm(nn.Conv2d(inner_nc * 3, outer_nc, 4, 2, 1))]
             self.down = downconv + downrelu
             self.up = upconv + upnorm + uprelu
             self.submodule = GATAEmbedding(inner_nc * 2)
         else:
-            upconv = [nn.Upsample(scale_factor = 2, mode=upsample_method), nn.ReflectionPad2d(1),
+            upconv = [nn.Upsample(scale_factor = 2, mode='bilinear'), nn.ReflectionPad2d(1),
                 spectral_norm(nn.Conv2d(inner_nc * 2, outer_nc, 4, 2, 1))]
             self.down = downconv + downnorm + downrelu
             self.up = upconv + upnorm + uprelu
