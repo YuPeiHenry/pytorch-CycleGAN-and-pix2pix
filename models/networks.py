@@ -1130,7 +1130,7 @@ class UnetEncoder(nn.Module):
         super(UnetEncoder, self).__init__()
         self.model = EncoderLevelBlock(in_c, ngf, depth, num_no_skip, inc_rate, activation, dropout, batchnorm, maxpool, upconv, residual)
 
-        out_conv_channels = ngf if not residual else (ngf * 3 + in_c)
+        out_conv_channels = ngf if not residual else (ngf * 2)
         self.out_conv = nn.Conv2d(out_conv_channels, out_ch, kernel_size=1, stride=1, padding=0)
     def forward(self, x):
         x = self.model(x)
