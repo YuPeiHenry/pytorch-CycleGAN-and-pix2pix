@@ -183,6 +183,9 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
     elif netG == 'unet_resblock':
         net = UnetResBlock(input_nc, output_nc, ngf, depth=depth, inc_rate=2., activation=nn.ReLU(), 
          dropout=0.5, batchnorm=False, maxpool=True, upconv=True, residual=True)
+    elif netG == 'unet_encoder':
+        net = UnetEncoder(input_nc, output_nc, ngf, depth=depth, num_no_skip=depth-1, inc_rate=2., activation=nn.ReLU(), 
+         dropout=0.5, batchnorm=False, maxpool=True, upconv=True, residual=True)
     elif netG == 'overfit':
         net = TestUnet(input_nc, output_nc)
     elif netG == 'gata':
@@ -1120,6 +1123,50 @@ class ConvBlock(nn.Module):
         output = self.model(x)
         if self.res: output = torch.cat((x, output), 1)
         return output
+
+class UnetEncoder(nn.Module):
+    def __init__(self, in_c = 3, out_ch=2, ngf=64, depth=4, num_no_skip=3, inc_rate=2., activation=nn.ReLU(True), 
+         dropout=0.5, batchnorm=False, maxpool=True, upconv=True, residual=False):
+        super(UnetEncoder, self).__init__()
+        self.model = EncoderLevelBlock(in_c, ngf, depth, inc_rate, activation, dropout, batchnorm, maxpool, upconv, residual)
+
+        out_conv_channels = ngf if not residual else (ngf * 3 + in_c)
+        self.out_conv = nn.Conv2d(out_conv_channels, out_ch, kernel_size=1, stride=1, padding=0)
+    def forward(self, x):
+        x = self.model(x)
+        return self.out_conv(x)
+    
+class EncoderLevelBlock(nn.Module):
+    def __init__(self, in_dim, dim, depth, num_no_skip, inc, acti, do, bn, mp, up, res):
+        super(EncoderLevelBlock, self).__init__()
+        self.depth = depth
+        inner_dim = int(inc * dim)
+        post_conv1 = dim if not res else (dim + in_dim)
+        if num_no_skip != 1:
+            inner_post_conv2 = inner_dim if not res else (inner_dim  * 2)
+        else:
+            inner_post_conv2 = inner_dim if not res else (inner_dim * 3 + post_conv1)
+        pre_conv2 = dim
+        self.conv1 = ConvBlock(in_dim, dim, acti, bn, res)
+        
+        if depth <= 0:
+            return
+        self.conv2 = ConvBlock(pre_conv2, dim, acti, bn, res)
+
+        down = nn.MaxPool2d(2, 2) if mp else nn.Sequential(nn.Conv2d(post_conv1, post_conv1, kernel_size=3, stride=2, padding=1), acti)
+        if num_no_skip > 1:
+            submodule = EncoderLevelBlock(post_conv1, inner_dim, depth - 1, num_no_skip - 1, inc, acti, do, bn, mp, up, res)
+        else:
+            submodule = LevelBlock(post_conv1, inner_dim, depth - 1, inc, acti, do, bn, mp, up, res)
+        up = nn.Sequential(nn.Upsample(scale_factor=2, mode='nearest'), nn.ReplicationPad2d((0, 1, 0, 1)), nn.Conv2d(inner_post_conv2 , dim, kernel_size=2, stride=1, padding=0), acti) if up else nn.Sequential(nn.ConvTranspose2d(inner_post_conv2, dim, kernel_size=3, stride=2, padding=1), acti)
+        self.model = nn.Sequential(down, submodule, up)
+
+    def forward(self, x):
+        if self.depth <= 0:
+            return self.conv1(x)
+        n1 = self.conv1(x)
+        m = self.model(n1)
+        return self.conv2(m)
 
 class TestUnet(nn.Module):
     def __init__(self, input_nc, output_nc):
