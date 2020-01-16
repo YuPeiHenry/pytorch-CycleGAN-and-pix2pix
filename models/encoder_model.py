@@ -7,10 +7,11 @@ import os
 class EncoderModel(BaseModel):
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
-        parser.set_defaults(norm='instance', norm_G='instance', netG='overfit', dataset_mode='exr_one_channel', input_nc=1, output_nc=1, preprocess='N.A.', image_type='exr', no_flip=True, ngf=32, depth=4)
+        parser.set_defaults(norm='instance', norm_G='instance', netG='overfit', dataset_mode='exr_one_channel', input_nc=1, output_nc=1, preprocess='N.A.', image_type='exr', no_flip=True, ngf=32)
         parser.add_argument('--exclude_input', action='store_true', help='')
         parser.add_argument('--fixed_example', action='store_true', help='')
         parser.add_argument('--fixed_index', type=int, default=0, help='')
+        parser.add_argument('--depth', type=int, default=4, help='')
         return parser
 
     def __init__(self, opt):
@@ -20,7 +21,7 @@ class EncoderModel(BaseModel):
         self.visual_names += ['fake_A']
         self.model_names = ['G']
         self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm_G,
-                                      not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method)
+                                      not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method, depth=opt.depth)
 
         if self.isTrain:
             self.criterionL2 = torch.nn.MSELoss()
