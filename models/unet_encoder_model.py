@@ -55,7 +55,7 @@ class UnetEncoderModel(BaseModel):
         out_h = self.opt.output_height_channel
         residue_A = self.A_orig - (self.netE(self.real_A[:, in_h, :, :].unsqueeze(1)) + self.A_blur)
         self.fake_B = self.netG(torch.cat((self.real_A, residue_A), 1))
-        residue = torch.zeros(self.fake_B.shape)
+        residue = torch.zeros(self.fake_B.shape).to(self.device)
         residue[:, out_h, :, :] = self.A_orig.squeeze(1)
         self.fake_B = self.fake_B + residue
 
