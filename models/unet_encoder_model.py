@@ -85,8 +85,8 @@ class UnetEncoderModel(BaseModel):
         self.image_paths = [single['A_paths']]
 
         self.forward()
-        self.fake_B[:, self.opt.input_height_channel, :, :] = self.fake_B[:, self.opt.input_height_channel, :, :] - ((910 - 86) / 2)
-        self.fake_B[:, self.opt.input_height_channel, :, :] = self.fake_B[:, self.opt.input_height_channel, :, :] / (910 + 86) * 2
+        self.fake_B[:, self.opt.output_height_channel, :, :] = self.fake_B[:, self.opt.output_height_channel, :, :] - ((910 - 86) / 2)
+        self.fake_B[:, self.opt.output_height_channel, :, :] = self.fake_B[:, self.opt.output_height_channel, :, :] / (910 + 86) * 2
         """
         if self.opt.break4:
             self.real_A = self.combine_from_4(self.real_A)
