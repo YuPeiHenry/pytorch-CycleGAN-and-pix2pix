@@ -25,7 +25,7 @@ class UnetEncoderModel(BaseModel):
         self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm_G,
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method, depth=opt.depth)
         self.preload_names = ['E']
-        self.netE = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, 'unet_resblock', opt.norm_G,
+        self.netE = networks.define_G(1, 1, 32, 'unet_resblock', opt.norm_G,
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method, depth=5)
         self.load_base_networks()
 
