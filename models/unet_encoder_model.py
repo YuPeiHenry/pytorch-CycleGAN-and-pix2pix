@@ -28,6 +28,7 @@ class UnetEncoderModel(BaseModel):
         self.netE = networks.define_G(1, 1, 32, 'unet_resblock', opt.norm_G,
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method, depth=5)
         self.load_base_networks()
+        self.netE.eval()
 
         if self.isTrain:
             self.downsample = torch.nn.AvgPool2d(kernel_size=4, stride=4, padding=0, ceil_mode=False)
