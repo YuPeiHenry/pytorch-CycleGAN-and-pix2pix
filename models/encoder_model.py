@@ -63,6 +63,8 @@ class EncoderModel(BaseModel):
             return
         single = dataset.dataset.get_val_item(self.opt.fixed_index)
         self.real_A = single['A'].unsqueeze(0).to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
+        self.A_orig = single['A_orig'].unsqueeze(0).to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
+        self.A_blur = self.upsample(self.downsample(self.A_orig))
         self.image_paths = [single['A_paths']]
 
         self.forward()
