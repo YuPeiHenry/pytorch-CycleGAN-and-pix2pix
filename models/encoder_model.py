@@ -48,7 +48,7 @@ class EncoderModel(BaseModel):
         self.loss_D = torch.zeros([1]).to(self.device)
 
     def backward_G(self):
-        self.loss_G = self.criterionL2(self.fake_A + self.A_blur, self.real_A)
+        self.loss_G = self.criterionL2(self.fake_A + self.A_blur, self.A_orig)
         self.loss_G.backward()
 
     def optimize_parameters(self):
@@ -66,7 +66,8 @@ class EncoderModel(BaseModel):
         self.image_paths = [single['A_paths']]
 
         self.forward()
-
+        self.fake_A = self.fake_A - ((910 - 86) / 2)
+        self.fake_A = self.fake_A / (910 + 86) * 2
         """
         if self.opt.break4:
             self.real_A = self.combine_from_4(self.real_A)
