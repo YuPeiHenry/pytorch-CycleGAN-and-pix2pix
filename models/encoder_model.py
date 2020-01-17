@@ -7,11 +7,11 @@ import os
 class EncoderModel(BaseModel):
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
-        parser.set_defaults(norm='instance', norm_G='instance', netG='unet_encoder', dataset_mode='exr_one_channel', input_nc=1, output_nc=1, preprocess='N.A.', image_type='exr', no_flip=True, ngf=32)
+        parser.set_defaults(norm='instance', norm_G='instance', netG='unet_resblock', dataset_mode='exr_one_channel', input_nc=1, output_nc=1, preprocess='N.A.', image_type='exr', no_flip=True, ngf=32)
         parser.add_argument('--exclude_input', action='store_true', help='')
         parser.add_argument('--fixed_example', action='store_true', help='')
         parser.add_argument('--fixed_index', type=int, default=0, help='')
-        parser.add_argument('--depth', type=int, default=4, help='')
+        parser.add_argument('--depth', type=int, default=5, help='')
         return parser
 
     def __init__(self, opt):
@@ -24,12 +24,16 @@ class EncoderModel(BaseModel):
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method, depth=opt.depth)
 
         if self.isTrain:
+            self.downsample = nn.AvgPool2d(kernel_size=4, stride=4, padding=0, ceil_mode=False)
+            self.upsample = nn.Upsample(scale_factor=4, mode='bilinear')
             self.criterionL2 = torch.nn.MSELoss()
             self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
 
     def set_input(self, input):
         self.real_A = input['A'].to(self.device)
+        self.A_orig = input['A_orig'].to(self.device)
+        self.A_blur = self.upsample(self.downsample(self.A_orig))
         self.image_paths = input['A_paths']
 
     def forward(self):
@@ -44,7 +48,7 @@ class EncoderModel(BaseModel):
         self.loss_D = torch.zeros([1]).to(self.device)
 
     def backward_G(self):
-        self.loss_G = self.criterionL2(self.fake_A, self.real_A)
+        self.loss_G = self.criterionL2(self.fake_A + self.A_blur, self.real_A)
         self.loss_G.backward()
 
     def optimize_parameters(self):
