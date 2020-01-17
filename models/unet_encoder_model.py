@@ -22,7 +22,7 @@ class UnetEncoderModel(BaseModel):
         self.visual_names = ['real_A'] if not opt.exclude_input else []
         self.visual_names += ['fake_B']
         self.model_names = ['G']
-        self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm_G,
+        self.netG = networks.define_G(opt.input_nc + 1, opt.output_nc, opt.ngf, opt.netG, opt.norm_G,
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method, depth=opt.depth)
         self.preload_names = ['E']
         self.netE = networks.define_G(1, 1, 32, 'unet_resblock', opt.norm_G,
