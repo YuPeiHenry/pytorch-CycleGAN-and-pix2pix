@@ -24,8 +24,8 @@ class EncoderModel(BaseModel):
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method, depth=opt.depth)
 
         if self.isTrain:
-            self.downsample = nn.AvgPool2d(kernel_size=4, stride=4, padding=0, ceil_mode=False)
-            self.upsample = nn.Upsample(scale_factor=4, mode='bilinear')
+            self.downsample = torch.nn.AvgPool2d(kernel_size=4, stride=4, padding=0, ceil_mode=False)
+            self.upsample = torch.nn.Upsample(scale_factor=4, mode='bilinear')
             self.criterionL2 = torch.nn.MSELoss()
             self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
