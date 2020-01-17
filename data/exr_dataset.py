@@ -42,10 +42,10 @@ class ExrDataset(BaseDataset):
         self.output_channels = np.array([4, 7]) #flow, height
 
         if not self.opt.compute_bounds:
-            self.i_channels_min = np.array([[[0, 0, -0.075]]])
-            self.i_channels_max = np.array([[[824, 1, 1]]])
-            self.o_channels_min = np.array([[[5.08151024e-05, -4]]])
-            self.o_channels_max = np.array([[[1, 819]]])
+            self.i_channels_min = np.array([[[-86, 0, -0.075]]]) #0
+            self.i_channels_max = np.array([[[910, 1, 1]]]) #824
+            self.o_channels_min = np.array([[[5.08151024e-05, -86]]]) #-4
+            self.o_channels_max = np.array([[[1, 910]]]) #819
             return
 
         channels_min = np.array([2**16 for _ in self.input_channels])
