@@ -224,6 +224,7 @@ class UnetModel(BaseModel):
         #    self.post_unet[:, 1, :, :] = 1 - torch.nn.ReLU()(2 - torch.nn.ReLU()(self.post_unet[:, 1, :, :] + 1))
         if self.opt.linear:
             self.post_unet[:, self.opt.output_height_channel, :, :] = (self.post_unet[:, self.opt.output_height_channel, :, :] - 412) / 996 * 2
+            self.real_B[:, self.opt.output_height_channel, :, :] = (self.real_B[:, self.opt.output_height_channel, :, :] - 412) / 996 * 2
         if self.opt.break4:
             self.real_A = self.combine_from_4(self.real_A)
             self.real_B = self.combine_from_4(self.real_B)
