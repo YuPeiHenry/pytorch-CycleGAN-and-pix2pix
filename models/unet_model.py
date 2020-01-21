@@ -15,6 +15,7 @@ class UnetModel(BaseModel):
         parser.add_argument('--maxFilters', type=int, default=512)
 
         parser.add_argument('--SGD', action='store_true', help='')
+        parser.add_argument('--log_error', action='store_true', help='')
         parser.add_argument('--input_height_channel', type=int, default=0)
         parser.add_argument('--output_height_channel', type=int, default=1)
         parser.add_argument('--output_flow_channel', type=int, default=0)
@@ -175,7 +176,11 @@ class UnetModel(BaseModel):
             self.loss_G_L2 = (self.opt.lambda_L2 * self.criterionL2(fake_B, self.real_B) + self.opt.lambda_L1 * self.criterionL1(fake_B, self.real_B))
             self.loss_G = self.loss_G_L2
         else:
-            self.loss_G_L2 = (self.opt.lambda_L2 * self.criterionL2(fake_B, self.real_B) + self.opt.lambda_L1 * self.criterionL1(fake_B, self.real_B))
+            bias = 1 if not linear else 86
+            if self.opt.log_error:
+                self.loss_G_L2 = (self.opt.lambda_L2 * self.criterionL2(torch.ReLU(True)(torch.log(fake_B + bias)), torch.ReLU(True)(torch.log(self.real_B + bias))) + self.opt.lambda_L1 * self.criterionL1(fake_B, self.real_B))
+            else:
+                self.loss_G_L2 = (self.opt.lambda_L2 * self.criterionL2(fake_B, self.real_B) + self.opt.lambda_L1 * self.criterionL1(fake_B, self.real_B))
             fake_B_output = self.netFeature(fake_B)
             real_B_output = self.netFeature(self.real_B)
             feat_loss = self.opt.lambda_L2 * self.criterionL2(fake_B_output, real_B_output) + self.opt.lambda_L1 * self.criterionL1(fake_B_output, real_B_output)
