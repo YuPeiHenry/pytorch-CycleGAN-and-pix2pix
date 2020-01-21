@@ -173,7 +173,7 @@ class UnetModel(BaseModel):
                 self.loss_G_L2 = self.loss_G_L2 + (self.opt.lambda_L2 * self.criterionL2(fake_B[:, out_f, :, :], self.real_B[:, out_f, :, :]) + self.opt.lambda_L1 * self.criterionL1(fake_B[:, out_f, :, :], self.real_B[:, out_f, :, :]))
             self.loss_G = self.loss_G_L2
         elif not self.opt.use_feature_extractor:
-            bias = 1 if not linear else 86
+            bias = 1 if not self.opt.linear else 86
             if self.opt.log_error:
                 self.loss_G_L2 = (self.opt.lambda_L2 * self.criterionL2(torch.log(torch.ReLU(True)(fake_B + bias)), torch.log(torch.ReLU(True)(self.real_B + bias))) + self.opt.lambda_L1 * self.criterionL1(fake_B, self.real_B))
             else:
