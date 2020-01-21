@@ -178,7 +178,7 @@ class UnetModel(BaseModel):
         else:
             bias = 1 if not linear else 86
             if self.opt.log_error:
-                self.loss_G_L2 = (self.opt.lambda_L2 * self.criterionL2(torch.ReLU(True)(torch.log(fake_B + bias)), torch.ReLU(True)(torch.log(self.real_B + bias))) + self.opt.lambda_L1 * self.criterionL1(fake_B, self.real_B))
+                self.loss_G_L2 = (self.opt.lambda_L2 * self.criterionL2(torch.log(torch.ReLU(True)(fake_B + bias)), torch.log(torch.ReLU(True)(self.real_B + bias))) + self.opt.lambda_L1 * self.criterionL1(fake_B, self.real_B))
             else:
                 self.loss_G_L2 = (self.opt.lambda_L2 * self.criterionL2(fake_B, self.real_B) + self.opt.lambda_L1 * self.criterionL1(fake_B, self.real_B))
             fake_B_output = self.netFeature(fake_B)
