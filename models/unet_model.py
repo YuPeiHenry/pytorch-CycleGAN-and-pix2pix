@@ -233,6 +233,15 @@ class UnetModel(BaseModel):
     def update_epoch_params(self, epoch):
         self.epoch = epoch
 
+    def get_current_visuals(self):
+        if not self.opt.exclude_input:
+            return super().get_current_visuals()
+        visual_ret = OrderedDict()
+        for name in self.visual_names:
+            if isinstance(name, str):
+                visual_ret[""] = getattr(self, name)
+        return visual_ret
+
     def __patch_instance_norm_state_dict(self, state_dict, module, keys, i=0):
         """Fix InstanceNorm checkpoints incompatibility (prior to 0.4)"""
         key = keys[i]

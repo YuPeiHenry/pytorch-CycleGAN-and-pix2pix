@@ -34,7 +34,7 @@ def save_images(webpage, visuals, image_path, dataset, aspect_ratio=1.0, width=2
 
     for label, im_data in visuals.items():
         im = util.tensor2im(im_data)
-        image_name = '%s_%s.png' % (name, label)
+        image_name = ('%s_%s.png' % (name, label)) if label != "" else ('%s.png' % (name))
         save_path = os.path.join(image_dir, image_name)
         util.save_image(im, save_path, dataset, aspect_ratio=aspect_ratio)
         ims.append(image_name)
