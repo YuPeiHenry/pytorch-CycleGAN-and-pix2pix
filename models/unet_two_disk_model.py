@@ -7,7 +7,7 @@ import os
 class UnetTwoDiskModel(BaseModel):
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
-        parser.set_defaults(norm='instance', norm_G='instance', netG='unet_resblock', dataset_mode='exr_extra_dataset', input_nc=3, output_nc=2, preprocess='N.A.', image_type='exr', no_flip=True, ngf=32)
+        parser.set_defaults(norm='instance', norm_G='instance', netG='unet_resblock', dataset_mode='exr_extra', input_nc=3, output_nc=2, preprocess='N.A.', image_type='exr', no_flip=True, ngf=32)
         parser.add_argument('--exclude_input', action='store_true', help='')
         parser.add_argument('--fixed_example', action='store_true', help='')
         parser.add_argument('--fixed_index', type=int, default=0, help='')
