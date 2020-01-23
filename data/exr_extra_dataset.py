@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import data.exrlib as exrlib
 
-class ExrExtraDataset(BaseDataset):
+class ExrExtraDataset(ExrDataset):
     def __init__(self, opt):
         """Initialize this dataset class.
 
