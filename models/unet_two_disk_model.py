@@ -79,6 +79,7 @@ class UnetTwoDiskModel(BaseModel):
         self.real_B = single['B'].unsqueeze(0).to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
         self.A_orig = single['A_orig'].unsqueeze(0)[:, self.opt.input_height_channel, :, :].unsqueeze(1).to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
         self.Extra = single['Extra'].unsqueeze(0).to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
+        self.Extra[:, out_h, :, :] = self.Extra[:, out_h, :, :] - self.A_orig.squeeze(1)
         
         self.image_paths = [single['A_paths']]
 
