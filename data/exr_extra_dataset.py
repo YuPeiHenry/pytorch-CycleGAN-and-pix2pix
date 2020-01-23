@@ -39,6 +39,7 @@ class ExrExtraDataset(ExrDataset):
         dict = super().__getitem__(index)
         Extra_path = self.Extra_paths[index % self.Extra_size]
         Extra_img = exrlib.read_exr_float32(Extra_path, list(['0', '1']), 512, 512)
+        Extra_img[:, :, 1] = (Extra_img[:, :, 1] - 412) / 996 * 2
         dict["Extra"] = torch.Tensor(np.transpose(Extra_img, (2, 0, 1)))
 
         return dict
@@ -47,6 +48,7 @@ class ExrExtraDataset(ExrDataset):
         dict = super().get_val_item(index)
         Extra_path = self.Extra_test_paths[index % self.Extra_size]
         Extra_img = exrlib.read_exr_float32(Extra_path, list(['0', '1']), 512, 512)
+        Extra_img[:, :, 1] = (Extra_img[:, :, 1] - 412) / 996 * 2
         dict["Extra"] = torch.Tensor(np.transpose(Extra_img, (2, 0, 1)))
 
         return dict
