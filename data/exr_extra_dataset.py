@@ -42,14 +42,6 @@ class ExrExtraDataset(BaseDataset):
 
         return dict
 
-    def __len__(self):
-        """Return the total number of images in the dataset.
-
-        As we have two datasets with potentially different number of images,
-        we take a maximum of
-        """
-        return max(self.A1_size, self.B_size)
-
     def get_val_item(self, index):
         dict = super().get_val_item(index)
         Extra_path = self.Extra_test_paths[index % self.Extra_size]
