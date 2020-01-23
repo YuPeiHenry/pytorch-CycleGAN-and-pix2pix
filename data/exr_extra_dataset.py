@@ -38,7 +38,7 @@ class ExrExtraDataset(ExrDataset):
         """
         dict = super().__getitem__(index)
         Extra_path = self.Extra_paths[index % self.Extra_size]
-        Extra_img = exrlib.read_exr_float32(B_path, list(['0', '1']), 512, 512)
+        Extra_img = exrlib.read_exr_float32(Extra_path, list(['0', '1']), 512, 512)
         dict["Extra"] = Extra
 
         return dict
@@ -46,7 +46,7 @@ class ExrExtraDataset(ExrDataset):
     def get_val_item(self, index):
         dict = super().get_val_item(index)
         Extra_path = self.Extra_test_paths[index % self.Extra_size]
-        Extra_img = exrlib.read_exr_float32(B_path, list(['0', '1']), 512, 512)
+        Extra_img = exrlib.read_exr_float32(Extra_path, list(['0', '1']), 512, 512)
         dict["Extra"] = Extra
 
         return dict
