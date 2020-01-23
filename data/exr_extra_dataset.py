@@ -1,5 +1,6 @@
 import os.path
 from data.base_dataset import BaseDataset
+from data.exr_dataset import ExrDataset
 from data.image_folder import make_dataset
 import numpy as np
 import torch
