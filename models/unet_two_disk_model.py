@@ -31,12 +31,15 @@ class UnetTwoDiskModel(BaseModel):
             self.optimizers.append(self.optimizer_G)
 
     def set_input(self, input):
+        out_h = self.opt.output_height_channel
         self.real_A = input['A'].to(self.device)
         self.real_B = input['B'].to(self.device)
         self.Extra = input['Extra'].to(self.device)
         self.A_orig = input['A_orig'][:, self.opt.input_height_channel, :, :].unsqueeze(1).to(self.device)
+        # Account for saving the full heightmap instead of residual
+        self.Extra[:, out_h, :, :] = self.Extra[:, out_h, :, :] - self.A_orig.squeeze(1)
         self.B_orig = self.real_B.clone()
-        self.B_orig[:, self.opt.output_height_channel, :, :] = input['B_orig'][:, self.opt.output_height_channel, :, :].to(self.device)
+        self.B_orig[:, out_h, :, :] = input['B_orig'][:, out_h, :, :].to(self.device)
         self.image_paths = input['A_paths']
 
     def forward(self):
