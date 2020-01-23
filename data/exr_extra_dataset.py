@@ -13,7 +13,7 @@ class ExrExtraDataset(BaseDataset):
             opt (Option class) -- stores all the experiment flags; needs to be a subclass of BaseOptions
         """
 
-        super().__init__(self, opt)
+        super().__init__(opt)
 
         self.Extra = os.path.join(opt.dataroot, opt.phase + '_extra')
 
@@ -35,7 +35,7 @@ class ExrExtraDataset(BaseDataset):
             A_paths (str)    -- image paths
             B_paths (str)    -- image paths
         """
-        dict = super().__getitem__(self, index)
+        dict = super().__getitem__(index)
         Extra_path = self.Extra_paths[index % self.Extra_size]
         Extra_img = exrlib.read_exr_float32(B_path, list(['0', '1']), 512, 512)
         dict["Extra"] = Extra
@@ -51,7 +51,7 @@ class ExrExtraDataset(BaseDataset):
         return max(self.A1_size, self.B_size)
 
     def get_val_item(self, index):
-        dict = super().get_val_item(self, index)
+        dict = super().get_val_item(index)
         Extra_path = self.Extra_test_paths[index % self.Extra_size]
         Extra_img = exrlib.read_exr_float32(B_path, list(['0', '1']), 512, 512)
         dict["Extra"] = Extra
