@@ -23,6 +23,7 @@ class UnetModel(BaseModel):
         parser.add_argument('--exclude_input', action='store_true', help='')
         parser.add_argument('--fixed_example', action='store_true', help='')
         parser.add_argument('--fixed_index', type=int, default=0, help='')
+        parser.add_argument('--half_lr', action='store_true', help='')
         parser.add_argument('--width', type=int, default=512)
         parser.add_argument('--iterations', type=int, default=10)
         parser.add_argument('--preload_unet', action='store_true', help='')
@@ -233,6 +234,12 @@ class UnetModel(BaseModel):
 
     def update_epoch_params(self, epoch):
         self.epoch = epoch
+        if self.opt.half_lr:
+            lr = self.opt.lr * 2 ** (-epoch // 10)
+            for optimizer in self.optimizers:
+                state_dict = optimizer.state_dict()
+                for param_group in state_dict['param_groups']:
+                    param_group['lr'] = lr
 
     def get_current_visuals(self):
         if not self.opt.exclude_input:
