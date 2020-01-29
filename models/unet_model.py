@@ -102,9 +102,10 @@ class UnetModel(BaseModel):
         self.real_A = input['A'].to(self.device)
         self.real_B = input['B'].to(self.device)
         if self.opt.exclude_flowmap: self.real_B = self.real_B[:, 1, :, :].unsqueeze(1)
+        out_h = self.opt.output_height_channel if not self.opt.exclude_flowmap else 1
         if self.opt.linear:
             self.residue = input['A_orig'][:, self.opt.input_height_channel, :, :].to(self.device)
-            if not self.opt.use_erosion: self.real_B[:, self.opt.output_height_channel, :, :] = input['B_orig'][:, self.opt.output_height_channel, :, :].to(self.device)
+            if not self.opt.use_erosion: self.real_B[:, self.opt.output_height_channel, :, :] = input['B_orig'][:, out_h, :, :].to(self.device)
         else:
             self.real_B = 1 - torch.nn.ReLU()(2 - torch.nn.ReLU()(self.real_B + 1)) #clip to [-1, 1]
         self.image_paths = input['A_paths']
