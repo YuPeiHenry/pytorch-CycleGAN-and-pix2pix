@@ -146,7 +146,7 @@ class UnetModel(BaseModel):
             temp[:, out_h, :, :] = self.fake_B.float().squeeze(1)
             self.fake_B = temp
             
-        if not self.isTrain:
+        if self.opt.exclude_flowmap and not self.isTrain:
             self.post_unet = torch.cat((torch.zeros_like(self.post_unet), self.post_unet), 1)
             self.real_B = torch.cat((torch.zeros_like(self.real_B), self.real_B), 1)
 
@@ -237,8 +237,9 @@ class UnetModel(BaseModel):
             self.real_A = self.combine_from_4(self.real_A)
             self.real_B = self.combine_from_4(self.real_B)
             self.post_unet = self.combine_from_4(self.post_unet)
-        self.post_unet = torch.cat((torch.zeros_like(self.post_unet), self.post_unet), 1)
-        self.real_B = torch.cat((torch.zeros_like(self.real_B), self.real_B), 1)
+        if self.opt.exclude_flowmap:
+            self.post_unet = torch.cat((torch.zeros_like(self.post_unet), self.post_unet), 1)
+            self.real_B = torch.cat((torch.zeros_like(self.real_B), self.real_B), 1)
 
     def update_epoch_params(self, epoch):
         self.epoch = epoch
