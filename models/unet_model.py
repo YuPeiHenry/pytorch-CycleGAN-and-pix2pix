@@ -21,6 +21,7 @@ class UnetModel(BaseModel):
         parser.add_argument('--output_height_channel', type=int, default=1)
         parser.add_argument('--output_flow_channel', type=int, default=0)
         parser.add_argument('--exclude_input', action='store_true', help='')
+        parser.add_argument('--exclude_flowmap', action='store_true', help='')
         parser.add_argument('--fixed_example', action='store_true', help='')
         parser.add_argument('--fixed_index', type=int, default=0, help='')
         parser.add_argument('--half_lr', action='store_true', help='')
@@ -100,6 +101,7 @@ class UnetModel(BaseModel):
     def set_input(self, input):
         self.real_A = input['A'].to(self.device)
         self.real_B = input['B'].to(self.device)
+        if self.opt.exclude_flowmap: self.real_B = self.real_B[:, 1, :, :].unsqueeze(1)
         if self.opt.linear:
             self.residue = input['A_orig'][:, self.opt.input_height_channel, :, :].to(self.device)
             if not self.opt.use_erosion: self.real_B[:, self.opt.output_height_channel, :, :] = input['B_orig'][:, self.opt.output_height_channel, :, :].to(self.device)
@@ -143,6 +145,10 @@ class UnetModel(BaseModel):
             temp = self.real_B.clone()
             temp[:, out_h, :, :] = self.fake_B.float().squeeze(1)
             self.fake_B = temp
+            
+        if not self.isTrain:
+            self.post_unet = torch.cat((torch.zeros_like(self.post_unet), self.post_unet), 1)
+            self.real_B = torch.cat((torch.zeros_like(self.real_B), self.real_B), 1)
 
     def backward_D(self):
         if self.opt.use_erosion:
@@ -231,11 +237,13 @@ class UnetModel(BaseModel):
             self.real_A = self.combine_from_4(self.real_A)
             self.real_B = self.combine_from_4(self.real_B)
             self.post_unet = self.combine_from_4(self.post_unet)
+        self.post_unet = torch.cat((torch.zeros_like(self.post_unet), self.post_unet), 1)
+        self.real_B = torch.cat((torch.zeros_like(self.real_B), self.real_B), 1)
 
     def update_epoch_params(self, epoch):
         self.epoch = epoch
         if self.opt.half_lr:
-            lr = self.opt.lr * 2 ** (-epoch // 10)
+            lr = self.opt.lr * (2 ** (-epoch // 20))
             for optimizer in self.optimizers:
                 state_dict = optimizer.state_dict()
                 for param_group in state_dict['param_groups']:
