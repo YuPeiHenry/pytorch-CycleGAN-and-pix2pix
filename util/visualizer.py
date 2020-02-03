@@ -31,7 +31,7 @@ def save_images(webpage, visuals, image_path, dataset, aspect_ratio=1.0, width=2
     short_paths = [ntpath.basename(single_path) for single_path in image_path]
     names = [os.path.splitext(short_path)[0] for short_path in short_paths]
 
-    for i in len(names):
+    for i in range(len(names)):
         name = names[i]
         webpage.add_header(name)
         ims, txts, links = [], [], []
