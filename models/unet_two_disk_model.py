@@ -43,7 +43,7 @@ class UnetTwoDiskModel(BaseModel):
         self.B_orig[:, out_h, :, :] = input['B_orig'][:, out_h, :, :].to(self.device)
         self.image_paths = input['A_paths']
 
-        if self.exclude_flowmap:
+        if self.opt.exclude_flowmap:
             self.Extra = self.Extra[:, 1, :, :].unsqueeze(1)
 
     def forward(self):
