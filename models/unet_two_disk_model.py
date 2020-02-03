@@ -11,6 +11,7 @@ class UnetTwoDiskModel(BaseModel):
         parser.add_argument('--exclude_input', action='store_true', help='')
         parser.add_argument('--fixed_example', action='store_true', help='')
         parser.add_argument('--fixed_index', type=int, default=0, help='')
+        parser.add_argument('--exclude_flowmap', action='store_true', help='')
         parser.add_argument('--depth', type=int, default=6, help='')
         parser.add_argument('--input_height_channel', type=int, default=0)
         parser.add_argument('--output_height_channel', type=int, default=1)
@@ -53,6 +54,8 @@ class UnetTwoDiskModel(BaseModel):
         residue_A = self.Extra.clone()
         residue_A[:, out_h, :, :] = residue_A[:, out_h, :, :] / 10
         self.fake_B = self.netG(torch.cat((self.real_A, residue_A), 1))
+        if self.opt.exclude_flowmap:
+            self.fake_B = torch.cat((torch.zeros_like(self.fake_B), self.fake_B), 1)
         residue = torch.zeros(self.fake_B.shape).to(self.device)
         residue[:, out_h, :, :] = self.A_orig.squeeze(1) + self.Extra[:, out_h, :, :]
         self.fake_B = self.fake_B + residue
