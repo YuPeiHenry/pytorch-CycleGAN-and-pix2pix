@@ -38,11 +38,11 @@ def save_images(webpage, visuals, image_path, dataset, aspect_ratio=1.0, width=2
 
         for label, im_data in visuals.items():
             im = util.tensor2im(im_data[i].unsqueeze(0))
-            image_name = ('%s_%s.png' % (name, label[i])) if label[i] != "" else ('%s.png' % (name))
+            image_name = ('%s_%s.png' % (name, label)) if label != "" else ('%s.png' % (name))
             save_path = os.path.join(image_dir, image_name)
             util.save_image(im, save_path, dataset, aspect_ratio=aspect_ratio)
             ims.append(image_name)
-            txts.append(label[i])
+            txts.append(label)
             links.append(image_name)
         webpage.add_images(ims, txts, links, width=width)
 
