@@ -1486,7 +1486,7 @@ class Encoder(nn.Module):
         return outputs_mean
 
 class ErosionLayer(nn.Module):
-    def __init__(self, width=512, iterations=10, output_water=False, random_param=False, blend_inputs=False, use_convs=False):
+    def __init__(self, width=512, iterations=10, output_water=False, random_param=False, blend_inputs=False, use_convs=False, set_rain=False):
         super(ErosionLayer, self).__init__()
         self.width = width
         self.iterations = iterations
@@ -1496,7 +1496,7 @@ class ErosionLayer(nn.Module):
         self.epsilon = 1e-10
 
         self.use_convs = use_convs
-        if not use_convs:
+        if not use_convs and not set_rain:
             self.random_rainfall = torch.nn.Parameter(torch.cuda.DoubleTensor(np.random.rand(1, self.iterations, self.width, self.width)))
             self.random_rainfall.requires_grad = True
         else:
