@@ -1625,7 +1625,7 @@ class ErosionLayer(nn.Module):
             # Sediment is deposited as it exceeded capacity
             # Sediment is eroded otherwise
             sediment_diff = sediment - sediment_capacity
-            third_term = (1 - first_term_boolean - second_term_boolean) * (self.relu(sediment_diff * 2 ** self.deposition_rate) - self.relu(-sediment_diff * 2 ** self.dissolving_rate))
+            #third_term = (1 - first_term_boolean - second_term_boolean) * (self.relu(sediment_diff * 2 ** self.deposition_rate) - self.relu(-sediment_diff * 2 ** self.dissolving_rate))
             third_term = (1 - first_term_boolean) * (self.relu(sediment_diff * 2 ** self.deposition_rate) - self.relu(-sediment_diff * 2 ** self.dissolving_rate))
             #deposited_sediment = first_term + second_term + third_term
             deposited_sediment = first_term + third_term
