@@ -1544,7 +1544,7 @@ class ErosionLayer(nn.Module):
             #self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-4.321]))
             self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-1.27]))
             #self.max_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([0.0020]))
-            #self.max_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([-8.965]))
+            self.max_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([-8.965]))
 
         self.rain_rate.requires_grad = True
         self.evaporation_rate.requires_grad = True
@@ -1553,7 +1553,7 @@ class ErosionLayer(nn.Module):
         self.sediment_capacity_constant.requires_grad = True
         self.dissolving_rate.requires_grad = True
         self.deposition_rate.requires_grad = True
-        #self.max_height_delta.requires_grad = True
+        self.max_height_delta.requires_grad = True
         
     def forward(self, input_terrain, original_terrain, iterations=None, store_water=False, init_water=None, set_rain=None):
         if iterations is None:
