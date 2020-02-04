@@ -39,7 +39,7 @@ class ErosionTraditionalModel(BaseModel):
         self.real_A = input['A'].to(self.device)
         self.real_B = input['B'].to(self.device)[:, 1, :, :].unsqueeze(1)
         self.flowmap = input['Flowmap'].to(self.device)
-        self.image_paths = input['A_paths' if AtoB else 'B_paths']
+        self.image_paths = input['A_paths']
 
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
@@ -70,5 +70,5 @@ class ErosionTraditionalModel(BaseModel):
         self.real_A = single['A'].unsqueeze(0).to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
         self.real_B = single['B'].unsqueeze(0).to(self.device)[:, 1, :, :].unsqueeze(1).repeat(len(self.gpu_ids), 1, 1, 1)
         self.flowmap = single['Flowmap'].unsqueeze(0).to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
-        self.image_paths = [single['A_paths' if AtoB else 'B_paths']]
+        self.image_paths = [single['A_paths']]
         self.forward()
