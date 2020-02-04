@@ -1532,7 +1532,7 @@ class ErosionLayer(nn.Module):
             #self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-5.643]))
             self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-3.89]))
             #self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([0.0005]))
-            self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([-10.965]))
+            self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([-5.64]))
             #self.gravity = torch.nn.Parameter(torch.cuda.DoubleTensor([30.0]))
             self.gravity = torch.nn.Parameter(torch.cuda.DoubleTensor([4.906]))
             #self.sediment_capacity_constant = torch.nn.Parameter(torch.cuda.DoubleTensor([50.0]))
