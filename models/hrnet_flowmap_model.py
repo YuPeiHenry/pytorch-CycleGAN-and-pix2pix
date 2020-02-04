@@ -7,7 +7,7 @@ import os
 class HRnetFlowmapModel(BaseModel):
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
-        parser.set_defaults(netG='hrnet', dataset_mode='exr', input_nc=3, output_nc=1)
+        parser.set_defaults(netG='hrnet', dataset_mode='exr', image_type='exr', input_nc=3, output_nc=1)
         parser.add_argument('--exclude_input', action='store_true', help='')
         parser.add_argument('--fixed_example', action='store_true', help='')
         parser.add_argument('--fixed_index', type=int, default=0, help='')
