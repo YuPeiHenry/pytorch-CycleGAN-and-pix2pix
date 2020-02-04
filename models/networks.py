@@ -1493,6 +1493,7 @@ class ErosionLayer(nn.Module):
         self.output_water = output_water
         #self.blur = nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=1)
         self.relu = nn.ReLU(True)
+        self.sigmoid = nn.Sigmoid()
         self.epsilon = 1e-10
 
         self.use_convs = use_convs
@@ -1528,7 +1529,8 @@ class ErosionLayer(nn.Module):
             #self.rain_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.1 * self.cell_area]))
             self.rain_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-6.0388]))
             #self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.02]))
-            self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-5.643]))
+            #self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-5.643]))
+            self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-3.89]))
             #self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([0.0005]))
             self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([-10.965]))
             #self.gravity = torch.nn.Parameter(torch.cuda.DoubleTensor([30.0]))
@@ -1536,9 +1538,11 @@ class ErosionLayer(nn.Module):
             #self.sediment_capacity_constant = torch.nn.Parameter(torch.cuda.DoubleTensor([50.0]))
             self.sediment_capacity_constant = torch.nn.Parameter(torch.cuda.DoubleTensor([5.643]))
             #self.dissolving_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.25]))
-            self.dissolving_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-2.0]))
+            #self.dissolving_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-2.0]))
+            self.dissolving_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-0.47]))
             #self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([0.05]))
-            self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-4.321]))
+            #self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-4.321]))
+            self.deposition_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([-1.27]))
             #self.max_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([0.0020]))
             #self.max_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([-8.965]))
 
@@ -1626,7 +1630,7 @@ class ErosionLayer(nn.Module):
             # Sediment is eroded otherwise
             sediment_diff = sediment - sediment_capacity
             #third_term = (1 - first_term_boolean - second_term_boolean) * (self.relu(sediment_diff * 2 ** self.deposition_rate) - self.relu(-sediment_diff * 2 ** self.dissolving_rate))
-            third_term = (1 - first_term_boolean) * (self.relu(sediment_diff * 2 ** self.deposition_rate) - self.relu(-sediment_diff * 2 ** self.dissolving_rate))
+            third_term = (1 - first_term_boolean) * (self.relu(sediment_diff * self.sigmoid(self.deposition_rate)) - self.relu(-sediment_diff * self.sigmoid(self.dissolving_rate)))
             #deposited_sediment = first_term + second_term + third_term
             deposited_sediment = first_term + third_term
 
@@ -1648,7 +1652,7 @@ class ErosionLayer(nn.Module):
             velocity = (2 ** self.gravity.clone()) * height_delta / self.cell_width
         
             # Apply evaporation
-            water = water * (1 - 2 ** self.evaporation_rate.clone())
+            water = water * (1 - self.sigmoid(self.evaporation_rate.clone()))
             
             if store_water:
                 print(torch.mean(water))
