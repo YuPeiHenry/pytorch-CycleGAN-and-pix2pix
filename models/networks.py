@@ -194,6 +194,7 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
         if len(gpu_ids) > 0:
             assert(torch.cuda.is_available())
             net.to(gpu_ids[0])
+            net = torch.nn.DataParallel(net, gpu_ids)  # multi-GPUs
         net.init_weights
         return net
     elif netG == 'gata':
