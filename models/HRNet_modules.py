@@ -499,6 +499,6 @@ class PoseHighResolutionNet(nn.Module):
                     if name in ['bias']:
                         nn.init.constant_(m.bias, 0)
 
-def get_hrnet():
-    model = PoseHighResolutionNet()
+def get_hrnet(in_nc, out_nc):
+    model = PoseHighResolutionNet(in_nc, out_nc)
     return model
