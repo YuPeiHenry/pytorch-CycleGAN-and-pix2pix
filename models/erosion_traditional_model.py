@@ -43,7 +43,7 @@ class ErosionTraditionalModel(BaseModel):
 
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
-        self.fake_B = self.netG(self.real_A[:, 0].unsqueeze(1), self.real_A[:, 0].unsqueeze(1), set_rain=(self.flowmap + 1) / 2)  # G(A)
+        self.fake_B = self.netG(self.real_A[:, 0].unsqueeze(1), self.real_A[:, 0].unsqueeze(1), set_rain=(self.flowmap + 1) / 2).float()  # G(A)
 
     def backward_D(self):
         self.loss_D = torch.zeros([1]).to(self.device)
