@@ -55,12 +55,18 @@ class UnetTwoDiskModel(BaseModel):
         in_h = self.opt.input_height_channel
         out_h = self.opt.output_height_channel
         residue_A = self.Extra.clone()
-        residue_A[:, out_h, :, :] = residue_A[:, out_h, :, :] / 10
+        if not self.opt.exclude_flowmap:
+            residue_A[:, out_h, :, :] = residue_A[:, out_h, :, :] / 10
+        else:
+            residue_A = residue_A / 10
         self.fake_B = self.netG(torch.cat((self.real_A, residue_A), 1))
         if self.opt.exclude_flowmap:
             self.fake_B = torch.cat((torch.zeros_like(self.fake_B), self.fake_B), 1)
         residue = torch.zeros(self.fake_B.shape).to(self.device)
-        residue[:, out_h, :, :] = self.A_orig.squeeze(1) + self.Extra[:, out_h, :, :]
+        if not self.opt.exclude_flowmap:
+            residue[:, out_h, :, :] = self.A_orig.squeeze(1) + self.Extra[:, out_h, :, :]
+        else:
+            residue[:, out_h, :, :] = self.A_orig.squeeze(1) + self.Extra[:, 0, :, :]
         self.fake_B = self.fake_B + residue
 
     def backward_D(self):
@@ -87,8 +93,11 @@ class UnetTwoDiskModel(BaseModel):
         self.A_orig = single['A_orig'].unsqueeze(0)[:, self.opt.input_height_channel, :, :].unsqueeze(1).to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
         self.Extra = single['Extra'].unsqueeze(0).to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
         self.Extra[:, out_h, :, :] = self.Extra[:, out_h, :, :] - self.A_orig.squeeze(1)
-        
+
         self.image_paths = [single['A_paths']]
+
+        if self.opt.exclude_flowmap:
+            self.Extra = self.Extra[:, 1, :, :].unsqueeze(1)
 
         self.forward()
         self.fake_B[:, out_h, :, :] = self.fake_B[:, out_h, :, :] - ((910 - 86) / 2)
