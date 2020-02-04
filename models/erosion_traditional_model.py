@@ -10,6 +10,9 @@ class ErosionTraditionalModel(BaseModel):
         parser.set_defaults(dataset_mode='exr_flowmap', input_nc=3, output_nc=1, preprocess='N.A.', image_type='exr', no_flip=True)
         parser.add_argument('--width', type=int, default=512)
         parser.add_argument('--iterations', type=int, default=10)
+        parser.add_argument('--fixed_example', action='store_true', help='')
+        parser.add_argument('--fixed_index', type=int, default=0, help='')
+        parser.add_argument('--exclude_input', action='store_true', help='')
         return parser
 
     def __init__(self, opt):
@@ -17,7 +20,8 @@ class ErosionTraditionalModel(BaseModel):
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
         self.loss_names = ['G_L2']
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
-        self.visual_names = ['real_A', 'fake_B', 'real_B']
+        self.visual_names = ['real_A', 'real_B'] if not opt.exclude_input else []
+        self.visual_names += ['fake_B']
         # specify the models you want to save to the disk. The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>
         self.model_names = ['G']
         # define networks
