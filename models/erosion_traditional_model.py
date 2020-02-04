@@ -25,7 +25,7 @@ class ErosionTraditionalModel(BaseModel):
         # specify the models you want to save to the disk. The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>
         self.model_names = ['G']
         # define networks
-        self.netG = networks.init_net(networks.ErosionLayer(opt.width, opt.iterations), gpu_ids=self.gpu_ids, set_rain=True)
+        self.netG = networks.init_net(networks.ErosionLayer(opt.width, opt.iterations, set_rain=True), gpu_ids=self.gpu_ids)
 
         if self.isTrain:
             # define loss functions
