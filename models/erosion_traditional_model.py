@@ -55,6 +55,8 @@ class ErosionTraditionalModel(BaseModel):
         self.loss_G = self.loss_G_L2
         self.loss_G.backward()
 
+        self.var_names, self.var_values, self.var_grads = self.netErosion.module.get_var_and_grad()
+
     def optimize_parameters(self):
         self.forward()                   # compute fake images: G(A)
         self.backward_D()
