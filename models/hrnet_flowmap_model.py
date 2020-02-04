@@ -58,3 +58,4 @@ class HRnetFlowmapModel(BaseModel):
         self.image_paths = [single['A_paths']]
 
         self.forward()
+        self.fake_B = torch.cat((self.fake_B, torch.zeros_like(self.fake_B)), 1)
