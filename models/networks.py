@@ -8,6 +8,7 @@ from torch.autograd import Variable
 from .layers import *
 from .stylegan_modules import *
 from .erosionlib import *
+from .HRNet_modules import get_hrnet
 import numpy as np
 import types
 
@@ -188,6 +189,13 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
          dropout=0.5, batchnorm=False, maxpool=True, upconv=True, residual=True)
     elif netG == 'overfit':
         net = TestUnet(input_nc, output_nc)
+    elif netG == 'hrnet':
+        net = get_hrnet(input_nc, output_nc)
+        if len(gpu_ids) > 0:
+            assert(torch.cuda.is_available())
+            net.to(gpu_ids[0])
+        net.init_weights
+        return net
     elif netG == 'gata':
         net = GATAUnet(input_nc, output_nc, depth, ngf=ngf, max_filters=max_filters)
     elif netG == 'fixed':
