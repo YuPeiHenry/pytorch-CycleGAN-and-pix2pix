@@ -67,3 +67,4 @@ class ErosionTraditionalModel(BaseModel):
         self.real_B = single['B'].unsqueeze(0).to(self.device)[:, 1, :, :].unsqueeze(1).repeat(len(self.gpu_ids), 1, 1, 1)
         self.flowmap = single['Flowmap'].unsqueeze(0).to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
         self.image_paths = [single['A_paths' if AtoB else 'B_paths']]
+        self.forward()
