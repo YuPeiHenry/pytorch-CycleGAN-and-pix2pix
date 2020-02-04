@@ -1551,7 +1551,7 @@ class ErosionLayer(nn.Module):
         self.deposition_rate.requires_grad = True
         self.max_height_delta.requires_grad = True
         
-    def forward(self, input_terrain, original_terrain, iterations=None, store_water=False, init_water=None):
+    def forward(self, input_terrain, original_terrain, iterations=None, store_water=False, init_water=None, set_rain=None):
         if iterations is None:
             iterations = self.iterations
         iterations = min(iterations, self.iterations)
@@ -1576,6 +1576,8 @@ class ErosionLayer(nn.Module):
             water = sediment.clone()
         else:
             water = (init_water + 1) / 2
+        if set_rain is not None:
+            self.random_rainfall = set_rain.repeat(1, iterations, 1, 1)
         # The water velocity.
         velocity = sediment.clone()
 
@@ -1601,10 +1603,10 @@ class ErosionLayer(nn.Module):
             #velocity_2 = torch.max(velocity ** 2 + (2 ** self.gravity.clone()) * height_delta, self.epsilon)
             e = 2.718281828459045
             e_8 = torch.cuda.DoubleTensor([e ** (-8)])
-            max_term = self.epsilon
-            velocity_2 = velocity ** 2 + (2 ** self.gravity.clone()) * height_delta
-            velocity_2 = self.relu(velocity_2 - max_term) + torch.min(e_8, e ** (velocity_2 - max_term - 8)) + max_term
-            velocity = torch.sqrt(velocity_2)
+            #max_term = self.epsilon
+            #velocity_2 = velocity ** 2 + (2 ** self.gravity.clone()) * height_delta
+            #velocity_2 = self.relu(velocity_2 - max_term) + torch.min(e_8, e ** (velocity_2 - max_term - 8)) + max_term
+            #velocity = torch.sqrt(velocity_2)
 
             # If the sediment exceeds the quantity, then it is deposited, otherwise terrain is eroded.
             #new_height_delta = torch.max(height_delta.clone(), self.min_height_delta.clone() / self.cell_width)
@@ -1641,7 +1643,7 @@ class ErosionLayer(nn.Module):
             #terrain = self.apply_slippage(terrain, self.repose_slope, self.random_gradient[:, i].view(-1, self.width, self.width))
 
             # Update velocity
-            #velocity = (2 ** self.gravity.clone()) * height_delta / self.cell_width
+            velocity = (2 ** self.gravity.clone()) * height_delta / self.cell_width
         
             # Apply evaporation
             water = water * (1 - 2 ** self.evaporation_rate.clone())

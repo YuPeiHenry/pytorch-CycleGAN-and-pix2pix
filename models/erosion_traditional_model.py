@@ -7,10 +7,9 @@ import numpy as np
 class ErosionTraditionalModel(BaseModel):
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
-        parser.set_defaults(dataset_mode='erosion', input_nc=3, output_nc=1, preprocess='N.A.', image_type='uint16', image_value_bound=26350, no_flip=True)
+        parser.set_defaults(dataset_mode='exr_flowmap', input_nc=3, output_nc=1, preprocess='N.A.', image_type='exr', no_flip=True)
         parser.add_argument('--width', type=int, default=512)
         parser.add_argument('--iterations', type=int, default=10)
-        parser.add_argument('--debug', type=int, default=0)
         return parser
 
     def __init__(self, opt):
@@ -22,7 +21,7 @@ class ErosionTraditionalModel(BaseModel):
         # specify the models you want to save to the disk. The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>
         self.model_names = ['G']
         # define networks
-        self.netG = networks.init_net(networks.ErosionLayer(opt.width, opt.iterations), gpu_ids=[self.device])
+        self.netG = networks.init_net(networks.ErosionLayer(opt.width, opt.iterations), gpu_ids=self.gpu_ids)
 
         if self.isTrain:
             # define loss functions
@@ -33,22 +32,14 @@ class ErosionTraditionalModel(BaseModel):
             self.optimizers.append(self.optimizer_G)
 
     def set_input(self, input):
-        """Unpack input data from the dataloader and perform necessary pre-processing steps.
-
-        Parameters:
-            input (dict): include the data itself and its metadata information.
-
-        The option 'direction' can be used to swap images in domain A and domain B.
-        """
-        AtoB = self.opt.direction == 'AtoB'
-        self.real_A = input['A' if AtoB else 'B'].to(self.device)
-        self.real_B = input['B' if AtoB else 'A'].to(self.device)
+        self.real_A = input['A'].to(self.device)
+        self.real_B = input['B'].to(self.device)[:, 1, :, :].unsqueeze(1)
+        self.flowmap = input['Flowmap'].to(self.device)
         self.image_paths = input['A_paths' if AtoB else 'B_paths']
 
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
-        batch_size = self.real_A.size()[0]
-        self.fake_B = self.netG(self.real_A[:, 1].unsqueeze(1))  # G(A)
+        self.fake_B = self.netG(self.real_A[:, 0].unsqueeze(1), set_rain=(self.flowmap + 1) / 2)  # G(A)
 
     def backward_D(self):
         self.loss_D = torch.zeros([1]).to(self.device)
@@ -56,17 +47,9 @@ class ErosionTraditionalModel(BaseModel):
     def backward_G(self):
         """Calculate GAN and L1 loss for the generator"""
         # Second, G(A) = B
-        self.loss_G_L2 = self.criterionL2(self.fake_B, self.real_B.double()) * 10000
-        # combine loss and calculate gradients
-        self.loss_G = self.loss_G_L2 / 10000
+        self.loss_G_L2 = self.criterionL2(self.fake_B, self.real_B)
+        self.loss_G = self.loss_G_L2
         self.loss_G.backward()
-        if self.opt.debug == 1:
-            for name, p in self.netG.named_parameters():
-                if p.grad is None:
-                    continue
-                print(name)
-                print(p.data)
-                print(p.grad.data)
 
     def optimize_parameters(self):
         self.forward()                   # compute fake images: G(A)
@@ -76,3 +59,11 @@ class ErosionTraditionalModel(BaseModel):
         self.backward_G()                   # calculate graidents for G
         self.optimizer_G.step()             # udpate G's weights
 
+    def compute_visuals(self, input):
+        if not self.opt.fixed_example or dataset is None:
+            return
+        single = dataset.dataset.get_val_item(self.opt.fixed_index)
+        self.real_A = single['A'].unsqueeze(0).to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
+        self.real_B = single['B'].unsqueeze(0).to(self.device)[:, 1, :, :].unsqueeze(1).repeat(len(self.gpu_ids), 1, 1, 1)
+        self.flowmap = single['Flowmap'].unsqueeze(0).to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
+        self.image_paths = [single['A_paths' if AtoB else 'B_paths']]
