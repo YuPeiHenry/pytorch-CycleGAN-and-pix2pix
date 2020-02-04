@@ -1666,7 +1666,7 @@ class ErosionLayer(nn.Module):
             return terrain
 
     def get_var_and_grad(self):
-        names = ['rain_rate', 'evaporation_rate', 'min_height_delta', 'gravity', 'sediment_capacity_constant', 'deposition_rate', 'dissolving_rate', 'max_height_delta']
+        names = ['rain_rate', 'evaporation_rate', 'min_height_delta', 'gravity', 'sediment_capacity_constant', 'deposition_rate', 'dissolving_rate']
         vars = [getattr(self, name).item() for name in names]
         grads = [getattr(self, name).grad.item() for name in names]
         return names, vars, grads
