@@ -63,7 +63,7 @@ class ErosionTraditionalModel(BaseModel):
         self.backward_G()                   # calculate graidents for G
         self.optimizer_G.step()             # udpate G's weights
 
-    def compute_visuals(self, input):
+    def compute_visuals(self, dataset=None):
         if not self.opt.fixed_example or dataset is None:
             return
         single = dataset.dataset.get_val_item(self.opt.fixed_index)
