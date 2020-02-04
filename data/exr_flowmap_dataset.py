@@ -21,7 +21,7 @@ class ExrFlowmapDataset(ExrDataset):
         self.Flowmap_paths = sorted(make_dataset(self.Flowmap, opt.max_dataset_size))
         self.Flowmap_size = len(self.Flowmap_paths)  # get the size of dataset B
 
-        self.Flowmap_test_paths = sorted(make_dataset(os.path.join(opt.dataroot, 'test_Flowmap')))
+        self.Flowmap_test_paths = sorted(make_dataset(os.path.join(opt.dataroot, 'test_flowmap')))
         self.Flowmap_test_size = len(self.Flowmap_test_paths)
 
     def __getitem__(self, index):
