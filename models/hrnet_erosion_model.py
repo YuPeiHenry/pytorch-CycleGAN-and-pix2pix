@@ -41,7 +41,7 @@ class HRnetErosionModel(BaseModel):
 
     def set_input(self, input):
         self.real_A = input['A'].to(self.device)
-        self.real_B = input['B'].to(self.device)[:, 0].unsqueeze(1)
+        self.real_B = input['B'].to(self.device)[:, 1].unsqueeze(1)
         self.image_paths = input['A_paths']
 
     def forward(self):
