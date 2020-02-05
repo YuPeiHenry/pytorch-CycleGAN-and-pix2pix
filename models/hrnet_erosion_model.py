@@ -74,6 +74,11 @@ class HRnetErosionModel(BaseModel):
         if not self.opt.fixed_example or dataset is None:
             return
         single = dataset.dataset.get_val_item(self.opt.fixed_index)
+        self.real_A = None
+        self.real_B = None
+        self.flowmap = None
+        self.fake_B = None
+        torch.cuda.empty_cache()
         self.real_A = single['A'].unsqueeze(0).to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
         self.real_B = single['B'].unsqueeze(0).to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
         self.image_paths = [single['A_paths']]
