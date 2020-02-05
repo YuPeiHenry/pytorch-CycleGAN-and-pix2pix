@@ -16,7 +16,7 @@ class HRnetFlowmapModel(BaseModel):
     def __init__(self, opt):
         BaseModel.__init__(self, opt)
         self.loss_names = ['G']
-        self.visual_names = ['real_A'] if not opt.exclude_input else []
+        self.visual_names = ['real_A', 'real_B'] if not opt.exclude_input else []
         self.visual_names += ['fake_B']
         self.model_names = ['G']
         self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm_G,
@@ -34,6 +34,8 @@ class HRnetFlowmapModel(BaseModel):
 
     def forward(self):
         self.fake_B = self.netG(self.real_A)
+        if not self.isTrain:
+            self.fake_B = torch.cat((self.fake_B, torch.zeros_like(self.fake_B)), 1)
 
     def backward_D(self):
         self.loss_D = torch.zeros([1]).to(self.device)
