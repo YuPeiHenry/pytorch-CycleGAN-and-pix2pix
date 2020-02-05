@@ -47,7 +47,7 @@ class HRnetErosionModel(BaseModel):
     def forward(self):
         self.flowmap = self.netF(self.real_A)
         heightmap = self.netG(self.real_A) + self.real_A[:, 0].unsqueeze(1)
-        self.fake_B = self.netG(heightmap, heightmap, set_rain=(self.flowmap + 1) / 2).float()
+        self.fake_B = self.netErosion(heightmap, heightmap, set_rain=(self.flowmap + 1) / 2).float()
         
         if not self.isTrain:
             self.fake_B = torch.cat((self.flowmap, self.fake_B), 1)
@@ -62,9 +62,13 @@ class HRnetErosionModel(BaseModel):
     def optimize_parameters(self):
         self.forward()
         self.backward_D()
+        self.optimizer_F.zero_grad()
         self.optimizer_G.zero_grad()
+        self.optimizer_Erosion.zero_grad()
         self.backward_G()
+        self.optimizer_F.step()
         self.optimizer_G.step()
+        self.optimizer_Erosion.step()
 
     def compute_visuals(self, dataset=None):
         if not self.opt.fixed_example or dataset is None:
