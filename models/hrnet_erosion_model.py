@@ -7,7 +7,8 @@ import os
 class HRnetErosionModel(BaseModel):
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
-        parser.set_defaults(netG='hrnet', dataset_mode='exr', image_type='exr', input_nc=3, output_nc=1)
+        parser.set_defaults(netG='unet_resblock', dataset_mode='exr', image_type='exr', input_nc=3, output_nc=1)
+        parser.add_argument('--netF', type=string, default='hrnet')
         parser.add_argument('--width', type=int, default=512)
         parser.add_argument('--iterations', type=int, default=10)
         parser.add_argument('--exclude_input', action='store_true', help='')
@@ -23,7 +24,7 @@ class HRnetErosionModel(BaseModel):
         self.visual_names += ['fake_B']
         self.model_names = ['F', 'G', 'Erosion']
         self.preload_names = ['F']
-        self.netF = networks.define_G(opt.input_nc, 1, opt.ngf, opt.netG, opt.norm_G,
+        self.netF = networks.define_G(opt.input_nc, 1, opt.ngf, opt.netF, opt.norm_G,
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method)
         self.netG = networks.define_G(opt.input_nc, 1, opt.ngf, opt.netG, opt.norm_G,
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method)
