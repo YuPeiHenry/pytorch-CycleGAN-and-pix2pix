@@ -12,6 +12,7 @@ class HRnetErosionModel(BaseModel):
         parser.add_argument('--width', type=int, default=512)
         parser.add_argument('--iterations', type=int, default=10)
         parser.add_argument('--exclude_input', action='store_true', help='')
+        parser.add_argument('--freeze_flowmap', action='store_true', help='')
         parser.add_argument('--fixed_example', action='store_true', help='')
         parser.add_argument('--fixed_index', type=int, default=0, help='')
         parser.add_argument('--erosion_lr', type=float, default=0.2)
@@ -35,8 +36,9 @@ class HRnetErosionModel(BaseModel):
             self.criterionL2 = torch.nn.MSELoss()
             self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
-            self.optimizer_F = torch.optim.Adam(self.netF.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
-            self.optimizers.append(self.optimizer_F)
+            if not opt.freeze_flowmap:
+                self.optimizer_F = torch.optim.Adam(self.netF.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+                self.optimizers.append(self.optimizer_F)
             self.optimizer_Erosion = torch.optim.Adam(self.netErosion.parameters(), lr=opt.erosion_lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_Erosion)
 
@@ -63,11 +65,11 @@ class HRnetErosionModel(BaseModel):
     def optimize_parameters(self):
         self.forward()
         self.backward_D()
-        self.optimizer_F.zero_grad()
+        if not self.opt.freeze_flowmap: self.optimizer_F.zero_grad()
         self.optimizer_G.zero_grad()
         self.optimizer_Erosion.zero_grad()
         self.backward_G()
-        self.optimizer_F.step()
+        if not self.opt.freeze_flowmap: self.optimizer_F.step()
         self.optimizer_G.step()
         self.optimizer_Erosion.step()
 
