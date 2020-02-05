@@ -13,6 +13,7 @@ class HRnetErosionModel(BaseModel):
         parser.add_argument('--exclude_input', action='store_true', help='')
         parser.add_argument('--fixed_example', action='store_true', help='')
         parser.add_argument('--fixed_index', type=int, default=0, help='')
+        parser.add_argument('--erosion_lr', type=float, default=0.2)
         return parser
 
     def __init__(self, opt):
@@ -35,7 +36,7 @@ class HRnetErosionModel(BaseModel):
             self.optimizers.append(self.optimizer_G)
             self.optimizer_F = torch.optim.Adam(self.netF.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_F)
-            self.optimizer_Erosion = torch.optim.Adam(self.netErosion.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+            self.optimizer_Erosion = torch.optim.Adam(self.netErosion.parameters(), lr=opt.erosion_lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_Erosion)
 
     def set_input(self, input):
