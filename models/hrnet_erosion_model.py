@@ -8,7 +8,7 @@ class HRnetErosionModel(BaseModel):
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
         parser.set_defaults(netG='unet_resblock', dataset_mode='exr', image_type='exr', input_nc=3, output_nc=1)
-        parser.add_argument('--netF', type=string, default='hrnet')
+        parser.add_argument('--netF', type=str, default='hrnet')
         parser.add_argument('--width', type=int, default=512)
         parser.add_argument('--iterations', type=int, default=10)
         parser.add_argument('--exclude_input', action='store_true', help='')
