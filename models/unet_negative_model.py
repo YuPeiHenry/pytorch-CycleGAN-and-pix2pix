@@ -53,10 +53,10 @@ class UnetNegativeModel(BaseModel):
 
     def backward_G(self):
         diff = self.B_orig - self.A_orig;
-        error = (self.fake_B - self.B_orig) ** 2;
+        error = self.fake_B - self.B_orig) ** 2;
         positive = error[diff > 0]
         negative = error[diff < 0]
-        self.loss_G = self.criterionL1(positive + negative * self.opt.negative_constant)
+        self.loss_G = torch.sum(positive + negative * self.opt.negative_constant)
         self.loss_G.backward()
 
     def optimize_parameters(self):
