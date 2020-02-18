@@ -50,7 +50,7 @@ class UnetNegativeModel(BaseModel):
 
         if not self.isTrain:
             self.fake_B[:, out_h, :, :] = self.fake_B[:, out_h, :, :] - ((910 - 86) / 2)
-            self.fake_B[:, out_h, :, :] = self.fake_B[:, out_h, :, :] / (910 + 86) * 2
+            self.fake_B[:, out_h, :, :] = self.fake_B[:, out_h, :, :] / (910 + 86) * 4
 
     def backward_D(self):
         self.loss_D = torch.zeros([1]).to(self.device)
@@ -85,7 +85,7 @@ class UnetNegativeModel(BaseModel):
 
         self.forward()
         self.fake_B[:, out_h, :, :] = self.fake_B[:, out_h, :, :] - ((910 - 86) / 2)
-        self.fake_B[:, out_h, :, :] = self.fake_B[:, out_h, :, :] / (910 + 86) * 2
+        self.fake_B[:, out_h, :, :] = self.fake_B[:, out_h, :, :] / (910 + 86) * 4
         """
         if self.opt.break4:
             self.real_A = self.combine_from_4(self.real_A)
