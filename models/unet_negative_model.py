@@ -4,7 +4,7 @@ from . import networks
 import numpy as np
 import os
 
-class UnetTwoDiskModel(BaseModel):
+class UnetNegativeModel(BaseModel):
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
         parser.set_defaults(norm='instance', norm_G='instance', netG='unet_resblock', dataset_mode='exr', input_nc=3, output_nc=1, preprocess='N.A.', image_type='exr', no_flip=True, ngf=32)
