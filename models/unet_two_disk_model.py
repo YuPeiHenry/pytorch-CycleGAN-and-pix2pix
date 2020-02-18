@@ -68,6 +68,10 @@ class UnetTwoDiskModel(BaseModel):
         else:
             residue[:, out_h, :, :] = self.A_orig.squeeze(1) + self.Extra[:, 0, :, :]
         self.fake_B = self.fake_B + residue
+        
+        if not self.isTrain:
+            self.fake_B[:, out_h, :, :] = self.fake_B[:, out_h, :, :] - ((910 - 86) / 2)
+            self.fake_B[:, out_h, :, :] = self.fake_B[:, out_h, :, :] / (910 + 86) * 2
 
     def backward_D(self):
         self.loss_D = torch.zeros([1]).to(self.device)
