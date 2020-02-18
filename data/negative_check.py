@@ -24,7 +24,7 @@ for file1, file2 in zip(os.listdir(sys.argv[1]), os.listdir(sys.argv[2])):
     if file1[-4:] != '.exr':
         continue
     exr_file_original = read_exr_float32(os.path.join(sys.argv[1], file1), ["1"], 512, 512)
-    exr_file_generated = read_exr_float32(os.path.join(sys.argv[1], file2), ["1"], 512, 512)
+    exr_file_generated = read_exr_float32(os.path.join(sys.argv[2], file2), ["1"], 512, 512)
     diff = (exr_file_generated - exr_file_original)
     negative += len(diff[diff<0])
     positive += len(diff[diff>0])
