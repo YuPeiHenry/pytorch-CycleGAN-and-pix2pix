@@ -56,7 +56,7 @@ class UnetNegativeModel(BaseModel):
         error = (self.fake_B - self.B_orig) ** 2;
         positive = error[diff > 0]
         negative = error[diff < 0]
-        self.loss_G = torch.sum(positive + negative * self.opt.negative_constant)
+        self.loss_G = torch.sum(positive) + torch.sum(negative * self.opt.negative_constant)
         self.loss_G.backward()
 
     def optimize_parameters(self):
