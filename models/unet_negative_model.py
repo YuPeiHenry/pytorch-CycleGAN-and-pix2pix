@@ -80,12 +80,9 @@ class UnetNegativeModel(BaseModel):
         self.A_orig = single['A_orig'].unsqueeze(0)[:, self.opt.input_height_channel, :, :].unsqueeze(1).to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
         self.image_paths = [single['A_paths']]
 
-        if self.opt.exclude_flowmap:
-            self.Extra = self.Extra[:, 1, :, :].unsqueeze(1)
-
         self.forward()
         self.fake_B[:, out_h, :, :] = self.fake_B[:, out_h, :, :] - ((910 - 86) / 2)
-        self.fake_B[:, out_h, :, :] = self.fake_B[:, out_h, :, :] / (910 + 86) * 4
+        self.fake_B[:, out_h, :, :] = self.fake_B[:, out_h, :, :] / (910 + 86) * 2
         """
         if self.opt.break4:
             self.real_A = self.combine_from_4(self.real_A)
