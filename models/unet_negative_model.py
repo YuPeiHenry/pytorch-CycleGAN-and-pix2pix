@@ -49,8 +49,8 @@ class UnetNegativeModel(BaseModel):
         self.fake_B = self.fake_B + self.A_orig
 
         if not self.isTrain:
-            self.fake_B[:, out_h, :, :] = self.fake_B[:, out_h, :, :] - ((910 - 86) / 2)
-            self.fake_B[:, out_h, :, :] = self.fake_B[:, out_h, :, :] / (910 + 86) * 4
+            self.fake_B = self.fake_B - ((910 - 86) / 2)
+            self.fake_B = self.fake_B / (910 + 86) * 2
 
     def backward_D(self):
         self.loss_D = torch.zeros([1]).to(self.device)
@@ -73,7 +73,6 @@ class UnetNegativeModel(BaseModel):
     def compute_visuals(self, dataset=None):
         if not self.opt.fixed_example or dataset is None:
             return
-        out_h = self.opt.output_height_channel
         single = dataset.dataset.get_val_item(self.opt.fixed_index)
         self.real_A = single['A'].unsqueeze(0).to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
         self.real_B = single['B'].unsqueeze(0).to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
@@ -81,8 +80,8 @@ class UnetNegativeModel(BaseModel):
         self.image_paths = [single['A_paths']]
 
         self.forward()
-        self.fake_B[:, out_h, :, :] = self.fake_B[:, out_h, :, :] - ((910 - 86) / 2)
-        self.fake_B[:, out_h, :, :] = self.fake_B[:, out_h, :, :] / (910 + 86) * 2
+        self.fake_B = self.fake_B - ((910 - 86) / 2)
+        self.fake_B = self.fake_B / (910 + 86) * 2
         """
         if self.opt.break4:
             self.real_A = self.combine_from_4(self.real_A)
