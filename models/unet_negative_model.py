@@ -9,6 +9,7 @@ class UnetNegativeModel(BaseModel):
     def modify_commandline_options(parser, is_train=True):
         parser.set_defaults(norm='instance', norm_G='instance', netG='unet_resblock', dataset_mode='exr', input_nc=3, output_nc=1, preprocess='N.A.', image_type='exr', no_flip=True, ngf=32)
         parser.add_argument('--negative_constant', type=float, default=4.0, help='')
+        parser.add_argument('--L1', action='store_true', help='')
         parser.add_argument('--exclude_input', action='store_true', help='')
         parser.add_argument('--fixed_example', action='store_true', help='')
         parser.add_argument('--fixed_index', type=int, default=0, help='')
@@ -56,7 +57,7 @@ class UnetNegativeModel(BaseModel):
 
     def backward_G(self):
         diff = self.B_orig - self.A_orig;
-        error = (self.fake_B - self.B_orig) ** 2;
+        error = (self.fake_B - self.B_orig) ** (2 if not self.opt.L1 else 1);
         positive = error[diff > 0]
         negative = error[diff < 0]
         self.loss_G = (torch.mean(positive) + torch.mean(negative * self.opt.negative_constant)) / 2
