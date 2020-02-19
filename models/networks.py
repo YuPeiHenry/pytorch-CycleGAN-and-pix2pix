@@ -183,7 +183,7 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
         net = UnetGenerator(input_nc, output_nc, 9, ngf, max_filters=max_filters, norm_layer=norm_layer, use_dropout=use_dropout, styled=norm=='adain', progressive=progressive, n_stage=progressive_stages, downsample_mode=downsample_mode, upsample_mode=upsample_mode, upsample_method=upsample_method, linear=linear, numDownsampleConv=numDownsampleConv, numUpsampleConv=numUpsampleConv)
     elif netG == 'unet_resblock':
         net = UnetResBlock(input_nc, output_nc, ngf, depth=depth, inc_rate=2., activation=nn.ReLU(), 
-         dropout=0.5, batchnorm=False, maxpool=True, upconv=True, residual=True)
+         dropout=0.5, batchnorm=norm=='batch', maxpool=True, upconv=True, residual=True)
     elif netG == 'unet_encoder':
         net = UnetEncoder(input_nc, output_nc, ngf, depth=depth, num_no_skip=depth-1, inc_rate=2., activation=nn.ReLU(), 
          dropout=0.5, batchnorm=False, maxpool=True, upconv=True, residual=True)
