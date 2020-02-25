@@ -56,7 +56,7 @@ class UnetHybridDisModel(BaseModel):
         """
         self.fake_B = self.netG(self.real_A)
         self.fake_B = self.fake_B + self.A_orig
-        self.flow_mult = self.netD(self.flowmap)
+        self.flow_mult = nn.sigmoid(self.netD(self.flowmap))
         self.flow_mult = (self.flow_mult - torch.mean(self.flow_mult, dim=0) * 0.9)
 
         if not self.isTrain:
