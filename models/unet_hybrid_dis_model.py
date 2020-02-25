@@ -65,7 +65,7 @@ class UnetHybridDisModel(BaseModel):
         self.loss_D.backward()
 
     def backward_G(self):
-        self.loss_G = self.criterionL2(self.flow_mult * self.fake_B.detach(), self.flow_mult * self.B_orig)
+        self.loss_G = self.criterionL2(self.flow_mult * self.fake_B, self.flow_mult * self.B_orig)
         self.loss_G.backward()
 
     def optimize_parameters(self):
