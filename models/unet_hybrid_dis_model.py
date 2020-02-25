@@ -86,6 +86,7 @@ class UnetHybridDisModel(BaseModel):
         self.real_B = single['B'].unsqueeze(0).to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
         self.A_orig = single['A_orig'].unsqueeze(0)[:, self.opt.input_height_channel, :, :].unsqueeze(1).to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
         self.B_orig = single['B_orig'].unsqueeze(0)[:, self.opt.output_height_channel, :, :].unsqueeze(1).to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
+        self.flowmap = self.real_B[:, self.opt.output_flow_channel, :, :].unsqueeze(1).clone()
         self.image_paths = [single['A_paths']]
 
         self.forward()
