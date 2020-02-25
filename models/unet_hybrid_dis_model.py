@@ -25,6 +25,7 @@ class UnetHybridDisModel(BaseModel):
         self.visual_names = ['real_A', 'real_B'] if not opt.exclude_input else []
         self.visual_names += ['fake_B']
         self.model_names = ['G', 'D']
+        self.sigmoid = torch.nn.Sigmoid();
         self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm_G,
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method, depth=opt.depth)
         if self.isTrain:
@@ -55,7 +56,7 @@ class UnetHybridDisModel(BaseModel):
         """
         self.fake_B = self.netG(self.real_A)
         self.fake_B = self.fake_B + self.A_orig
-        self.flow_mult = self.netD(self.flowmap)
+        self.flow_mult = self.sigmoid(self.netD(self.flowmap))
 
         if not self.isTrain:
             self.fake_B = self.fake_B * 2
