@@ -44,7 +44,7 @@ class UnetHybridDisModel(BaseModel):
         self.A_orig = input['A_orig'][:, self.opt.input_height_channel, :, :].unsqueeze(1).to(self.device)
         # Account for saving the full heightmap instead of residual
         self.B_orig = input['B_orig'][:, self.opt.output_height_channel, :, :].to(self.device).unsqueeze(1)
-        self.flowmap = self.real_B[:, self.opt.output_flow_channel, :, :].clone()
+        self.flowmap = self.real_B[:, self.opt.output_flow_channel, :, :].unsqueeze(1).clone()
         self.image_paths = input['A_paths']
 
     def forward(self):
