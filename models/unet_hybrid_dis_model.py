@@ -70,11 +70,9 @@ class UnetHybridDisModel(BaseModel):
 
     def optimize_parameters(self):
         self.forward()
-        self.set_requires_grad(self.netD, True)  # enable backprop for D
         self.optimizer_D.zero_grad()     # set D's gradients to zero
         self.backward_D()                # calculate gradients for D
         self.optimizer_D.step()          # update D's weights
-        self.set_requires_grad(self.netD, False)  # D requires no gradients when optimizing G
         self.optimizer_G.zero_grad()
         self.backward_G()
         self.optimizer_G.step()
@@ -92,7 +90,7 @@ class UnetHybridDisModel(BaseModel):
         self.forward()
         loss_G = self.criterionL2(self.fake_B, self.B_orig)
         loss_G.backward()
-        loss_D = -self.criterionL2(self.flow_mult * self.fake_B, self.flow_mult * self.B_orig)
+        loss_D = -self.criterionL2(self.flow_mult * self.fake_B.detach(), self.flow_mult * self.B_orig.detach())
         loss_D.backward()
         self.fake_B = self.fake_B * 2
         """
