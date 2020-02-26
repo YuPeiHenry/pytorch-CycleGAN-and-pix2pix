@@ -8,7 +8,7 @@ class UnetHybridDisModel(BaseModel):
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
         parser.set_defaults(norm='instance', norm_G='instance', netG='unet_resblock', dataset_mode='exr', input_nc=4, output_nc=1, preprocess='N.A.', image_type='exr', no_flip=True, ngf=32)
-        parser.add_argument('--downsize', action='store_true', help='')
+        parser.add_argument('--break16', action='store_true', help='')
         parser.add_argument('--exclude_input', action='store_true', help='')
         parser.add_argument('--fixed_example', action='store_true', help='')
         parser.add_argument('--fixed_index', type=int, default=0, help='')
@@ -47,23 +47,26 @@ class UnetHybridDisModel(BaseModel):
         self.flowmap = self.real_B[:, self.opt.output_flow_channel, :, :].unsqueeze(1).clone()
         self.image_paths = input['A_paths']
         
-        if self.opt.downsize:
-            self.real_A = self.downsample(self.real_A)
-            self.real_B = self.downsample(self.real_B)
-            self.A_orig = self.downsample(self.A_orig)
-            self.B_orig = self.downsample(self.B_orig)
-            self.flowmap = self.downsample(self.flowmap)
-
     def forward(self):
-        """
-        if self.opt.break4:
-            self.real_A = self.break_into_4(self.real_A)
-            self.real_B = self.break_into_4(self.real_B)
-        """
+        if self.opt.break16:
+            self.real_A = self.break_into_16(self.real_A)
+            #self.real_B = self.break_into_16(self.real_B)
+            self.A_orig = self.break_into_16(self.A_orig)
+            #self.B_orig = self.break_into_16(self.B_orig)
+            self.flowmap = self.break_into_16(self.flowmap)
+
         self.fake_B = self.netG(torch.cat((self.real_A, self.flowmap), 1))
         self.fake_B = self.fake_B + self.A_orig
         self.flow_mult = self.sigmoid(self.netD(self.flowmap))
         self.flow_mult = (self.flow_mult - torch.mean(self.flow_mult, dim=0) * 0.9)
+
+        if self.opt.break16:
+            self.real_A = self.combine_from_16(self.real_A)
+            #self.real_B = self.combine_from_16(self.real_B)
+            self.A_orig = self.combine_from_16(self.A_orig)
+            #self.B_orig = self.combine_from_16(self.B_orig)
+            self.flowmap = self.combine_from_16(self.flowmap)
+            self.fake_B = self.combine_from_16(self.fake_B)
 
         if not self.isTrain:
             self.fake_B = self.fake_B * 2
@@ -95,12 +98,6 @@ class UnetHybridDisModel(BaseModel):
         self.B_orig = single['B_orig'].unsqueeze(0)[:, self.opt.output_height_channel, :, :].unsqueeze(1).to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
         self.flowmap = self.real_B[:, self.opt.output_flow_channel, :, :].unsqueeze(1).clone()
         self.image_paths = [single['A_paths']]
-        if self.opt.downsize:
-            self.real_A = self.downsample(self.real_A)
-            self.real_B = self.downsample(self.real_B)
-            self.A_orig = self.downsample(self.A_orig)
-            self.B_orig = self.downsample(self.B_orig)
-            self.flowmap = self.downsample(self.flowmap)
 
         self.forward()
         loss_G = self.criterionL2(self.fake_B, self.B_orig)
@@ -108,15 +105,16 @@ class UnetHybridDisModel(BaseModel):
         loss_D = -self.criterionL2(self.flow_mult * self.fake_B.detach(), self.flow_mult * self.B_orig.detach())
         loss_D.backward()
         self.fake_B = self.fake_B * 2
-        """
-        if self.opt.break4:
-            self.real_A = self.combine_from_4(self.real_A)
-            self.real_B = self.combine_from_4(self.real_B)
-            self.post_unet = self.combine_from_4(self.post_unet)
-        """
+
+
+    def break_into_16(self, image):
+        return self.break_into_4(self.break_into_4(image))
 
     def break_into_4(self, image):
         return torch.cat(torch.chunk(torch.cat(torch.chunk(image, 2, dim=2), 0), 2, dim=3), 0)
+
+    def combine_from_16(self, image):
+        return self.combine_from_4(self.combine_from_4(image))
 
     def combine_from_4(self, image):
         return torch.cat(torch.chunk(torch.cat(torch.chunk(image, 2, dim=0), 3), 2, dim=0), 2)
