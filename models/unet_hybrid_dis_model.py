@@ -9,6 +9,7 @@ class UnetHybridDisModel(BaseModel):
     def modify_commandline_options(parser, is_train=True):
         parser.set_defaults(norm='instance', norm_G='instance', netG='unet_resblock', dataset_mode='exr', input_nc=3, output_nc=1, preprocess='N.A.', image_type='exr', no_flip=True, ngf=32)
         parser.add_argument('--noflow', action='store_true', help='')
+        parser.add_argument('--nomask', action='store_true', help='')
         parser.add_argument('--break16', action='store_true', help='')
         parser.add_argument('--exclude_input', action='store_true', help='')
         parser.add_argument('--fixed_example', action='store_true', help='')
@@ -82,7 +83,10 @@ class UnetHybridDisModel(BaseModel):
         self.loss_D.backward()
 
     def backward_G(self):
-        self.loss_G = self.criterionL2(self.flow_mult.detach() * self.fake_B, self.flow_mult.detach() * self.B_orig)
+        if self.opt.nomask:
+            self.loss_G = self.criterionL2(self.fake_B, self.B_orig)
+        else:
+            self.loss_G = self.criterionL2(self.flow_mult.detach() * self.fake_B, self.flow_mult.detach() * self.B_orig)
         self.loss_G.backward()
 
     def optimize_parameters(self):
