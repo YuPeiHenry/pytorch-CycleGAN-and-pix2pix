@@ -69,9 +69,9 @@ class UnetErosionMaskModel(BaseModel):
             self.fake_B = self.combine_from_16(self.fake_B)
             self.flow_mult = self.combine_from_16(self.flow_mult)
 
-        self.fake_B = (self.fake_B - ((910 - 86) / 2) / (910 + 86) * 2
+        self.fake_B = (self.fake_B - ((910 - 86) / 2)) / (910 + 86) * 2
         self.fake_B = self.netErosion(self.fake_B, self.fake_B, set_rain=self.flowmap)
-        self.fake_B = (self.fake_B * (910 + 86) / 2) + ((910 - 86) / 2)
+        self.fake_B = (self.fake_B * ((910 + 86) / 2)) + ((910 - 86) / 2)
         if not self.isTrain:
             self.fake_B = self.fake_B * 2
 
