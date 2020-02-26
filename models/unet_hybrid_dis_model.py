@@ -25,7 +25,7 @@ class UnetHybridDisModel(BaseModel):
         self.visual_names += ['fake_B']
         self.model_names = ['G', 'D']
         self.sigmoid = torch.nn.Sigmoid()
-        self.downsample = nn.AvgPool2d(kernel_size=4, stride=4, padding=0, ceil_mode=False)
+        self.downsample = torch.nn.AvgPool2d(kernel_size=4, stride=4, padding=0, ceil_mode=False)
         self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm_G,
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method, depth=opt.depth)
         self.netD = networks.define_G(1, 1, opt.ngf, opt.netG, opt.norm_G,
