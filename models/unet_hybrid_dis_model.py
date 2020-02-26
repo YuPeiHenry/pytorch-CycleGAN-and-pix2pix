@@ -7,7 +7,8 @@ import os
 class UnetHybridDisModel(BaseModel):
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
-        parser.set_defaults(norm='instance', norm_G='instance', netG='unet_resblock', dataset_mode='exr', input_nc=4, output_nc=1, preprocess='N.A.', image_type='exr', no_flip=True, ngf=32)
+        parser.set_defaults(norm='instance', norm_G='instance', netG='unet_resblock', dataset_mode='exr', input_nc=3, output_nc=1, preprocess='N.A.', image_type='exr', no_flip=True, ngf=32)
+        parser.add_argument('--noflow', action='store_true', help='')
         parser.add_argument('--break16', action='store_true', help='')
         parser.add_argument('--exclude_input', action='store_true', help='')
         parser.add_argument('--fixed_example', action='store_true', help='')
@@ -26,7 +27,7 @@ class UnetHybridDisModel(BaseModel):
         self.model_names = ['G', 'D']
         self.sigmoid = torch.nn.Sigmoid()
         self.downsample = torch.nn.AvgPool2d(kernel_size=4, stride=4, padding=0, ceil_mode=False)
-        self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm_G,
+        self.netG = networks.define_G(opt.input_nc + (0 if self.opt.noflow else 1), opt.output_nc, opt.ngf, opt.netG, opt.norm_G,
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method, depth=opt.depth)
         self.netD = networks.define_G(1, 1, opt.ngf, opt.netG, opt.norm_G,
                                   not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method, depth=opt.depth - 2)
@@ -55,7 +56,10 @@ class UnetHybridDisModel(BaseModel):
             #self.B_orig = self.break_into_16(self.B_orig)
             self.flowmap = self.break_into_16(self.flowmap)
 
-        self.fake_B = self.netG(torch.cat((self.real_A, self.flowmap), 1))
+        if self.opt.noflow:
+            self.fake_B = self.netG(self.real_A)
+        else:
+            self.fake_B = self.netG(torch.cat((self.real_A, self.flowmap), 1))
         self.fake_B = self.fake_B + self.A_orig
         self.flow_mult = self.sigmoid(self.netD(self.flowmap))
         self.flow_mult = (self.flow_mult - torch.mean(self.flow_mult, dim=0) * 0.9)
