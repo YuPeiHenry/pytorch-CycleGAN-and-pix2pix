@@ -7,7 +7,7 @@ import os
 class UnetHybridDisModel(BaseModel):
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
-        parser.set_defaults(norm='instance', norm_G='instance', netG='unet_resblock', dataset_mode='exr', input_nc=3, output_nc=1, preprocess='N.A.', image_type='exr', no_flip=True, ngf=32)
+        parser.set_defaults(norm='instance', norm_G='instance', netG='unet_resblock', dataset_mode='exr', input_nc=4, output_nc=1, preprocess='N.A.', image_type='exr', no_flip=True, ngf=32)
         parser.add_argument('--negative_constant', type=float, default=4.0, help='')
         parser.add_argument('--L1', action='store_true', help='')
         parser.add_argument('--exclude_input', action='store_true', help='')
@@ -53,7 +53,7 @@ class UnetHybridDisModel(BaseModel):
             self.real_A = self.break_into_4(self.real_A)
             self.real_B = self.break_into_4(self.real_B)
         """
-        self.fake_B = self.netG(self.real_A)
+        self.fake_B = self.netG(torch.cat((self.real_A, self.flowmap), 1))
         self.fake_B = self.fake_B + self.A_orig
         self.flow_mult = self.sigmoid(self.netD(self.flowmap))
         self.flow_mult = (self.flow_mult - torch.mean(self.flow_mult, dim=0) * 0.9)
