@@ -74,7 +74,7 @@ class UnetHybridDisModel(BaseModel):
             self.flow_mult = self.combine_from_16(self.flow_mult)
 
         if not self.isTrain:
-            self.fake_B = self.fake_B - ((910 - 86) / 2) / (910 + 86) * 2
+            self.fake_B = (self.fake_B - (910 - 86) / 2) / (910 + 86) * 2
             self.fake_B = torch.cat((self.flow_mult + 0.5, self.fake_B), 1)
 
     def backward_D(self):
@@ -110,7 +110,7 @@ class UnetHybridDisModel(BaseModel):
         loss_G.backward()
         loss_D = -self.criterionL2(self.flow_mult * self.fake_B.detach(), self.flow_mult * self.B_orig.detach())
         loss_D.backward()
-        self.fake_B = self.fake_B - ((910 - 86) / 2) / (910 + 86) * 2
+        self.fake_B = (self.fake_B - (910 - 86) / 2) / (910 + 86) * 2
         self.fake_B = torch.cat((self.flow_mult + 0.5, self.fake_B), 1)
 
     def break_into_16(self, image):
