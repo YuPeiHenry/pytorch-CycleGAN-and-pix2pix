@@ -67,6 +67,7 @@ class UnetHybridDisModel(BaseModel):
             #self.B_orig = self.combine_from_16(self.B_orig)
             self.flowmap = self.combine_from_16(self.flowmap)
             self.fake_B = self.combine_from_16(self.fake_B)
+            self.flow_mult = self.combine_from_16(self.flow_mult)
 
         if not self.isTrain:
             self.fake_B = self.fake_B * 2
