@@ -8,6 +8,7 @@ class UnetHybridDisModel(BaseModel):
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
         parser.set_defaults(norm='instance', norm_G='instance', netG='unet_resblock', dataset_mode='exr', input_nc=4, output_nc=1, preprocess='N.A.', image_type='exr', no_flip=True, ngf=32)
+        parser.add_argument('--downsize', action='store_true', help='')
         parser.add_argument('--exclude_input', action='store_true', help='')
         parser.add_argument('--fixed_example', action='store_true', help='')
         parser.add_argument('--fixed_index', type=int, default=0, help='')
@@ -23,7 +24,8 @@ class UnetHybridDisModel(BaseModel):
         self.visual_names = ['real_A', 'real_B'] if not opt.exclude_input else []
         self.visual_names += ['fake_B']
         self.model_names = ['G', 'D']
-        self.sigmoid = torch.nn.Sigmoid();
+        self.sigmoid = torch.nn.Sigmoid()
+        self.downsample = nn.AvgPool2d(kernel_size=4, stride=4, padding=0, ceil_mode=False)
         self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm_G,
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method, depth=opt.depth)
         self.netD = networks.define_G(1, 1, opt.ngf, opt.netG, opt.norm_G,
@@ -44,6 +46,13 @@ class UnetHybridDisModel(BaseModel):
         self.B_orig = input['B_orig'][:, self.opt.output_height_channel, :, :].to(self.device).unsqueeze(1)
         self.flowmap = self.real_B[:, self.opt.output_flow_channel, :, :].unsqueeze(1).clone()
         self.image_paths = input['A_paths']
+        
+        if self.opt.downsize:
+            self.real_A = self.downsample(self.real_A)
+            self.real_B = self.downsample(self.real_B)
+            self.A_orig = self.downsample(self.A_orig)
+            self.B_orig = self.downsample(self.B_orig)
+            self.flowmap = self.downsample(self.flowmap)
 
     def forward(self):
         """
@@ -86,6 +95,12 @@ class UnetHybridDisModel(BaseModel):
         self.B_orig = single['B_orig'].unsqueeze(0)[:, self.opt.output_height_channel, :, :].unsqueeze(1).to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
         self.flowmap = self.real_B[:, self.opt.output_flow_channel, :, :].unsqueeze(1).clone()
         self.image_paths = [single['A_paths']]
+        if self.opt.downsize:
+            self.real_A = self.downsample(self.real_A)
+            self.real_B = self.downsample(self.real_B)
+            self.A_orig = self.downsample(self.A_orig)
+            self.B_orig = self.downsample(self.B_orig)
+            self.flowmap = self.downsample(self.flowmap)
 
         self.forward()
         loss_G = self.criterionL2(self.fake_B, self.B_orig)
