@@ -30,7 +30,7 @@ class UnetHybridDisModel(BaseModel):
         self.downsample = torch.nn.AvgPool2d(kernel_size=4, stride=4, padding=0, ceil_mode=False)
         self.netG = networks.define_G(opt.input_nc + (0 if self.opt.noflow else 1), opt.output_nc, opt.ngf, opt.netG, opt.norm_G,
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method, depth=opt.depth)
-        if not opt.no_mask:
+        if not opt.nomask:
             self.loss_names += ['D']
             self.model_names += ['D']
             self.netD = networks.define_G(1, 1, opt.ngf, opt.netG, opt.norm_G,
@@ -40,7 +40,7 @@ class UnetHybridDisModel(BaseModel):
             self.criterionL2 = torch.nn.MSELoss()
             self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
-            if not opt.no_mask:
+            if not opt.nomask:
                 self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
                 self.optimizers.append(self.optimizer_D)
 
@@ -87,7 +87,7 @@ class UnetHybridDisModel(BaseModel):
                 self.fake_B = torch.cat((torch.zeros_like(self.fake_B), self.fake_B), 1)
 
     def backward_D(self):
-        if self.opt.no_mask:
+        if self.opt.nomask:
             self.loss_D = torch.zeros([1]).to(self.device)
         else:
             self.loss_D = -self.criterionL2(self.flow_mult * self.fake_B.detach(), self.flow_mult * self.B_orig)
@@ -102,9 +102,9 @@ class UnetHybridDisModel(BaseModel):
 
     def optimize_parameters(self):
         self.forward()
-        if not self.opt.no_mask: self.optimizer_D.zero_grad()     # set D's gradients to zero
+        if not self.opt.nomask: self.optimizer_D.zero_grad()     # set D's gradients to zero
         self.backward_D()                # calculate gradients for D
-        if not self.opt.no_mask: self.optimizer_D.step()          # update D's weights
+        if not self.opt.nomask: self.optimizer_D.step()          # update D's weights
         self.optimizer_G.zero_grad()
         self.backward_G()
         self.optimizer_G.step()
@@ -123,7 +123,7 @@ class UnetHybridDisModel(BaseModel):
         self.forward()
         loss_G = self.criterionL2(self.fake_B, self.B_orig)
         loss_G.backward()
-        if not self.opt.no_mask: loss_D = -self.criterionL2(self.flow_mult * self.fake_B.detach(), self.flow_mult * self.B_orig.detach())
+        if not self.opt.nomask: loss_D = -self.criterionL2(self.flow_mult * self.fake_B.detach(), self.flow_mult * self.B_orig.detach())
         loss_D.backward()
         self.fake_B = (self.fake_B - (910 - 86) / 2) / (910 + 86) * 2
         if not self.opt.nomask:
