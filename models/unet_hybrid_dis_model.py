@@ -123,8 +123,9 @@ class UnetHybridDisModel(BaseModel):
         self.forward()
         loss_G = self.criterionL2(self.fake_B, self.B_orig)
         loss_G.backward()
-        if not self.opt.nomask: loss_D = -self.criterionL2(self.flow_mult * self.fake_B.detach(), self.flow_mult * self.B_orig.detach())
-        loss_D.backward()
+        if not self.opt.nomask:
+            loss_D = -self.criterionL2(self.flow_mult * self.fake_B.detach(), self.flow_mult * self.B_orig.detach())
+            loss_D.backward()
         self.fake_B = (self.fake_B - (910 - 86) / 2) / (910 + 86) * 2
         if not self.opt.nomask:
             self.fake_B = torch.cat((self.flow_mult + 0.5, self.fake_B), 1)
