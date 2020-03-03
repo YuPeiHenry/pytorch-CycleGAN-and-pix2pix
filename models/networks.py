@@ -1597,7 +1597,7 @@ class ErosionLayer(nn.Module):
             self.random_rainfall = self.out_rain_conv(intermediate)
 
         if not latent is None:
-            parameters = self.MLP(latent.view(latent.shape(0), -1))
+            parameters = self.MLP(latent.view(latent.shape[0], -1))
             rain_rate = parameters[:, 0].view(-1, 1, 1, 1)
             evaporation_rate = parameters[:, 1].view(-1, 1, 1, 1)
             min_height_deltae = parameters[:, 2].view(-1, 1, 1, 1)
