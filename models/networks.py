@@ -1600,7 +1600,7 @@ class ErosionLayer(nn.Module):
             parameters = self.MLP(latent.view(latent.shape[0], -1))
             rain_rate = parameters[:, 0].view(-1, 1, 1, 1)
             evaporation_rate = parameters[:, 1].view(-1, 1, 1, 1)
-            min_height_deltae = parameters[:, 2].view(-1, 1, 1, 1)
+            min_height_delta = parameters[:, 2].view(-1, 1, 1, 1)
             gravity = parameters[:, 3].view(-1, 1, 1, 1)
             sediment_capacity_constant = parameters[:, 4].view(-1, 1, 1, 1)
             dissolving_rate = parameters[:, 5].view(-1, 1, 1, 1)
