@@ -86,7 +86,7 @@ class UnetErosionParametersModel(BaseModel):
 
     def get_128(self, image):
         batch_size = image.shape[1]
-        return self.break_into_16(image)[:batch_size].unsqueeze(0)
+        return self.break_into_16(image)[:batch_size]
 
     def break_into_16(self, image):
         return self.break_into_4(self.break_into_4(image))
