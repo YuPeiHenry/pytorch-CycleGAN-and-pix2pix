@@ -28,7 +28,7 @@ class UnetErosionParametersModel(BaseModel):
         self.model_names = ['G', 'E']
         self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm_G,
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method, depth=opt.depth)
-        self.netE = networks.init_net(networks.ErosionLayer(opt.width, opt.iterations, no_parameters=True), gpu_ids=self.gpu_ids)
+        self.netE = networks.init_net(networks.ErosionLayer(opt.width, opt.iterations, set_rain=True, no_parameters=True), gpu_ids=self.gpu_ids)
         self.relu = torch.nn.ReLU()
 
         if self.isTrain:
