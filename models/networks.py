@@ -1537,7 +1537,7 @@ class ErosionLayer(nn.Module):
         self.alpha.requires_grad = blend_inputs
         #inf
         if no_parameters:
-            latent_size = ((self.width // (2 ** 6))) * 4067
+            latent_size = ((self.width // (2 ** 6)) ** 2) * 4067
             self.MLP = nn.Sequential(nn.Linear(latent_size, 1024), nn.ReLU(True), nn.Linear(1024, 1024), nn.ReLU(True), nn.Linear(1024, 1024), nn.ReLU(True), nn.Linear(1024, 7))
             return
         elif random_param:
@@ -1597,7 +1597,7 @@ class ErosionLayer(nn.Module):
             self.random_rainfall = self.out_rain_conv(intermediate)
 
         if not latent is None:
-            parameters = self.MLP(latent)
+            parameters = self.MLP(latent.view(latent.shape(0), -1))
             rain_rate = parameters[:, 0].view(-1, 1, 1, 1)
             evaporation_rate = parameters[:, 1].view(-1, 1, 1, 1)
             min_height_deltae = parameters[:, 2].view(-1, 1, 1, 1)
