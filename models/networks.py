@@ -1537,7 +1537,7 @@ class ErosionLayer(nn.Module):
         self.alpha.requires_grad = blend_inputs
         #inf
         if no_parameters:
-            latent_size = ((self.width / (2 ** 6)) ** 2) * 4067
+            latent_size = ((self.width /// (2 ** 6)) ** 2) * 4067
             self.MLP = nn.Sequential(nn.Linear(latent_size, 1024), nn.ReLU(True), nn.Linear(1024, 1024), nn.ReLU(True), nn.Linear(1024, 1024), nn.ReLU(True), nn.Linear(1024, 7))
             return
         elif random_param:
