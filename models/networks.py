@@ -1082,9 +1082,12 @@ class UnetResBlock(nn.Module):
 
         out_conv_channels = ngf if not residual else (ngf * 3 + in_c)
         self.out_conv = nn.Conv2d(out_conv_channels, out_ch, kernel_size=1, stride=1, padding=0)
-    def forward(self, x):
-        x = self.model(x)
-        return self.out_conv(x)
+    def forward(self, x, latent=False):
+        x = self.model(x, latent)
+        if latent:
+            return self.out_conv(x[0]), x[1]
+        else:
+            return self.out_conv(x)
     
 class LevelBlock(nn.Module):
     def __init__(self, in_dim, dim, depth, inc, acti, do, bn, mp, up, res):
@@ -1103,19 +1106,35 @@ class LevelBlock(nn.Module):
             return
         self.conv2 = ConvBlock(pre_conv2, dim, acti, bn, res)
 
-        down = nn.MaxPool2d(2, 2) if mp else nn.Sequential(nn.Conv2d(post_conv1, post_conv1, kernel_size=3, stride=2, padding=1), acti)
-        submodule = LevelBlock(post_conv1, inner_dim, depth - 1, inc, acti, do, bn, mp, up, res)
-        up = nn.Sequential(nn.Upsample(scale_factor=2, mode='bilinear'), nn.ReplicationPad2d((0, 1, 0, 1)), nn.Conv2d(inner_post_conv2 , dim, kernel_size=2, stride=1, padding=0), acti) if up else nn.Sequential(nn.ConvTranspose2d(inner_post_conv2, dim, kernel_size=3, stride=2, padding=1), acti)
-        self.model = nn.Sequential(down, submodule, up)
+        self.down = nn.MaxPool2d(2, 2) if mp else nn.Sequential(nn.Conv2d(post_conv1, post_conv1, kernel_size=3, stride=2, padding=1), acti)
+        self.submodule = LevelBlock(post_conv1, inner_dim, depth - 1, inc, acti, do, bn, mp, up, res)
+        self.up = nn.Sequential(nn.Upsample(scale_factor=2, mode='bilinear'), nn.ReplicationPad2d((0, 1, 0, 1)), nn.Conv2d(inner_post_conv2 , dim, kernel_size=2, stride=1, padding=0), acti) if up else nn.Sequential(nn.ConvTranspose2d(inner_post_conv2, dim, kernel_size=3, stride=2, padding=1), acti)
+        #self.model = nn.Sequential(down, submodule, up)
 
 
-    def forward(self, x):
+    def forward(self, x, latent=False):
         if self.depth <= 0:
-            return self.conv1(x)
+            result = self.conv1(x)
+            if latent:
+                return result, result
+            else:
+                return result
+
         n1 = self.conv1(x)
-        m = self.model(n1)
-        n2 = torch.cat((n1, m), 1)
-        return self.conv2(n2)
+        m1 = self.down(n1)
+        m2_ = self.submodule(m1, latent)
+        if latent:
+            m2 = m2_[0]
+        else:
+            m2 = m2_
+
+        m3 = self.up(m2)
+        n2 = torch.cat((n1, m3), 1)
+        
+        if latent:
+            return self.conv2(n2), m2_[1]
+        else:
+            return self.conv2(n2)
 
 class ConvBlock(nn.Module):
     def __init__(self, in_dim, dim, acti, bn, res, do=0):
