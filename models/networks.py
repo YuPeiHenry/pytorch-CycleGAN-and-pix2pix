@@ -1486,11 +1486,12 @@ class Encoder(nn.Module):
         return outputs_mean
 
 class ErosionLayer(nn.Module):
-    def __init__(self, width=512, iterations=10, output_water=False, random_param=False, blend_inputs=False, use_convs=False, set_rain=False):
+    def __init__(self, width=512, iterations=10, output_water=False, random_param=False, blend_inputs=False, use_convs=False, set_rain=False, no_parameters=False):
         super(ErosionLayer, self).__init__()
         self.width = width
         self.iterations = iterations
         self.output_water = output_water
+        self.no_parameters = no_parameters
         #self.blur = nn.Conv2d(1, 1, kernel_size=3, stride=1, padding=1)
         self.relu = nn.ReLU(True)
         self.sigmoid = nn.Sigmoid()
@@ -1516,7 +1517,11 @@ class ErosionLayer(nn.Module):
         self.alpha = torch.nn.Parameter(torch.cuda.DoubleTensor([0.0]))
         self.alpha.requires_grad = blend_inputs
         #inf
-        if random_param:
+        if no_parameters:
+            latent_size = ((self.width / (2 ** 6)) ** 2) * 4067
+            self.MLP = nn.Sequential(nn.Linear(latent_size, 1024), nn.ReLU(True), nn.Linear(1024, 1024), nn.ReLU(True), nn.Linear(1024, 1024), nn.ReLU(True), nn.Linear(1024, 7))
+            return
+        elif random_param:
             self.rain_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.uniform(-8, -2)]))
             self.evaporation_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.uniform(-12, -6)]))
             self.min_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.uniform(-14, -8)]))
@@ -1546,16 +1551,23 @@ class ErosionLayer(nn.Module):
             #self.max_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([0.0020]))
             #self.max_height_delta = torch.nn.Parameter(torch.cuda.DoubleTensor([-8.965]))
 
+        #relu
         self.rain_rate.requires_grad = True
+        #sigmoid
         self.evaporation_rate.requires_grad = True
+        #exponential
         self.min_height_delta.requires_grad = True
+        #exponential
         self.gravity.requires_grad = True
+        #exponential
         self.sediment_capacity_constant.requires_grad = True
+        #sigmoid
         self.dissolving_rate.requires_grad = True
+        #sigmoid
         self.deposition_rate.requires_grad = True
         #self.max_height_delta.requires_grad = True
         
-    def forward(self, input_terrain, original_terrain, iterations=None, store_water=False, init_water=None, set_rain=None):
+    def forward(self, input_terrain, original_terrain, iterations=None, store_water=False, init_water=None, set_rain=None, latent=None):
         if iterations is None:
             iterations = self.iterations
         iterations = min(iterations, self.iterations)
@@ -1564,6 +1576,16 @@ class ErosionLayer(nn.Module):
             for i in range(4):
                 intermediate = getattr(self, 'rain_conv' + str(i))(intermediate) + intermediate
             self.random_rainfall = self.out_rain_conv(intermediate)
+
+        if not latent is None:
+            parameters = self.MLP(latent)
+            rain_rate = parameters[:, 0].view(-1, 1, 1, 1)
+            evaporation_rate = parameters[:, 1].view(-1, 1, 1, 1)
+            min_height_deltae = parameters[:, 2].view(-1, 1, 1, 1)
+            gravity = parameters[:, 3].view(-1, 1, 1, 1)
+            sediment_capacity_constant = parameters[:, 4].view(-1, 1, 1, 1)
+            dissolving_rate = parameters[:, 5].view(-1, 1, 1, 1)
+            deposition_rate = parameters[:, 6].view(-1, 1, 1, 1)
 
         coord_grid = np.array([[[[i, j] for i in range(self.width)] for j in range(self.width)]])
         self.coord_grid = torch.cuda.DoubleTensor(coord_grid).cuda()
@@ -1591,7 +1613,7 @@ class ErosionLayer(nn.Module):
         for i in range(0, iterations):
             # Add precipitation.
             if not store_water:
-                water = water + self.relu((2 ** self.rain_rate) * self.random_rainfall[:, i])
+                water = water + self.relu(torch.exp(rain_rate) * self.random_rainfall[:, i])
 
             # Compute the normalized gradient of the terrain height to determine direction of water and sediment.
             # Gradient is 4D. BatchSize x Height X Width x 2
@@ -1608,15 +1630,15 @@ class ErosionLayer(nn.Module):
             e = 2.718281828459045
             e_8 = torch.cuda.DoubleTensor([e ** (-8)])
             max_term = self.epsilon
-            velocity_2 = velocity ** 2 + (2 ** self.gravity.clone()) * height_delta
+            velocity_2 = velocity ** 2 + torch.exp(gravity) * height_delta
             velocity_2 = self.relu(velocity_2 - max_term) + torch.min(e_8, e ** (velocity_2 - max_term - 8)) + max_term
             velocity = torch.sqrt(velocity_2)
 
             # If the sediment exceeds the quantity, then it is deposited, otherwise terrain is eroded.
             #new_height_delta = torch.max(height_delta.clone(), self.min_height_delta.clone() / self.cell_width)
-            max_term = (2 ** self.min_height_delta) / self.cell_width
+            max_term = torch.exp(min_height_delta) / self.cell_width
             new_height_delta = self.relu(height_delta.clone() - max_term) + torch.min(e_8, e ** (height_delta - max_term - 8)) + max_term
-            sediment_capacity = new_height_delta * velocity * water * 2 ** self.sediment_capacity_constant
+            sediment_capacity = new_height_delta * velocity * water * torch.exp(sediment_capacity_constant)
 
             # Sediment is deposited as height is higher
             first_term_boolean = self.relu(torch.sign(-height_delta))
@@ -1630,7 +1652,7 @@ class ErosionLayer(nn.Module):
             # Sediment is eroded otherwise
             sediment_diff = sediment - sediment_capacity
             #third_term = (1 - first_term_boolean - second_term_boolean) * (self.relu(sediment_diff * 2 ** self.deposition_rate) - self.relu(-sediment_diff * 2 ** self.dissolving_rate))
-            third_term = (1 - first_term_boolean) * (self.relu(sediment_diff * self.sigmoid(self.deposition_rate)) - self.relu(-sediment_diff * self.sigmoid(self.dissolving_rate)))
+            third_term = (1 - first_term_boolean) * (self.relu(sediment_diff * self.sigmoid(deposition_rate)) - self.relu(-sediment_diff * self.sigmoid(dissolving_rate)))
             #deposited_sediment = first_term + second_term + third_term
             deposited_sediment = first_term + third_term
 
@@ -1652,7 +1674,7 @@ class ErosionLayer(nn.Module):
             #velocity = (2 ** self.gravity.clone()) * height_delta / self.cell_width
         
             # Apply evaporation
-            water = water * (1 - self.sigmoid(self.evaporation_rate.clone()))
+            water = water * (1 - self.sigmoid(evaporation_rate.clone()))
             
             if store_water:
                 print(torch.mean(water))
