@@ -81,7 +81,7 @@ class UnetErosionParametersModel(BaseModel):
         single = dataset.dataset.get_val_item(self.opt.fixed_index)
         self.real_A = single['A'].unsqueeze(0).to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
         self.real_B = single['B'].unsqueeze(0).to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
-        self.flowmap = self.real_B[:, self.opt.output_flow_channel, :, :].unsqueeze(1).clone()
+        self.flowmap = self.real_B[:, self.opt.output_flow_channel, :, :].clone().repeat(len(self.gpu_ids), 1, 1, 1)
         self.image_paths = [single['A_paths']]
 
         self.forward()
@@ -93,7 +93,7 @@ class UnetErosionParametersModel(BaseModel):
         self.alpha = min(1, epoch * self.opt.alpha_increase)
 
     def get_128(self, image):
-        batch_size = image.shape[1]
+        batch_size = image.shape[0]
         return self.break_into_16(image)[:batch_size]
 
     def break_into_16(self, image):
