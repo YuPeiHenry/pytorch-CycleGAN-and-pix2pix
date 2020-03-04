@@ -1203,9 +1203,9 @@ class UnetResBlockSplit(nn.Module):
         intermediate = x
         intermediates = []
         for i in range(self.depth):
-            intermediate = getattr(self, "b1_conv1_" + str(i)(x)
+            intermediate = getattr(self, "b1_conv1_" + str(i))(x)
             intermediates += [intermediate]
-            intermediate = getattr(self, "b1_down_" + str(i)(x)
+            intermediate = getattr(self, "b1_down_" + str(i))(x)
         
         upsample_intermediate = self.bottleneck(torch.cat((intermediate, slope_embedding), 1))
         for i in range(self.depth):
