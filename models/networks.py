@@ -1586,7 +1586,7 @@ class ErosionLayer(nn.Module):
         self.deposition_rate.requires_grad = True
         #self.max_height_delta.requires_grad = True
         
-    def forward(self, input_terrain, original_terrain, iterations=None, store_water=False, init_water=None, set_rain=None, latent=None):
+    def forward(self, input_terrain, original_terrain, iterations=None, store_water=False, init_water=None, set_rain=None, latent=None, alpha=1):
         if iterations is None:
             iterations = self.iterations
         iterations = min(iterations, self.iterations)
@@ -1598,13 +1598,13 @@ class ErosionLayer(nn.Module):
 
         if not latent is None:
             parameters = self.MLP(latent.view(latent.shape[0], -1))
-            rain_rate = parameters[:, 0].view(-1, 1, 1)
-            evaporation_rate = parameters[:, 1].view(-1, 1, 1)
-            min_height_delta = parameters[:, 2].view(-1, 1, 1)
-            gravity = parameters[:, 3].view(-1, 1, 1)
-            sediment_capacity_constant = parameters[:, 4].view(-1, 1, 1)
-            dissolving_rate = parameters[:, 5].view(-1, 1, 1)
-            deposition_rate = parameters[:, 6].view(-1, 1, 1)
+            rain_rate = alpha * parameters[:, 0].view(-1, 1, 1) - (1 - alpha) * 6.0388
+            evaporation_rate = alpha * parameters[:, 1].view(-1, 1, 1) - (1 - alpha) * 3.89
+            min_height_delta = alpha * parameters[:, 2].view(-1, 1, 1) - (1 - alpha) * 5.64
+            gravity = alpha * parameters[:, 3].view(-1, 1, 1) + (1 - alpha) * 4.906
+            sediment_capacity_constant = alpha * parameters[:, 4].view(-1, 1, 1) + (1 - alpha) * 5.643
+            dissolving_rate = alpha * parameters[:, 5].view(-1, 1, 1) - (1 - alpha) * 0.47
+            deposition_rate = alpha * parameters[:, 6].view(-1, 1, 1) - (1 - alpha) * 1.27
 
         coord_grid = np.array([[[[i, j] for i in range(self.width)] for j in range(self.width)]])
         self.coord_grid = torch.cuda.DoubleTensor(coord_grid).cuda()

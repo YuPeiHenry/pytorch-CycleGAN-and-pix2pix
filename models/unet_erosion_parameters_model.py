@@ -9,6 +9,7 @@ class UnetErosionParametersModel(BaseModel):
     def modify_commandline_options(parser, is_train=True):
         parser.set_defaults(norm='instance', norm_G='instance', netG='unet_resblock', dataset_mode='exr', input_nc=3, output_nc=1, preprocess='N.A.', image_type='exr', no_flip=True, ngf=32)
         parser.add_argument('--get128', action='store_true', help='')
+        parser.add_argument('--alpha_increase', type=float, default=0.005)
         parser.add_argument('--exclude_input', action='store_true', help='')
         parser.add_argument('--fixed_example', action='store_true', help='')
         parser.add_argument('--fixed_index', type=int, default=0, help='')
@@ -30,6 +31,7 @@ class UnetErosionParametersModel(BaseModel):
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method, depth=opt.depth)
         self.netE = networks.init_net(networks.ErosionLayer(opt.width, opt.iterations, set_rain=True, no_parameters=True), gpu_ids=self.gpu_ids)
         self.relu = torch.nn.ReLU()
+        self.alpha = 0
 
         if self.isTrain:
             self.criterionL2 = torch.nn.MSELoss()
@@ -53,7 +55,7 @@ class UnetErosionParametersModel(BaseModel):
         self.post_unet, latent = self.netG(self.real_A , True)
         self.post_unet = self.post_unet + self.real_A[:, self.opt.input_height_channel].unsqueeze(1)
         clamped = (-self.relu(-self.relu(self.post_unet + 1) + 2) + 1).squeeze(1)
-        self.fake_B = torch.cat((torch.zeros_like(self.post_unet), self.netE(clamped, clamped, set_rain = self.flowmap, latent=latent).float()), 1)
+        self.fake_B = torch.cat((torch.zeros_like(self.post_unet), self.netE(clamped, clamped, set_rain = self.flowmap, latent=latent, alpha=self.alpha).float()), 1)
         self.post_unet = torch.cat((torch.zeros_like(self.post_unet), self.post_unet), 1)
 
     def backward_D(self):
@@ -84,6 +86,10 @@ class UnetErosionParametersModel(BaseModel):
         self.forward()
         loss_G = self.criterionL2(self.fake_B, self.fake_B)
         loss_G.backward()
+
+    def update_epoch_params(self, epoch):
+        super().update_epoch_params(epoch)
+        self.alpha = epoch * self.opt.alpha_increase
 
     def get_128(self, image):
         batch_size = image.shape[1]
