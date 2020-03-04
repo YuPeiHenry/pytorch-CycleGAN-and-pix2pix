@@ -31,7 +31,7 @@ class UnetErosionParametersModel(BaseModel):
         self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm_G,
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method, depth=opt.depth)
         self.netE = networks.init_net(networks.ErosionLayer(opt.width, opt.iterations, set_rain=True, no_parameters=True), gpu_ids=self.gpu_ids)
-        self.relu = torch.nn.ReLU()
+        self.tanh = torch.nn.Tanh()
         self.alpha = 0
 
         if self.isTrain:
@@ -54,8 +54,8 @@ class UnetErosionParametersModel(BaseModel):
             self.flowmap = self.get_128(self.flowmap)
 
         self.post_unet, latent = self.netG(self.real_A , True)
-        self.post_unet = self.post_unet + self.real_A[:, self.opt.input_height_channel].unsqueeze(1)
-        clamped = (-self.relu(-self.relu(self.post_unet + 1) + 2) + 1).squeeze(1)
+        self.post_unet = self.tanh(self.post_unet) + self.real_A[:, self.opt.input_height_channel].unsqueeze(1)
+        clamped = self.post_unet.squeeze(1)
         self.fake_B = torch.cat((torch.zeros_like(self.post_unet), self.netE(clamped, clamped, set_rain = self.flowmap, latent=latent, alpha=self.alpha).float()), 1)
         self.post_unet = torch.cat((torch.zeros_like(self.post_unet), self.post_unet), 1)
 
