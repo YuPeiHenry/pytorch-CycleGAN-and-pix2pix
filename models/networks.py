@@ -1116,7 +1116,7 @@ class LevelBlock(nn.Module):
         if self.depth <= 0:
             result = self.conv1(x)
             if latent:
-                return result, result
+                return result, x
             else:
                 return result
 
