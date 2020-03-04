@@ -184,6 +184,9 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
     elif netG == 'unet_resblock':
         net = UnetResBlock(input_nc, output_nc, ngf, depth=depth, inc_rate=2., activation=nn.ReLU(), 
          dropout=0.5, batchnorm=norm=='batch', maxpool=True, upconv=True, residual=True)
+    elif netG == 'unet_resblock_split':
+        net = UnetResBlockSplit(input_nc, output_nc, ngf, depth=depth, inc_rate=2., activation=nn.ReLU(), 
+         dropout=0.5, batchnorm=norm=='batch', maxpool=True, upconv=True, residual=True)
     elif netG == 'unet_encoder':
         net = UnetEncoder(input_nc, output_nc, ngf, depth=depth, num_no_skip=depth-1, inc_rate=2., activation=nn.ReLU(), 
          dropout=0.5, batchnorm=False, maxpool=True, upconv=True, residual=True)
@@ -1151,6 +1154,66 @@ class ConvBlock(nn.Module):
         output = self.model(x)
         if self.res: output = torch.cat((x, output), 1)
         return output
+
+def UnetResBlockSplit(nn.Module):
+    def __init__(self, in_c=1, out_ch=1, ngf=32, depth=6, inc_rate=2., activation=nn.ReLU(True), 
+         dropout=0.5, batchnorm=False, maxpool=True, upconv=True, residual=False):
+        super(UnetResBlock, self).__init__()
+        self.depth = depth
+
+        b2_down_path = []
+
+        in_dim = 1
+        dim = ngf
+        for i in range(depth):
+            inner_dim = int(inc_rate * dim)
+            post_conv1 = dim if not residual else (dim + in_dim)
+            if i < depth - 1:
+                inner_post_conv2 = inner_dim if not residual else (inner_dim * 3 + post_conv1)
+            else:
+                inner_post_conv2 = inner_dim if not residual else (inner_dim + post_conv1)
+            pre_conv2 = dim + post_conv1
+
+            b1_conv1 = ConvBlock(in_dim, dim, activation, batchnorm, residual)
+            b1_down = nn.MaxPool2d(2, 2) if maxpool else nn.Sequential(nn.Conv2d(post_conv1, post_conv1, kernel_size=3, stride=2, padding=1), activation)
+            setattr(self, "b1_conv1_" + str(i), b1_conv1)
+            setattr(self, "b1_down_" + str(i), b1_down)
+
+            b2_conv1 = ConvBlock(in_dim, dim, activation, batchnorm, residual)
+            b2_down = nn.MaxPool2d(2, 2) if maxpool else nn.Sequential(nn.Conv2d(post_conv1, post_conv1, kernel_size=3, stride=2, padding=1), activation)
+            b2_down_path += [b2_conv1, b2_down]
+
+            up = nn.Sequential(nn.Upsample(scale_factor=2, mode='bilinear'), nn.ReplicationPad2d((0, 1, 0, 1)), nn.Conv2d(inner_post_conv2 , dim, kernel_size=2, stride=1, padding=0), activation) if upconv else nn.Sequential(nn.ConvTranspose2d(inner_post_conv2, dim, kernel_size=3, stride=2, padding=1), activation)
+            conv2 = ConvBlock(pre_conv2, dim, activation, batchnorm, residual)
+            setattr(self, "up_" + str(i), up)
+            setattr(self, "conv2_" + str(i), conv2)
+
+            in_dim = post_conv1
+            dim = inner_dim
+
+        self.b2_down_path = nn.Sequential(*b2_down_path)
+        self.bottleneck = ConvBlock(in_dim * 2, dim, acti, bn, res)
+
+        out_conv_channels = ngf if not residual else (ngf * 3 + in_c)
+        self.out_conv = nn.Conv2d(out_conv_channels, out_ch, kernel_size=1, stride=1, padding=0)
+
+    def forward(self, x, slope):
+        slope_embedding = self.b2_down_path(slope)
+        
+        intermediate = x
+        intermediates = []
+        for i in range(self.depth):
+            intermediate = getattr(self, "b1_conv1_" + str(i)(x)
+            intermediates += [intermediate]
+            intermediate = getattr(self, "b1_down_" + str(i)(x)
+        
+        upsample_intermediate = self.bottleneck(torch.cat((intermediate, slope_embedding), 1))
+        for i in range(self.depth):
+            temp = getattr(self, "up_" + str(i))(upsample_intermediate)
+            upsample_intermediate = getattr(self, "conv2_" + str(i))(torch.cat((intermediates[self.depth - 1 - i], temp), 1))
+
+        return self.out_conv(upsample_intermediate)
+    
 
 class UnetEncoder(nn.Module):
     def __init__(self, in_c = 3, out_ch=2, ngf=64, depth=4, num_no_skip=3, inc_rate=2., activation=nn.ReLU(True), 
