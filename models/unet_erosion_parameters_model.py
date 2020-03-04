@@ -8,7 +8,7 @@ class UnetErosionParametersModel(BaseModel):
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
         parser.set_defaults(norm='instance', norm_G='instance', netG='unet_resblock', dataset_mode='exr', input_nc=3, output_nc=1, preprocess='N.A.', image_type='exr', no_flip=True, ngf=32)
-        parser.add_argument('--get128', action='store_true', help='')
+        parser.add_argument('--get256', action='store_true', help='')
         parser.add_argument('--alpha_increase', type=float, default=0.005)
         parser.add_argument('--erosion_lr', type=float, default=0.005)
         parser.add_argument('--exclude_input', action='store_true', help='')
@@ -48,10 +48,10 @@ class UnetErosionParametersModel(BaseModel):
         self.image_paths = input['A_paths']
 
     def forward(self):
-        if self.opt.get128:
-            self.real_A = self.get_128(self.real_A)
-            self.real_B = self.get_128(self.real_B)
-            self.flowmap = self.get_128(self.flowmap)
+        if self.opt.get256:
+            self.real_A = self.get_256(self.real_A)
+            self.real_B = self.get_256(self.real_B)
+            self.flowmap = self.get_256(self.flowmap)
 
         self.post_unet, latent = self.netG(self.real_A , True)
         self.post_unet = self.tanh(self.post_unet) + self.real_A[:, self.opt.input_height_channel].unsqueeze(1)
@@ -93,9 +93,9 @@ class UnetErosionParametersModel(BaseModel):
         super().update_epoch_params(epoch)
         self.alpha = min(1, epoch * self.opt.alpha_increase)
 
-    def get_128(self, image):
+    def get_256(self, image):
         batch_size = image.shape[0]
-        return self.break_into_16(image)[11].unsqueeze(0)
+        return self.break_into_4(image)[1].unsqueeze(0)
 
     def break_into_16(self, image):
         return self.break_into_4(self.break_into_4(image))
