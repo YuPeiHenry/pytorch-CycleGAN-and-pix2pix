@@ -59,12 +59,14 @@ class UnetErosionParametersModel(BaseModel):
         self.fake_B = torch.cat((torch.zeros_like(self.post_unet), self.netE(clamped, clamped, set_rain = (self.flowmap + 1) / 2, latent=latent.detach(), alpha=self.alpha).float()), 1)
         self.post_unet = torch.cat((torch.zeros_like(self.post_unet), self.post_unet), 1)
         self.fake_B = self.alpha * self.fake_B.clone() + (1 - self.alpha) * self.post_unet
+        self.target = self.real_B[:, self.opt.output_height_channel]
+        self.target = torch.cat((torch.zeros_like(self.target), self.target.clone()), 1)
 
     def backward_D(self):
         self.loss_D = torch.zeros([1]).to(self.device)
 
     def backward_G(self):
-        self.loss_G = self.criterionL2(self.fake_B, self.real_B)
+        self.loss_G = self.criterionL2(self.fake_B, self.target)
         self.loss_G.backward()
 
     def optimize_parameters(self):
