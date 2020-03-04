@@ -1160,6 +1160,7 @@ class UnetResBlockSplit(nn.Module):
          dropout=0.5, batchnorm=False, maxpool=True, upconv=True, residual=False):
         super(UnetResBlockSplit, self).__init__()
         self.depth = depth
+        self.residual = residual
 
         b2_down_path = []
 
@@ -1192,7 +1193,7 @@ class UnetResBlockSplit(nn.Module):
             dim = inner_dim
 
         self.b2_down_path = nn.Sequential(*b2_down_path)
-        self.bottleneck = ConvBlock(in_dim * 2, dim, activation, batchnorm, residual)
+        self.bottleneck = ConvBlock(in_dim * 2, dim, activation, batchnorm, False)
 
         out_conv_channels = ngf if not residual else (ngf * 3 + in_c)
         self.out_conv = nn.Conv2d(out_conv_channels, out_ch, kernel_size=1, stride=1, padding=0)
@@ -1208,9 +1209,10 @@ class UnetResBlockSplit(nn.Module):
             intermediate = getattr(self, "b1_down_" + str(i))(intermediate)
         
         upsample_intermediate = self.bottleneck(torch.cat((intermediate, slope_embedding), 1))
-        for i in range(self.depth):
+        if self.residual: upsample_intermediate = torch.cat((intermediate, upsample_intermediate), 1)
+        for i in range(self.depth - 1, 0 -1):
             temp = getattr(self, "up_" + str(i))(upsample_intermediate)
-            upsample_intermediate = getattr(self, "conv2_" + str(i))(torch.cat((intermediates[self.depth - 1 - i], temp), 1))
+            upsample_intermediate = getattr(self, "conv2_" + str(i))(torch.cat((intermediates[i], temp), 1))
 
         return self.out_conv(upsample_intermediate)
     
