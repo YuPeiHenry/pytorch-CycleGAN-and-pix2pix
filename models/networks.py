@@ -1155,10 +1155,10 @@ class ConvBlock(nn.Module):
         if self.res: output = torch.cat((x, output), 1)
         return output
 
-def UnetResBlockSplit(nn.Module):
+class UnetResBlockSplit(nn.Module):
     def __init__(self, in_c=1, out_ch=1, ngf=32, depth=6, inc_rate=2., activation=nn.ReLU(True), 
          dropout=0.5, batchnorm=False, maxpool=True, upconv=True, residual=False):
-        super(UnetResBlock, self).__init__()
+        super(UnetResBlockSplit, self).__init__()
         self.depth = depth
 
         b2_down_path = []
