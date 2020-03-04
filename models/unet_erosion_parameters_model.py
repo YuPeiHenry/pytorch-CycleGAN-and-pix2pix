@@ -10,6 +10,7 @@ class UnetErosionParametersModel(BaseModel):
         parser.set_defaults(norm='instance', norm_G='instance', netG='unet_resblock', dataset_mode='exr', input_nc=3, output_nc=1, preprocess='N.A.', image_type='exr', no_flip=True, ngf=32)
         parser.add_argument('--get128', action='store_true', help='')
         parser.add_argument('--alpha_increase', type=float, default=0.005)
+        parser.add_argument('--erosion_lr', type=float, default=0.005)
         parser.add_argument('--exclude_input', action='store_true', help='')
         parser.add_argument('--fixed_example', action='store_true', help='')
         parser.add_argument('--fixed_index', type=int, default=0, help='')
@@ -37,7 +38,7 @@ class UnetErosionParametersModel(BaseModel):
             self.criterionL2 = torch.nn.MSELoss()
             self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
-            self.optimizer_E = torch.optim.Adam(self.netE.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+            self.optimizer_E = torch.optim.Adam(self.netE.parameters(), lr=opt.erosion_lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_E)
 
     def set_input(self, input):
