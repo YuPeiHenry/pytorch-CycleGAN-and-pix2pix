@@ -1192,7 +1192,7 @@ class UnetResBlockSplit(nn.Module):
             dim = inner_dim
 
         self.b2_down_path = nn.Sequential(*b2_down_path)
-        self.bottleneck = ConvBlock(in_dim * 2, dim, acti, bn, res)
+        self.bottleneck = ConvBlock(in_dim * 2, dim, activation, batchnorm, residual)
 
         out_conv_channels = ngf if not residual else (ngf * 3 + in_c)
         self.out_conv = nn.Conv2d(out_conv_channels, out_ch, kernel_size=1, stride=1, padding=0)
