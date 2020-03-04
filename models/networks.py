@@ -1210,7 +1210,7 @@ class UnetResBlockSplit(nn.Module):
         
         upsample_intermediate = self.bottleneck(torch.cat((intermediate, slope_embedding), 1))
         if self.residual: upsample_intermediate = torch.cat((intermediate, upsample_intermediate), 1)
-        for i in range(self.depth - 1, 0 -1):
+        for i in range(self.depth - 1, -1, -1):
             temp = getattr(self, "up_" + str(i))(upsample_intermediate)
             upsample_intermediate = getattr(self, "conv2_" + str(i))(torch.cat((intermediates[i], temp), 1))
 
