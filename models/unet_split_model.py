@@ -50,7 +50,7 @@ class UnetSplitModel(BaseModel):
             #self.flowmap = self.get_256(self.flowmap)
 
         slope = simple_gradient(self.input_height.squeeze(1), torch.zeros_like(self.input_height).squeeze(1), 1e-10)
-        slope_magnitude = slope[:, :, :, 0] ** 2 + slope[:, :, :, 1] ** 2
+        slope_magnitude = (slope[:, :, :, 0] ** 2 + slope[:, :, :, 1] ** 2).unsqueeze(1)
         self.fake_B = self.netG(self.input_height, slope_magnitude)
         self.fake_B = self.fake_B / 10 + self.input_height
         self.fake_B = torch.cat((torch.zeros_like(self.fake_B), self.fake_B), 1)
