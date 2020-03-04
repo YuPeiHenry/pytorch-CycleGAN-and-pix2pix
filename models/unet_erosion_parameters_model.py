@@ -68,7 +68,7 @@ class UnetErosionParametersModel(BaseModel):
     def backward_G(self):
         self.loss_G = self.criterionL2(self.fake_B, self.target)
         self.loss_G.backward()
-        torch.nn.utils.clip_grad_value_(self.netE.parameters(), 0.0005)
+        torch.nn.utils.clip_grad_value_(self.netE.parameters(), 0.000005)
 
     def optimize_parameters(self):
         self.forward()
