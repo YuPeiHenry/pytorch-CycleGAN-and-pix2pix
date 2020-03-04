@@ -1690,7 +1690,7 @@ class ErosionLayer(nn.Module):
             #terrain = self.apply_slippage(terrain, self.repose_slope, self.random_gradient[:, i].view(-1, self.width, self.width))
 
             # Update velocity
-            velocity = (2 ** self.gravity.clone()) * height_delta / self.cell_width
+            velocity = torch.exp(gravity) * height_delta / self.cell_width
         
             # Apply evaporation
             water = water * (1 - self.sigmoid(evaporation_rate.clone()))
