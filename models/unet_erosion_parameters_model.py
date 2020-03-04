@@ -90,7 +90,7 @@ class UnetErosionParametersModel(BaseModel):
 
     def update_epoch_params(self, epoch):
         super().update_epoch_params(epoch)
-        self.alpha = epoch * self.opt.alpha_increase
+        self.alpha = min(1, epoch * self.opt.alpha_increase)
 
     def get_128(self, image):
         batch_size = image.shape[1]
