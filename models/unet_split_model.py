@@ -26,7 +26,7 @@ class UnetSplitModel(BaseModel):
         self.loss_names = ['G', 'D']
         self.visual_names = ['real_A', 'real_B'] if not opt.exclude_input else []
         self.visual_names += ['fake_B']
-        self.model_names = ['G', 'E']
+        self.model_names = ['G']
         self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm_G,
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids, downsample_mode=opt.downsample_mode, upsample_mode=opt.upsample_mode, upsample_method=opt.upsample_method, depth=opt.depth)
 
