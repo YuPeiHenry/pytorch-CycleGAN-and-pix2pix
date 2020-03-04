@@ -1116,7 +1116,7 @@ class LevelBlock(nn.Module):
         if self.depth <= 0:
             result = self.conv1(x)
             if latent:
-                return result, x
+                return result, result
             else:
                 return result
 
@@ -1537,7 +1537,7 @@ class ErosionLayer(nn.Module):
         self.alpha.requires_grad = blend_inputs
         #inf
         if no_parameters:
-            latent_size = ((self.width // (2 ** 6)) ** 2) * 4067
+            latent_size = (64 if width == 512 else 3) * 4067
             self.MLP = nn.Sequential(nn.Linear(latent_size, 1024), nn.ReLU(True), nn.LayerNorm(1024), nn.Linear(1024, 1024), nn.ReLU(True), nn.LayerNorm(1024), nn.Linear(1024, 1024), nn.ReLU(True), nn.LayerNorm(1024), nn.Linear(1024, 7))
             return
         elif random_param:
