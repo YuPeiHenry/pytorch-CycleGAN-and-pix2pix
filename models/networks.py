@@ -1538,7 +1538,7 @@ class ErosionLayer(nn.Module):
         #inf
         if no_parameters:
             latent_size = ((self.width // (2 ** 6)) ** 2) * 4067
-            self.MLP = nn.Sequential(nn.Linear(latent_size, 1024), nn.ReLU(True), nn.BatchNorm(1024), nn.Linear(1024, 1024), nn.ReLU(True), nn.BatchNorm(1024), nn.Linear(1024, 1024), nn.ReLU(True), nn.BatchNorm(1024), nn.Linear(1024, 7))
+            self.MLP = nn.Sequential(nn.Linear(latent_size, 1024), nn.ReLU(True), nn.BatchNorm1d(1024), nn.Linear(1024, 1024), nn.ReLU(True), nn.BatchNorm1d(1024), nn.Linear(1024, 1024), nn.ReLU(True), nn.BatchNorm1d(1024), nn.Linear(1024, 7))
             return
         elif random_param:
             self.rain_rate = torch.nn.Parameter(torch.cuda.DoubleTensor([np.random.uniform(-8, -2)]))
