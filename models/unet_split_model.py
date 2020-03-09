@@ -61,7 +61,7 @@ class UnetSplitModel(BaseModel):
         self.loss_D = torch.zeros([1]).to(self.device)
 
     def backward_G(self):
-        self.loss_G = -10 * torch.log(self.criterionL2(self.fake_B, self.target))
+        self.loss_G = torch.log(self.criterionL2(self.fake_B, self.target))
         self.loss_G.backward()
 
     def optimize_parameters(self):
