@@ -106,15 +106,15 @@ class ExrDataset(BaseDataset):
         B_img = torch.Tensor(np.transpose(B_img, (2, 0, 1)))
         
         if (np.random.rand() > 0.5):
-            torch.flip(A1, (1))
-            torch.flip(B, (1))
-            torch.flip(A1_img, (1))
-            torch.flip(B_img, (1))
+            torch.flip(A1, [1])
+            torch.flip(B, [1])
+            torch.flip(A1_img, [1])
+            torch.flip(B_img, [1])
         if (np.random.rand() > 0.5):
-            torch.flip(A1, (2))
-            torch.flip(B, (2))
-            torch.flip(A1_img, (2))
-            torch.flip(B_img, (2))
+            torch.flip(A1, [2])
+            torch.flip(B, [2])
+            torch.flip(A1_img, [2])
+            torch.flip(B_img, [2])
 
         return {'A': A1, 'B': B, 'A_orig': A1_img,
             'B_orig': B_img, 'A_paths': A1_path, 'B_paths': B_path}
