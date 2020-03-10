@@ -90,7 +90,7 @@ class UnetSplitModel(BaseModel):
         self.image_paths = [single['A_paths']]
 
         self.forward()
-        loss_G = self.criterionL2(self.fake_B, self.fake_B)
+        loss_G = self.criterionL2(self.fake_B, self.target)
         self.var_values = [loss_G.item()]
         loss_G.backward()
 
