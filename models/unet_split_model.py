@@ -64,9 +64,9 @@ class UnetSplitModel(BaseModel):
     def backward_G(self):
         if self.opt.full_psnr:
             diff = self.real_B[:, self.opt.output_height_channel].unsqueeze(1) - self.input_height
-            self.loss_G = -20 * torch.log(diff / torch.sqrt(self.criterionL2(self.fake_B, self.target)))
+            self.loss_G = -20 * torch.log10(diff / torch.sqrt(torch.mean((self.fake_B - self.target) ** 2)))
         else:
-            self.loss_G = torch.log(self.criterionL2(self.fake_B, self.target))
+            self.loss_G = torch.log10(self.criterionL2(self.fake_B, self.target))
         self.loss_G.backward()
 
     def optimize_parameters(self):
