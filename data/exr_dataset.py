@@ -101,9 +101,23 @@ class ExrDataset(BaseDataset):
         #A = torch.Tensor(A_img)
         A1 = self.convert_input(A1_img)
         B = self.convert_output(B_img)
+        
+        A1_img = torch.Tensor(np.transpose(A1_img, (2, 0, 1)))
+        B_img = torch.Tensor(np.transpose(B_img, (2, 0, 1)))
+        
+        if (np.random.rand() > 0.5):
+            torch.flip(A1, 1)
+            torch.flip(B, 1)
+            torch.flip(A1_img, 1)
+            torch.flip(B_img, 1)
+        if (np.random.rand() > 0.5):
+            torch.flip(A1, 2)
+            torch.flip(B, 2)
+            torch.flip(A1_img, 2)
+            torch.flip(B_img, 2)
 
-        return {'A': A1, 'B': B, 'A_orig': torch.Tensor(np.transpose(A1_img, (2, 0, 1))),
-            'B_orig': torch.Tensor(np.transpose(B_img, (2, 0, 1))), 'A_paths': A1_path, 'B_paths': B_path}
+        return {'A': A1, 'B': B, 'A_orig': A1_img,
+            'B_orig': B_img, 'A_paths': A1_path, 'B_paths': B_path}
 
     def __len__(self):
         """Return the total number of images in the dataset.
