@@ -77,6 +77,7 @@ class UnetSplitModel(BaseModel):
         single = dataset.dataset.get_val_item(self.opt.fixed_index)
         self.real_A = single['A'].unsqueeze(0).to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
         self.real_B = single['B'].unsqueeze(0).to(self.device).repeat(len(self.gpu_ids), 1, 1, 1)
+        self.input_height = self.real_A[:, self.opt.input_height_channel].unsqueeze(1)
         #self.flowmap = self.real_B[:, self.opt.output_flow_channel, :, :].clone().repeat(len(self.gpu_ids), 1, 1, 1)
         self.image_paths = [single['A_paths']]
 
