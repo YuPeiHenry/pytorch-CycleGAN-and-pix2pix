@@ -35,6 +35,9 @@ class UnetSplitModel(BaseModel):
             self.criterionL2 = torch.nn.MSELoss()
             self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
+            self.var_names = ['val']
+            self.var_values = [0]
+            self.var_grads = [0]
 
     def set_input(self, input):
         self.real_A = input['A'].to(self.device)
@@ -88,6 +91,7 @@ class UnetSplitModel(BaseModel):
 
         self.forward()
         loss_G = self.criterionL2(self.fake_B, self.fake_B)
+        self.var_values = [loss_G.item()]
         loss_G.backward()
 
     def get_256(self, image):
