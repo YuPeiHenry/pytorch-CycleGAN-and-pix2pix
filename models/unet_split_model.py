@@ -10,6 +10,7 @@ class UnetSplitModel(BaseModel):
     def modify_commandline_options(parser, is_train=True):
         parser.set_defaults(norm='instance', norm_G='instance', netG='unet_resblock_split', dataset_mode='exr', input_nc=1, output_nc=1, preprocess='N.A.', image_type='exr', no_flip=True, ngf=32)
         parser.add_argument('--get256', action='store_true', help='')
+        parser.add_argument('--full_psnr', action='store_true', help='')
         parser.add_argument('--exclude_input', action='store_true', help='')
         parser.add_argument('--fixed_example', action='store_true', help='')
         parser.add_argument('--fixed_index', type=int, default=0, help='')
@@ -61,7 +62,11 @@ class UnetSplitModel(BaseModel):
         self.loss_D = torch.zeros([1]).to(self.device)
 
     def backward_G(self):
-        self.loss_G = torch.log(self.criterionL2(self.fake_B, self.target))
+        if self.opt.full_psnr:
+            diff = self.real_B[:, self.opt.output_height_channel].unsqueeze(1) - self.input_height
+            self.loss_G = -20 * torch.log(diff / torch.sqrt(self.criterionL2(self.fake_B, self.target)))
+        else:
+            self.loss_G = torch.log(self.criterionL2(self.fake_B, self.target))
         self.loss_G.backward()
 
     def optimize_parameters(self):
