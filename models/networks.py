@@ -1721,14 +1721,14 @@ class ErosionLayer(nn.Module):
             # If the sediment exceeds the quantity, then it is deposited, otherwise terrain is eroded.
             #new_height_delta = torch.max(height_delta.clone(), self.min_height_delta.clone() / self.cell_width)
             max_term = torch.exp(min_height_delta) / self.cell_width
-            new_height_delta = self.relu(height_delta.clone() - max_term) + torch.min(e_8, e ** (height_delta - max_term - 8)) + max_term
+            new_height_delta = torch.max(height_delta.clone(), max_term) + torch.min(e_8, e ** (height_delta - max_term - 8))
             sediment_capacity = new_height_delta * velocity * water * torch.exp(sediment_capacity_constant)
 
             # Sediment is deposited as height is higher
             first_term_boolean = self.relu(torch.sign(-height_delta))
-            #first_term = torch.min(self.relu(-height_delta), sediment)
-            min_term = self.relu(-height_delta.clone())
-            first_term = -self.relu(-sediment.clone() + min_term) + torch.max(-(e_8), -(e ** (-sediment + min_term - 8))) + min_term
+            first_term = torch.min(self.relu(-height_delta), sediment)
+            #min_term = self.relu(-height_delta.clone())
+            #first_term = -self.relu(-sediment.clone() + min_term) + torch.max(-(e_8), -(e ** (-sediment + min_term - 8))) + min_term
             # Sediment is eroded as slope is too steep
             #second_term_boolean = self.relu(torch.sign(height_delta - self.max_height_delta))
             #second_term = second_term_boolean * (self.max_height_delta - height_delta)
@@ -1743,7 +1743,7 @@ class ErosionLayer(nn.Module):
             # Don't erode more sediment than the current terrain height.
             #deposited_sediment = torch.max(-self.relu(height_delta), deposited_sediment)
             max_term = -self.relu(height_delta.clone())
-            deposited_sediment = torch.relu(deposited_sediment - max_term) + torch.min(e_8, e ** (deposited_sediment - max_term - 8)) + max_term
+            deposited_sediment = torch.max(deposited_sediment, max_term) + torch.min(e_8, e ** (deposited_sediment - max_term - 8))
 
             # Update terrain and sediment quantities.
             sediment = sediment - deposited_sediment
