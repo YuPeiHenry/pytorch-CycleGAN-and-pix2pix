@@ -1738,7 +1738,7 @@ class ErosionLayer(nn.Module):
             #third_term = (1 - first_term_boolean - second_term_boolean) * (self.relu(sediment_diff * 2 ** self.deposition_rate) - self.relu(-sediment_diff * 2 ** self.dissolving_rate))
             third_term = (1 - first_term_boolean) * (self.relu(sediment_diff * self.sigmoid(deposition_rate)) - self.relu(-sediment_diff * self.sigmoid(dissolving_rate)))
             #deposited_sediment = first_term + second_term + third_term
-            deposited_sediment = first_term + third_term
+            deposited_sediment = first_term_boolean * first_term + third_term
 
             # Don't erode more sediment than the current terrain height.
             #deposited_sediment = torch.max(-self.relu(height_delta), deposited_sediment)
@@ -1755,7 +1755,7 @@ class ErosionLayer(nn.Module):
             #terrain = self.apply_slippage(terrain, self.repose_slope, self.random_gradient[:, i].view(-1, self.width, self.width))
 
             # Update velocity
-            velocity = torch.exp(gravity) * height_delta / self.cell_width
+            velocity = torch.exp(gravity) * self.relu(height_delta) / self.cell_width
         
             # Apply evaporation
             water = water * (1 - self.sigmoid(evaporation_rate.clone()))
